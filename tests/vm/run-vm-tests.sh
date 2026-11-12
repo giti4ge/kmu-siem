@@ -261,7 +261,7 @@ RC=$?
 set -e
 printf '%s\n' "$OUT"
 [[ $RC -le 1 ]] && pass "keine Fehler durch eigene Änderungen (Exit $RC)" || fail "Preflight meldet Fehler (Exit $RC)"
-expect 'Daten-Disk +bereits eingerichtet (/dev/vdb' "Daten-Disk als eingerichtet erkannt"
+expect 'Daten-Disk +bereits eingerichtet \(/dev/vdb' "Daten-Disk als eingerichtet erkannt"
 expect 'Container-Laufzeit +durch SIEM-Installation' "Docker als eigene Installation erkannt"
 
 log "Ergebnis"
