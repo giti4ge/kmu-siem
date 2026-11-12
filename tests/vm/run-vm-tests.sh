@@ -211,7 +211,7 @@ check "SSH: root-Login aus" 'sshd -T | grep -qx "permitrootlogin no"'
 check "SSH: Kennwort-Anmeldung aus" 'sshd -T | grep -qx "passwordauthentication no"'
 check "SSH: nur Gruppe siem-ssh" 'sshd -T | grep -qx "allowgroups siem-ssh"'
 check "SSH: MaxAuthTries 3" 'sshd -T | grep -qx "maxauthtries 3"'
-check "auditd aktiv mit SIEM-Regeln" 'systemctl is-active --quiet auditd && auditctl -l | grep -q "key=identity"'
+check "auditd aktiv mit SIEM-Regeln" 'systemctl is-active --quiet auditd && auditctl -l | grep -q "/etc/shadow -p wa -k identity" && auditctl -l | grep -q "key=time-change"'
 check "chrony mit konfigurierten Servern" 'grep -q "0.debian.pool.ntp.org" /etc/chrony/sources.d/siem.sources && ! grep -qE "^pool " /etc/chrony/chrony.conf && systemctl is-active --quiet chrony'
 check "Automatische Sicherheitsupdates" 'grep -q "Unattended-Upgrade \"1\"" /etc/apt/apt.conf.d/20auto-upgrades'
 
@@ -261,7 +261,7 @@ RC=$?
 set -e
 printf '%s\n' "$OUT"
 [[ $RC -le 1 ]] && pass "keine Fehler durch eigene Änderungen (Exit $RC)" || fail "Preflight meldet Fehler (Exit $RC)"
-expect 'Daten-Disk +bereits eingerichtet' "Daten-Disk als eingerichtet erkannt"
+expect 'Daten-Disk +bereits eingerichtet (/dev/vdb' "Daten-Disk als eingerichtet erkannt"
 expect 'Container-Laufzeit +durch SIEM-Installation' "Docker als eigene Installation erkannt"
 
 log "Ergebnis"

@@ -129,7 +129,9 @@ main() {
 
     case $MODE in
         preflight)
-            # Nur prüfen – keine Sperre, kein Zustandsverzeichnis, keine Änderungen
+            # Nur prüfen – keine Sperre, kein Zustandsverzeichnis, keine Änderungen.
+            # Gespeicherte Antworten (falls vorhanden) nur lesen, für die Anzeige.
+            if state_exists; then load_answers >/dev/null 2>&1 || true; fi
             run_preflight
             exit $?
             ;;
