@@ -1,0 +1,29 @@
+# Build-Artefakte
+/build/output/
+*.iso
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+
+# Secrets – niemals einchecken
+*.key
+*.pem
+*.keytab
+.env
+!.env.template
+secrets/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
