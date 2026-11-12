@@ -30,7 +30,7 @@ jobs:
       - name: Ruff
         run: |
           pip install --quiet ruff
-          ruff check host/siem-hostd tests/hostd tests/generators tools
+          ruff check host/siem-hostd app/opensearch tests/hostd tests/generators tools
       - name: Doku-Links prüfen
         run: python tools/check_links.py
 
@@ -61,3 +61,39 @@ jobs:
       - uses: actions/checkout@v7
       - name: Preflight-Integrationstest
         run: bash tests/integration/preflight-container.sh
+
+  app-config:
+    name: Anwendungskonfiguration (Vector, Compose, nginx)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Test-Zertifikate und Umgebung
+        run: |
+          mkdir -p /tmp/siem/data/app /tmp/siem/certs
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=test" \
+            -keyout /tmp/siem/certs/key.pem -out /tmp/siem/certs/cert.pem 2>/dev/null
+          mkdir -p /tmp/siem/data/secrets/vector
+          echo '{"opensearch_password": "test"}' > /tmp/siem/data/secrets/vector/secrets.json
+      - name: Compose-Datei prüfen
+        run: SIEM_DATA=/tmp/siem/data OPENSEARCH_JAVA_OPTS="-Xms1g -Xmx1g" docker compose -f app/docker-compose.yml config -q
+      - name: Vector-Konfiguration prüfen
+        run: |
+          IMG=$(grep -oE 'timberio/vector:[^ ]+' app/docker-compose.yml)
+          docker run --rm \
+            -v "$PWD/app/vector/vector.yaml:/etc/vector/vector.yaml:ro" \
+            -v /tmp/siem/data/secrets/vector/secrets.json:/etc/vector/secrets/secrets.json:ro \
+            -v /tmp/siem/certs/cert.pem:/etc/vector/certs/syslog.crt:ro \
+            -v /tmp/siem/certs/key.pem:/etc/vector/certs/syslog.key:ro \
+            -v /tmp/siem/certs/cert.pem:/etc/vector/certs/ca.crt:ro \
+            "$IMG" validate --no-environment /etc/vector/vector.yaml
+      - name: nginx-Konfiguration prüfen (inkl. ModSecurity/CRS)
+        run: |
+          IMG=$(grep -oE 'owasp/modsecurity-crs:[^ ]+' app/docker-compose.yml)
+          chmod 0644 /tmp/siem/certs/*.pem
+          docker run --rm -e PORT=8080 -e SSL_PORT=8443 -e BACKEND=http://127.0.0.1:8000 \
+            -v "$PWD/app/proxy/default.conf.template:/etc/nginx/templates/conf.d/default.conf.template:ro" \
+            -v /tmp/siem/certs/cert.pem:/etc/nginx/siem-certs/web.crt:ro \
+            -v /tmp/siem/certs/key.pem:/etc/nginx/siem-certs/web.key:ro \
+            "$IMG" nginx -t
+      - name: OpenSearch-Init (Syntax)
+        run: python3 -c "import ast,sys; ast.parse(open('app/opensearch/init.py').read())"

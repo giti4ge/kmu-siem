@@ -110,9 +110,20 @@ class TestRender(unittest.TestCase):
         self.assertIn("set allow_ssh { type ipv4_addr; flags interval; auto-merge; elements = { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 }; }", text)
         self.assertIn("set allow_wef_https { type ipv4_addr; flags interval; auto-merge; }", text)
         self.assertIn("tcp dport 22 ip saddr @allow_ssh ct state new limit rate 30/minute", text)
-        self.assertIn("udp dport 514 ip saddr @allow_syslog accept", text)
-        self.assertIn("tcp dport 514 ip saddr @allow_syslog accept", text)
-        self.assertIn("udp dport 162 ip6 saddr @allow_snmptrap6 accept", text)
+        # Umgeleitete Dienste: interner Port nur für umgeleiteten Verkehr
+        self.assertIn("udp dport 10514 ct status dnat ip saddr @allow_syslog accept", text)
+        self.assertIn("tcp dport 10514 ct status dnat ip saddr @allow_syslog accept", text)
+        self.assertIn("udp dport 10162 ct status dnat ip6 saddr @allow_snmptrap6 accept", text)
+        self.assertIn("tcp dport 8443 ct status dnat ip saddr @allow_https ct state new limit rate 600/minute", text)
+        self.assertIn("tcp dport 6514 ip saddr @allow_syslog_tls accept", text)
+        # NAT-Umleitung
+        self.assertIn("type nat hook prerouting priority dstnat; policy accept;", text)
+        self.assertIn("tcp dport 443 redirect to :8443", text)
+        self.assertIn("udp dport 514 redirect to :10514", text)
+        self.assertIn("tcp dport 514 redirect to :10514", text)
+        self.assertIn("udp dport 162 redirect to :10162", text)
+        self.assertNotIn("redirect to :22", text)
+        self.assertNotIn("dport 443 ip saddr", text)  # Port 443 selbst wird nie direkt angenommen
 
     def test_deterministic(self) -> None:
         a = hostd.render_nft(hostd.validate_config(cfg(ssh=["192.168.0.0/16", "10.0.0.0/8"])))

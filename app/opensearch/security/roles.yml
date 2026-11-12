@@ -1,0 +1,19 @@
+# KMU-SIEM – Rollen im OpenSearch-Security-Plugin
+_meta:
+  type: "roles"
+  config_version: 2
+
+# Ingest (Vector): darf nur in siem-* schreiben und Indizes anlegen
+siem_ingest:
+  reserved: true
+  description: "Schreiben von Ereignissen in siem-*"
+  cluster_permissions:
+    - "cluster_monitor"
+    - "cluster_composite_ops"
+  index_permissions:
+    - index_patterns:
+        - "siem-*"
+      allowed_actions:
+        - "crud"
+        - "create_index"
+        - "indices:admin/mapping/put"

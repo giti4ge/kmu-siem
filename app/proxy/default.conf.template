@@ -1,0 +1,50 @@
+# KMU-SIEM – Reverse Proxy (nginx + ModSecurity + OWASP CRS)
+# Ersetzt die Standard-Vorlage des Images. Variablen ${…} setzt der Entrypoint (envsubst).
+# Extern erreichbar ist nur Port 443 (per nftables auf 8443 umgeleitet); 8080 nur lokal.
+
+server_tokens off;
+more_clear_headers Server;
+
+# Nur lokal: Gesundheitsprüfung und Weiterleitung auf HTTPS
+server {
+    listen 127.0.0.1:${PORT};
+    location /healthz { access_log off; default_type text/plain; return 200 "OK"; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen ${SSL_PORT} ssl;
+    http2 on;
+
+    ssl_certificate     /etc/nginx/siem-certs/web.crt;
+    ssl_certificate_key /etc/nginx/siem-certs/web.key;
+    ssl_protocols TLSv1.3;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SIEMTLS:10m;
+    ssl_session_tickets off;
+
+    # Sicherheits-Header (OWASP ASVS)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()" always;
+    add_header Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+
+    client_max_body_size 10m;
+
+    # Gesundheitsprüfung für externes Monitoring (ohne Anmeldung, ohne Details)
+    location = /health {
+        access_log off;
+        default_type application/json;
+        return 200 '{"status":"ok"}';
+    }
+
+    # Web-UI (ab Phase 2: Control-Plane unter ${BACKEND})
+    location / {
+        root /usr/share/nginx/siem;
+        index index.html;
+        try_files $uri $uri/ =404;
+    }
+}

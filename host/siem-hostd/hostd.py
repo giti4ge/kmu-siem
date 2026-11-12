@@ -66,14 +66,17 @@ MAX_SOURCES = 256
 BRIDGE = "br-siem"
 
 # Dienste und Ports: fest im Code (Allowlist). Reihenfolge = Reihenfolge der Regeln.
-SERVICES: dict[str, list[tuple[str, int]]] = {
-    "ssh": [("tcp", 22)],
-    "https": [("tcp", 443)],
-    "syslog": [("udp", 514), ("tcp", 514)],
-    "syslog_tls": [("tcp", 6514)],
-    "wef": [("tcp", 5985)],
-    "wef_https": [("tcp", 5986)],
-    "snmptrap": [("udp", 162)],
+# (Protokoll, externer Port, interner Port). Weicht der interne Port ab, wird per
+# nftables umgeleitet (REDIRECT); so laufen Proxy und Vector ohne Root-Rechte auf
+# Ports > 1024. Der interne Port ist nur für umgeleiteten Verkehr erreichbar.
+SERVICES: dict[str, list[tuple[str, int, int]]] = {
+    "ssh": [("tcp", 22, 22)],
+    "https": [("tcp", 443, 8443)],
+    "syslog": [("udp", 514, 10514), ("tcp", 514, 10514)],
+    "syslog_tls": [("tcp", 6514, 6514)],
+    "wef": [("tcp", 5985, 5985)],
+    "wef_https": [("tcp", 5986, 5986)],
+    "snmptrap": [("udp", 162, 10162)],
 }
 RATE_LIMITS = {
     "ssh": "ct state new limit rate 30/minute burst 20 packets",
@@ -229,12 +232,24 @@ def render_nft(cfg: dict[str, Any]) -> str:
     ]
     for name, ports in SERVICES.items():
         limit = f" {RATE_LIMITS[name]}" if name in RATE_LIMITS else ""
-        for proto, port in ports:
-            lines.append(f"        {proto} dport {port} ip saddr @allow_{name}{limit} accept")
-            lines.append(f"        {proto} dport {port} ip6 saddr @allow_{name}6{limit} accept")
+        for proto, ext, internal in ports:
+            # Umgeleitete Dienste: nur Verkehr, der über den externen Port kam (ct status dnat)
+            match = f"{proto} dport {internal}" + (" ct status dnat" if ext != internal else "")
+            lines.append(f"        {match} ip saddr @allow_{name}{limit} accept")
+            lines.append(f"        {match} ip6 saddr @allow_{name}6{limit} accept")
     lines += [
         "",
         '        limit rate 10/minute log prefix "siem-fw-drop: " level info',
+        "    }",
+        "",
+        "    chain prerouting {",
+        "        type nat hook prerouting priority dstnat; policy accept;",
+    ]
+    for _name, ports in SERVICES.items():
+        for proto, ext, internal in ports:
+            if ext != internal:
+                lines.append(f"        {proto} dport {ext} redirect to :{internal}")
+    lines += [
         "    }",
         "",
         "    chain forward {",

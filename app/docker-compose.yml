@@ -1,0 +1,86 @@
+# KMU-SIEM Appliance – Anwendungs-Stack
+# Wird vom Installer (Schritt "app") bzw. von siem-hostd gestartet:
+#   docker compose -p siem -f /opt/siem/app/current/docker-compose.yml --env-file /opt/siem/data/app/app.env up -d
+#
+# Netzwerk: Alle Dienste laufen im Host-Netz. OpenSearch ist nur an 127.0.0.1
+# gebunden; Proxy (8443) und Vector (10514/6514) sind von außen ausschließlich über
+# die nftables-Freigaben erreichbar (443→8443, 514→10514 per Umleitung).
+# Images sind per Digest festgeschrieben (ADR-0013).
+
+name: siem
+
+x-hardening: &hardening
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging:
+    driver: local
+    options:
+      max-size: "20m"
+      max-file: "5"
+
+services:
+  opensearch:
+    <<: *hardening
+    image: opensearchproject/opensearch:3.9.0@sha256:3b55f6b6249cfdb92b52ee59adc8a266203ba9ef9f5d82544fad6f1af2f3609e
+    container_name: siem-opensearch
+    network_mode: host
+    environment:
+      OPENSEARCH_JAVA_OPTS: ${OPENSEARCH_JAVA_OPTS:?}
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      DISABLE_PERFORMANCE_ANALYZER_AGENT_CLI: "true"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - ${SIEM_DATA:?}/opensearch:/usr/share/opensearch/data
+      - ${SIEM_DATA}/opensearch-snapshots:/usr/share/opensearch/snapshots
+      - ./opensearch/opensearch.yml:/usr/share/opensearch/config/opensearch.yml:ro
+      - ./opensearch/security/config.yml:/usr/share/opensearch/config/opensearch-security/config.yml:ro
+      - ./opensearch/security/roles.yml:/usr/share/opensearch/config/opensearch-security/roles.yml:ro
+      - ./opensearch/security/roles_mapping.yml:/usr/share/opensearch/config/opensearch-security/roles_mapping.yml:ro
+      - ${SIEM_DATA}/app/opensearch-security/internal_users.yml:/usr/share/opensearch/config/opensearch-security/internal_users.yml:ro
+      - ${SIEM_DATA}/secrets/pki/opensearch:/usr/share/opensearch/config/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s -o /dev/null -w '%{http_code}' --cacert /usr/share/opensearch/config/certs/ca.pem https://127.0.0.1:9200/ | grep -qE '^(200|401)$'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  vector:
+    <<: *hardening
+    image: timberio/vector:0.61.0-debian@sha256:f6c23b5a7e16fb2838d33619ef7acf4bad2289a7cf22bc90efc2371f520c4ea2
+    container_name: siem-vector
+    network_mode: host
+    user: "2000:2000"
+    read_only: true
+    command: ["--config", "/etc/vector/vector.yaml"]
+    volumes:
+      - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
+      - ${SIEM_DATA}/secrets/pki/vector:/etc/vector/certs:ro
+      - ${SIEM_DATA}/secrets/vector:/etc/vector/secrets:ro
+      - ${SIEM_DATA}/vector-buffer:/var/lib/vector
+    tmpfs:
+      - /tmp
+
+  proxy:
+    <<: *hardening
+    image: owasp/modsecurity-crs:4.25.2-nginx-lts@sha256:5fef82e75f53bf71d3faae38e7842c645e767663b01d5aded90d5fe7f9e6588f
+    container_name: siem-proxy
+    network_mode: host
+    environment:
+      PORT: "8080"
+      SSL_PORT: "8443"
+      BACKEND: "http://127.0.0.1:8000"
+      SERVER_TOKENS: "off"
+      MODSEC_RULE_ENGINE: "On"
+      BLOCKING_PARANOIA: "1"
+      METRICS_ALLOW_FROM: "127.0.0.1"
+      METRICS_DENY_FROM: "all"
+    volumes:
+      - ./proxy/default.conf.template:/etc/nginx/templates/conf.d/default.conf.template:ro
+      - ./proxy/html:/usr/share/nginx/siem:ro
+      - ${SIEM_DATA}/secrets/pki/proxy:/etc/nginx/siem-certs:ro
