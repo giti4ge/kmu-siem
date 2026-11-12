@@ -8,10 +8,12 @@ Arbeitsweise, Tests und CI für Entwickler. Für Betrieb und Installation siehe 
 host/                 Host-Komponenten (install.sh, später siem-hostd, systemd)
   install.sh          Installationsskript (einziger Installationsweg, ADR-0020)
   lib/                Bibliotheken des Installers (je Thema eine Datei)
+  siem-hostd/hostd.py privilegierter Host-Dienst (Python, nur Standardbibliothek)
   antworten.env.example
 app/                  Anwendung (Container, Control-Plane, Parser, Regeln) – ab Phase 1
 tests/
   installer/          Unit-Tests des Installers (bats)
+  hostd/              Unit-Tests von siem-hostd (unittest)
   integration/        Integrationstests im Debian-13-Container
   vm/                 Tests auf einer frischen Debian-13-VM (QEMU)
   generators/         Synthetische Log-Generatoren für das Testlabor
@@ -47,6 +49,7 @@ VERSION               Produktversion (SemVer)
 |---|---|---|---|
 | Lint | ShellCheck, Ruff, Doku-Links | CI, lokal | siehe unten |
 | Unit | `tests/installer/*.bats` | Debian-13-Container (CI), lokal Linux/WSL | `bats tests/installer` |
+| Unit | `tests/hostd/test_hostd.py` | überall (Socket-Tests nur Linux) | `python -m unittest discover -s tests/hostd` |
 | Integration | `tests/integration/preflight-container.sh` | Debian-13-Container als root | `bash tests/integration/preflight-container.sh` |
 | VM | `tests/vm/run-vm-tests.sh` | Linux mit QEMU (CI: GitHub Actions mit KVM) | `bash tests/vm/run-vm-tests.sh` |
 
