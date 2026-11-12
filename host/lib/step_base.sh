@@ -6,7 +6,7 @@ readonly BASE_PACKAGES=(
     ca-certificates curl gnupg jq openssl sudo
     nftables chrony auditd aide aide-common apparmor apparmor-utils
     lvm2 e2fsprogs unattended-upgrades apt-listchanges needrestart
-    python3 lynis acl iproute2 util-linux
+    python3 lynis acl iproute2 util-linux apache2-utils
 )
 
 step_base() {

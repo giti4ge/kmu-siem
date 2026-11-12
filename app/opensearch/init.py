@@ -1,0 +1,287 @@
+#!/usr/bin/env python3
+"""OpenSearch-Initialisierung der KMU-SIEM Appliance (nur Python-Standardbibliothek).
+
+Befehle:
+  init.py wait   [--timeout S]        auf Erreichbarkeit/Cluster-Status warten
+  init.py apply                       Index-Templates und ISM-Richtlinien je Kategorie (idempotent)
+  init.py find   --index P --text T   Ereignis mit Text T suchen (Selbsttest); Exit 0 = gefunden
+  init.py count  --index P [--text T] Anzahl Ereignisse ausgeben
+  init.py show                        installierte Templates/Richtlinien ausgeben
+
+Verbindung: --url (https://127.0.0.1:9200), --ca, --user (admin), --password-file.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import ssl
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+from typing import Any
+
+SCHEMA_VERSION = 1
+
+# Kategorien und Standard-Aufbewahrung in Tagen (SPEC 4.5); "ot" ist reserviert.
+CATEGORIES: dict[str, int] = {
+    "firewall": 180,
+    "windows": 180,
+    "linux": 180,
+    "network": 180,
+    "edr": 180,
+    "av": 180,
+    "asset": 180,
+    "alerts": 365,
+    "audit": 365,
+    "system": 90,
+    "unparsed": 14,
+}
+HOT_DAYS = 7
+PREFERRED_CODEC = "zstd_no_dict"
+FALLBACK_CODEC = "best_compression"
+
+IP = {"type": "ip"}
+KW = {"type": "keyword", "ignore_above": 1024}
+LONG = {"type": "long"}
+DATE = {"type": "date"}
+
+# Gemeinsame ECS-Grundzuordnung (wird je Kategorie in späteren Phasen erweitert)
+MAPPINGS: dict[str, Any] = {
+    "dynamic_templates": [
+        {"strings_as_keyword": {"match_mapping_type": "string", "mapping": KW}},
+    ],
+    "properties": {
+        "@timestamp": DATE,
+        "message": {"type": "text"},
+        "event": {"properties": {
+            "original": {"type": "keyword", "index": False, "doc_values": False},
+            "kind": KW, "category": KW, "type": KW, "action": KW, "outcome": KW,
+            "dataset": KW, "module": KW, "severity": LONG, "ingested": DATE, "created": DATE,
+        }},
+        "observer": {"properties": {"ip": IP, "hostname": KW, "name": KW, "vendor": KW, "product": KW, "type": KW}},
+        "host": {"properties": {"ip": IP, "hostname": KW, "name": KW}},
+        "source": {"properties": {"ip": IP, "port": LONG, "mac": KW, "domain": KW}},
+        "destination": {"properties": {"ip": IP, "port": LONG, "mac": KW, "domain": KW}},
+        "client": {"properties": {"ip": IP, "port": LONG}},
+        "server": {"properties": {"ip": IP, "port": LONG}},
+        "user": {"properties": {"name": KW, "domain": KW, "id": KW}},
+        "process": {"properties": {"name": KW, "pid": LONG}},
+        "log": {"properties": {"level": KW}},
+        "siem": {"properties": {"category": KW, "collector": KW, "pipeline": KW, "peer": KW}},
+    },
+}
+
+
+class OS:
+    """Minimaler OpenSearch-Client."""
+
+    def __init__(self, url: str, ca: str, user: str, password: str) -> None:
+        self.url = url.rstrip("/")
+        self.ctx = ssl.create_default_context(cafile=ca)
+        self.auth = "Basic " + base64.b64encode(f"{user}:{password}".encode()).decode()
+
+    def request(self, method: str, path: str, body: Any = None, ok404: bool = False) -> tuple[int, Any]:
+        data = json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(self.url + path, data=data, method=method)  # noqa: S310 – feste https-URL
+        req.add_header("Authorization", self.auth)
+        req.add_header("Content-Type", "application/json")
+        try:
+            with urllib.request.urlopen(req, context=self.ctx, timeout=30) as resp:  # noqa: S310
+                raw = resp.read()
+                return resp.status, json.loads(raw) if raw else None
+        except urllib.error.HTTPError as exc:
+            raw = exc.read()
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                payload = raw.decode(errors="replace")
+            if exc.code == 404 and ok404:
+                return 404, payload
+            raise RuntimeError(f"{method} {path} → HTTP {exc.code}: {str(payload)[:600]}") from exc
+
+
+def template_body(category: str, codec: str) -> dict[str, Any]:
+    return {
+        "index_patterns": [f"siem-{category}-*"],
+        "priority": 100,
+        "template": {
+            "settings": {
+                "index": {
+                    "number_of_shards": 1,
+                    "number_of_replicas": 0,
+                    "refresh_interval": "5s",
+                    "codec": codec,
+                    "mapping": {"total_fields": {"limit": 3000}},
+                }
+            },
+            "mappings": MAPPINGS,
+        },
+        "_meta": {"managed_by": "kmu-siem", "schema_version": SCHEMA_VERSION},
+    }
+
+
+def policy_body(category: str, retention_days: int) -> dict[str, Any]:
+    warm_after = min(HOT_DAYS, max(retention_days - 1, 1))
+    return {
+        "policy": {
+            "description": (
+                f"KMU-SIEM {category}: hot {warm_after} d, danach read_only + force_merge, "
+                f"löschen nach {retention_days} d"
+            ),
+            "default_state": "hot",
+            "states": [
+                {"name": "hot", "actions": [],
+                 "transitions": [{"state_name": "warm", "conditions": {"min_index_age": f"{warm_after}d"}}]},
+                {"name": "warm", "actions": [{"read_only": {}}, {"force_merge": {"max_num_segments": 1}}],
+                 "transitions": [{"state_name": "delete", "conditions": {"min_index_age": f"{retention_days}d"}}]},
+                {"name": "delete", "actions": [{"delete": {}}], "transitions": []},
+            ],
+            "ism_template": [{"index_patterns": [f"siem-{category}-*"], "priority": 100}],
+        }
+    }
+
+
+def _policy_core(policy: dict[str, Any]) -> Any:
+    """Vergleichbarer Kern einer Richtlinie (ohne Server-Metadaten)."""
+    p = policy.get("policy", policy)
+    return {
+        "description": p.get("description"),
+        "default_state": p.get("default_state"),
+        "states": [{"name": s["name"], "actions": [{k: v for k, v in a.items() if k != "retry"} for a in s["actions"]],
+                    "transitions": s["transitions"]} for s in p.get("states", [])],
+        "ism_template": [{"index_patterns": t["index_patterns"], "priority": t["priority"]}
+                         for t in (p.get("ism_template") or [])],
+    }
+
+
+def apply(client: OS, retention: dict[str, int]) -> dict[str, Any]:
+    report: dict[str, Any] = {"templates": {}, "policies": {}, "codec": PREFERRED_CODEC}
+    codec = PREFERRED_CODEC
+    for cat in CATEGORIES:
+        name = f"siem-{cat}"
+        body = template_body(cat, codec)
+        status, current = client.request("GET", f"/_index_template/{name}", ok404=True)
+        existing = None
+        if status == 200:
+            existing = current["index_templates"][0]["index_template"]
+            codec_in_use = existing.get("template", {}).get("settings", {}).get("index", {}).get("codec", codec)
+            body = template_body(cat, codec_in_use)
+        unchanged = (
+            existing is not None
+            and existing.get("_meta") == body["_meta"]
+            and existing.get("index_patterns") == body["index_patterns"]
+        )
+        if unchanged:
+            report["templates"][name] = "unverändert"
+        else:
+            try:
+                client.request("PUT", f"/_index_template/{name}", body)
+            except RuntimeError as exc:
+                if codec != FALLBACK_CODEC and "codec" in str(exc).lower():
+                    codec = FALLBACK_CODEC
+                    report["codec"] = codec
+                    client.request("PUT", f"/_index_template/{name}", template_body(cat, codec))
+                else:
+                    raise
+            report["templates"][name] = "angelegt" if not existing else "aktualisiert"
+
+        desired = policy_body(cat, retention.get(cat, CATEGORIES[cat]))
+        status, current = client.request("GET", f"/_plugins/_ism/policies/{name}", ok404=True)
+        if status == 404:
+            client.request("PUT", f"/_plugins/_ism/policies/{name}", desired)
+            report["policies"][name] = "angelegt"
+        elif _policy_core(current["policy"]) == _policy_core(desired):
+            report["policies"][name] = "unverändert"
+        else:
+            client.request(
+                "PUT",
+                f"/_plugins/_ism/policies/{name}?if_seq_no={current['_seq_no']}&if_primary_term={current['_primary_term']}",
+                desired,
+            )
+            report["policies"][name] = "aktualisiert"
+    return report
+
+
+def wait(client: OS, timeout: int) -> dict[str, Any]:
+    deadline = time.time() + timeout
+    last = ""
+    while time.time() < deadline:
+        try:
+            _, health = client.request("GET", "/_cluster/health")
+            if health["status"] in ("green", "yellow"):
+                return health
+            last = health["status"]
+        except (RuntimeError, OSError) as exc:
+            last = str(exc)[:200]
+        time.sleep(3)
+    raise RuntimeError(f"OpenSearch nicht bereit nach {timeout} s: {last}")
+
+
+def count(client: OS, index: str, text: str | None) -> int:
+    client.request("POST", f"/{index}/_refresh", ok404=True)
+    query: dict[str, Any] = {"match_all": {}} if not text else {"match_phrase": {"message": text}}
+    status, res = client.request("POST", f"/{index}/_count", {"query": query}, ok404=True)
+    return 0 if status == 404 else int(res["count"])
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--url", default="https://127.0.0.1:9200")
+    p.add_argument("--ca", default="/opt/siem/data/secrets/pki/ca.crt")
+    p.add_argument("--user", default="admin")
+    p.add_argument("--password-file", default="/opt/siem/data/secrets/opensearch-admin.pw")
+    p.add_argument("--retention-file", default="/opt/siem/data/app/retention.json")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    w = sub.add_parser("wait")
+    w.add_argument("--timeout", type=int, default=300)
+    sub.add_parser("apply")
+    sub.add_parser("show")
+    f = sub.add_parser("find")
+    f.add_argument("--index", required=True)
+    f.add_argument("--text", required=True)
+    f.add_argument("--timeout", type=float, default=10.0)
+    c = sub.add_parser("count")
+    c.add_argument("--index", required=True)
+    c.add_argument("--text")
+    args = p.parse_args(argv)
+
+    password = Path(args.password_file).read_text(encoding="utf-8").strip()
+    client = OS(args.url, args.ca, args.user, password)
+    try:
+        if args.cmd == "wait":
+            print(json.dumps(wait(client, args.timeout)))
+        elif args.cmd == "apply":
+            retention: dict[str, int] = {}
+            rf = Path(args.retention_file)
+            if rf.exists():
+                stored = json.loads(rf.read_text(encoding="utf-8"))
+                retention = {k: int(v) for k, v in stored.items() if k in CATEGORIES}
+            print(json.dumps(apply(client, retention), ensure_ascii=False, indent=2))
+        elif args.cmd == "show":
+            _, t = client.request("GET", "/_index_template/siem-*", ok404=True)
+            _, pol = client.request("GET", "/_plugins/_ism/policies", ok404=True)
+            print(json.dumps({"templates": [x["name"] for x in (t or {}).get("index_templates", [])],
+                              "policies": [x["_id"] for x in (pol or {}).get("policies", [])]}, indent=2))
+        elif args.cmd == "find":
+            start = time.time()
+            while time.time() - start < args.timeout:
+                if count(client, args.index, args.text) > 0:
+                    print(json.dumps({"found": True, "seconds": round(time.time() - start, 2)}))
+                    return 0
+                time.sleep(0.5)
+            print(json.dumps({"found": False, "seconds": args.timeout}))
+            return 1
+        elif args.cmd == "count":
+            print(count(client, args.index, args.text))
+    except RuntimeError as exc:
+        print(f"Fehler: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

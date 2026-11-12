@@ -136,6 +136,8 @@ Das lokale Archiv belegt zusätzlich ca. 15–25 % der Rohdatenmenge (zstd). Bei
 | `net-sensor` | Python/Scapy | **host**, `NET_RAW`/`NET_ADMIN` | ARP-Guard, Discovery |
 | `integrations` | Python | bridge | Sophos-, FortiGate-API |
 
+**Umsetzung ab Phase 1.3:** Auch `opensearch` (später `dashboards`) läuft im Host-Netz, jedoch ausschließlich an `127.0.0.1` gebunden. Das vermeidet Docker-Port-Publishing mit NAT- und Hairpin-Sonderfällen. Proxy (8443) und Vector-Syslog (10514) laufen ohne Root-Rechte auf Ports > 1024. nftables leitet 443→8443, 514→10514 und 162→10162 um. Die internen Ports sind nur für umgeleiteten Verkehr aus den freigegebenen Netzen erreichbar (`ct status dnat`).
+
 Alle Container: Non-root (Ausnahme `net-sensor` mit minimalen Capabilities), read-only Root-FS, `no-new-privileges`, Ressourcen-Limits, Healthchecks, Images per Digest gepinnt.
 
 ### 3.2 Datenfluss

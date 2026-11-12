@@ -19,7 +19,7 @@ set -o pipefail
 SIEM_HOST_DIR=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)
 SIEM_LIB_DIR="$SIEM_HOST_DIR/lib"
 SIEM_VERSION=$(cat "$SIEM_HOST_DIR/../VERSION" 2>/dev/null || cat "$SIEM_HOST_DIR/VERSION" 2>/dev/null || echo unknown)
-readonly SIEM_DEV_PHASE="Phase 1.2"
+readonly SIEM_DEV_PHASE="Phase 1.3"
 
 # shellcheck source=lib/common.sh
 . "$SIEM_LIB_DIR/common.sh"
@@ -51,12 +51,37 @@ readonly SIEM_DEV_PHASE="Phase 1.2"
 . "$SIEM_LIB_DIR/step_firewall.sh"
 # shellcheck source=lib/step_hostd.sh
 . "$SIEM_LIB_DIR/step_hostd.sh"
+# shellcheck source=lib/pki.sh
+. "$SIEM_LIB_DIR/pki.sh"
+# shellcheck source=lib/step_app.sh
+. "$SIEM_LIB_DIR/step_app.sh"
+# shellcheck source=lib/step_selftest.sh
+. "$SIEM_LIB_DIR/step_selftest.sh"
 
 MODE=install
 ANSWER_FILE=""
 LOCK_FILE=/run/siem-install.lock
 
 usage() { msg usage; echo; }
+
+# Abschlusszusammenfassung nach vollständiger Installation
+print_final() {
+    local fqdn=${ANSWERS[SIEM_FQDN]:-$(probe_fqdn)}
+    heading "$(msg install_done "$SIEM_VERSION")"
+    printf '  %-22s https://%s\n' "$(msg install_done_web)" "$fqdn"
+    printf '  %-22s %s\n' "$(msg install_done_fpr)" "$(pki_fingerprint "$PKI_DIR/web.crt")"
+    printf '  %-22s %s\n' "$(msg install_done_ca)" "$PKI_DIR/ca.crt"
+    printf '  %-22s %s@%s\n' "$(msg install_done_ssh)" "$SIEM_ADMIN_USER" "$fqdn"
+    printf '  %-22s %s\n' "$(msg install_done_log)" "$SIEM_LOG_FILE"
+}
+
+# Schritte ausführen; nach vollständiger Installation Zusammenfassung
+finish_steps() {
+    local rc
+    run_steps; rc=$?
+    (( rc == 0 )) && state_install_complete && print_final
+    return "$rc"
+}
 
 # set_mode NEUER_MODUS OPTION
 set_mode() {
@@ -163,7 +188,7 @@ main() {
             SIEM_PROXY=${ANSWERS[SIEM_PROXY]:-${SIEM_PROXY:-}}
             SIEM_FQDN=${ANSWERS[SIEM_FQDN]:-}
             preflight_gate
-            run_steps
+            finish_steps
             exit $?
         fi
         info "$(msg resume_nothing)"
@@ -185,7 +210,7 @@ main() {
 
     save_answers
     state_set questions "done"
-    run_steps
+    finish_steps
     exit $?
 }
 

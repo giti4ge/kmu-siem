@@ -33,7 +33,9 @@ PF_NET_TARGETS=(
 )
 
 # Ports, die die Appliance benötigt: "port/proto"
-PF_PORTS=(443/tcp 514/tcp 514/udp 6514/tcp 5985/tcp 5986/tcp 162/udp)
+# extern genutzte Ports und interne Ports der Dienste (Umleitungsziele, OpenSearch, Vector-API)
+PF_PORTS=(443/tcp 514/tcp 514/udp 6514/tcp 5985/tcp 5986/tcp 162/udp
+          8443/tcp 8080/tcp 10514/tcp 10514/udp 10162/udp 9200/tcp 9300/tcp 8686/tcp)
 
 # Pakete, die auf eine Desktop-Umgebung hinweisen
 PF_DESKTOP_PKGS=(task-desktop xserver-xorg-core gdm3 lightdm sddm gnome-shell plasma-desktop xfce4-session)
@@ -312,7 +314,7 @@ pf_ports() {
         grep -qxF "$p" <<<"$listening" && used+=("$p")
     done
     if (( ${#used[@]} == 0 )); then
-        pf_add ok "$(msg pf_ports)" "$(msg pf_ports_ok)"
+        pf_add ok "$(msg pf_ports)" "$(msg pf_ports_ok "${#PF_PORTS[@]}")"
     elif [[ -n $(state_get app) ]]; then
         pf_add info "$(msg pf_ports)" "$(msg pf_ports_siem)"
     else

@@ -6,12 +6,14 @@ on:
   pull_request:
     paths:
       - "host/**"
+      - "app/**"
       - "tests/vm/**"
       - ".github/workflows/vm-test.yml"
   push:
     branches: [main]
     paths:
       - "host/**"
+      - "app/**"
       - "tests/vm/**"
   workflow_dispatch:
 
@@ -26,7 +28,7 @@ jobs:
   vm:
     name: Debian 13 VM
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v7
       - name: KVM aktivieren

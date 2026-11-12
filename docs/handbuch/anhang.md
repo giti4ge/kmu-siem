@@ -16,6 +16,17 @@
 | 5986 | TCP | Windows-Ereignisweiterleitung (HTTPS, optional) | Nicht-Domänen-Server |
 | 162 | UDP | SNMP-Traps | Switches |
 
+### Interne Ports (nicht direkt von außen erreichbar)
+
+| Port | Dienst | Hinweis |
+|---|---|---|
+| 8443/tcp | Proxy (HTTPS) | Ziel der Umleitung von 443 |
+| 8080/tcp | Proxy (HTTP, nur 127.0.0.1) | Weiterleitung auf HTTPS, Health-Check |
+| 10514/tcp+udp | Vector (Syslog) | Ziel der Umleitung von 514 |
+| 10162/udp | SNMP-Traps | Ziel der Umleitung von 162 (ab Phase 4) |
+| 9200, 9300/tcp | OpenSearch | nur 127.0.0.1 |
+| 8686/tcp | Vector-API | nur 127.0.0.1 |
+
 ### Ausgehend von der Appliance
 
 | Ziel | Port | Zweck |

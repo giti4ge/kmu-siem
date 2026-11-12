@@ -1,0 +1,93 @@
+# KMU-SIEM – Vector (Ingest)
+# Phase 1.3: Syslog (UDP/TCP/TLS) → generische ECS-Normalisierung → OpenSearch.
+# Gerätespezifische Parser und Routing nach Quelle folgen in Phase 3.
+
+data_dir: /var/lib/vector
+
+# Zeitstempel direkt als ECS-Feld; Absender-Host nicht als Top-Level "host" (ECS-Objekt)
+log_schema:
+  timestamp_key: "@timestamp"
+  host_key: "siem.peer"
+
+api:
+  enabled: true
+  address: "127.0.0.1:8686"
+
+sources:
+  # Extern 514/udp+tcp → per nftables umgeleitet auf 10514
+  syslog_udp:
+    type: syslog
+    mode: udp
+    address: "0.0.0.0:10514"
+  syslog_tcp:
+    type: syslog
+    mode: tcp
+    address: "0.0.0.0:10514"
+  syslog_tls:
+    type: syslog
+    mode: tcp
+    address: "0.0.0.0:6514"
+    tls:
+      enabled: true
+      crt_file: /etc/vector/certs/syslog.crt
+      key_file: /etc/vector/certs/syslog.key
+
+transforms:
+  normalize:
+    type: remap
+    inputs: ["syslog_*"]
+    source: |
+      # --- Herkunft --------------------------------------------------------
+      .observer.ip = del(.source_ip)
+      .siem.collector = "vector"
+      .siem.pipeline = "syslog.generic"
+
+      # --- Syslog-Kopf → ECS ------------------------------------------------
+      hostname = del(.hostname)
+      if hostname != null { .host.hostname = hostname }
+      appname = del(.appname)
+      if appname != null { .process.name = appname }
+      procid = del(.procid)
+      if procid != null { .process.pid = to_int(procid) ?? null }
+      .log.syslog.facility.name = del(.facility)
+      .log.syslog.severity.name = del(.severity)
+      .log.syslog.version = del(.version)
+      .log.syslog.msgid = del(.msgid)
+      .log.level = .log.syslog.severity.name
+
+      # --- Ereignis ---------------------------------------------------------
+      .event.kind = "event"
+      .event.dataset = "syslog.generic"
+      .event.ingested = now()
+      .event.original = .message
+
+      # --- Kategorie (Index) ------------------------------------------------
+      # Ohne passenden Geräte-Parser → "unparsed" (SPEC 3.2). Selbsttest → "system".
+      .siem.category = "unparsed"
+      if .process.name == "siem-selftest" { .siem.category = "system" }
+
+sinks:
+  opensearch:
+    type: elasticsearch
+    inputs: ["normalize"]
+    endpoints: ["https://127.0.0.1:9200"]
+    api_version: v8
+    mode: bulk
+    bulk:
+      index: "siem-{{ siem.category }}-%Y.%m.%d"
+    auth:
+      strategy: basic
+      user: vector
+      password: "${SIEM_VECTOR_PASSWORD}"
+    tls:
+      ca_file: /etc/vector/certs/ca.crt
+    compression: gzip
+    batch:
+      timeout_secs: 1
+    healthcheck:
+      enabled: false
+    # Disk-Puffer: übersteht Neustarts von Vector und Ausfälle von OpenSearch
+    buffer:
+      type: disk
+      max_size: 10737418240
+      when_full: block

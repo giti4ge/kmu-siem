@@ -1,0 +1,14 @@
+# KMU-SIEM – Zuordnung Benutzer → Rollen
+_meta:
+  type: "rolesmapping"
+  config_version: 2
+
+all_access:
+  reserved: true
+  users:
+    - "admin"
+
+siem_ingest:
+  reserved: true
+  users:
+    - "vector"
