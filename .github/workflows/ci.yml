@@ -72,14 +72,16 @@ jobs:
           mkdir -p /tmp/siem/data/app /tmp/siem/certs
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=test" \
             -keyout /tmp/siem/certs/key.pem -out /tmp/siem/certs/cert.pem 2>/dev/null
-          echo "SIEM_VECTOR_PASSWORD=test" > /tmp/siem/data/app/vector.env
+          mkdir -p /tmp/siem/data/secrets/vector
+          echo '{"opensearch_password": "test"}' > /tmp/siem/data/secrets/vector/secrets.json
       - name: Compose-Datei prüfen
         run: SIEM_DATA=/tmp/siem/data OPENSEARCH_JAVA_OPTS="-Xms1g -Xmx1g" docker compose -f app/docker-compose.yml config -q
       - name: Vector-Konfiguration prüfen
         run: |
           IMG=$(grep -oE 'timberio/vector:[^ ]+' app/docker-compose.yml)
-          docker run --rm -e SIEM_VECTOR_PASSWORD=test \
+          docker run --rm \
             -v "$PWD/app/vector/vector.yaml:/etc/vector/vector.yaml:ro" \
+            -v /tmp/siem/data/secrets/vector/secrets.json:/etc/vector/secrets/secrets.json:ro \
             -v /tmp/siem/certs/cert.pem:/etc/vector/certs/syslog.crt:ro \
             -v /tmp/siem/certs/key.pem:/etc/vector/certs/syslog.key:ro \
             -v /tmp/siem/certs/cert.pem:/etc/vector/certs/ca.crt:ro \

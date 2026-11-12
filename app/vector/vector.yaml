@@ -9,6 +9,13 @@ log_schema:
   timestamp_key: "@timestamp"
   host_key: "siem.peer"
 
+# Geheimnisse aus Datei (keine Umgebungsvariablen – Vector interpoliert diese seit
+# 0.57 standardmäßig nicht mehr, und sie wären über /proc/<pid>/environ lesbar)
+secret:
+  siem:
+    type: file
+    path: /etc/vector/secrets/secrets.json
+
 api:
   enabled: true
   address: "127.0.0.1:8686"
@@ -78,7 +85,7 @@ sinks:
     auth:
       strategy: basic
       user: vector
-      password: "${SIEM_VECTOR_PASSWORD}"
+      password: "SECRET[siem.opensearch_password]"
     tls:
       ca_file: /etc/vector/certs/ca.crt
     compression: gzip

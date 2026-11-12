@@ -248,7 +248,7 @@ check "Docker-Regeln nach Neuladen der Firewall erhalten" 'nft list tables | gre
 
 # --- Test 6 ------------------------------------------------------------------
 log "Test 6: Idempotenz – erneuter Lauf aller Host-Schritte"
-FILES="/opt/siem/data/app/app.env /opt/siem/data/app/vector.env /opt/siem/data/app/opensearch-security/internal_users.yml /opt/siem/data/secrets/pki/web.crt /opt/siem/data/secrets/pki/ca.crt /opt/siem/data/secrets/opensearch-admin.pw /etc/systemd/system/siem-hostd.service /usr/local/sbin/siem-hostd /opt/siem/data/hostd/firewall.json /etc/fstab /etc/nftables.conf /etc/ssh/sshd_config.d/00-siem.conf /etc/docker/daemon.json /etc/sysctl.d/99-siem-hardening.conf /etc/chrony/sources.d/siem.sources /etc/chrony/chrony.conf /etc/audit/rules.d/50-siem.rules /etc/modprobe.d/siem-blacklist.conf /etc/apt/sources.list.d/docker.sources"
+FILES="/opt/siem/data/app/app.env /opt/siem/data/secrets/vector/secrets.json /opt/siem/data/app/opensearch-security/internal_users.yml /opt/siem/data/secrets/pki/web.crt /opt/siem/data/secrets/pki/ca.crt /opt/siem/data/secrets/opensearch-admin.pw /etc/systemd/system/siem-hostd.service /usr/local/sbin/siem-hostd /opt/siem/data/hostd/firewall.json /etc/fstab /etc/nftables.conf /etc/ssh/sshd_config.d/00-siem.conf /etc/docker/daemon.json /etc/sysctl.d/99-siem-hardening.conf /etc/chrony/sources.d/siem.sources /etc/chrony/chrony.conf /etc/audit/rules.d/50-siem.rules /etc/modprobe.d/siem-blacklist.conf /etc/apt/sources.list.d/docker.sources"
 SUM_BEFORE=$(vmr "sha256sum $FILES")
 CID_BEFORE=$(vmr 'docker ps -q --no-trunc | sort')
 vmr 'sed -i -E "s/^(base|datadisk|hardening|docker|firewall|hostd|app|selftest) done/\1 pending/" /var/lib/siem/install.state'
@@ -334,7 +334,7 @@ log "Test 9: Anwendung – Ingest Ende-zu-Ende, OpenSearch, Proxy, Disk-Puffer"
 OSI='python3 /opt/siem/app/current/opensearch/init.py --ca /opt/siem/data/secrets/pki/ca.crt --password-file /opt/siem/data/secrets/opensearch-admin.pw'
 check "Container laufen (opensearch, vector, proxy)" 'for c in siem-opensearch siem-vector siem-proxy; do [ "$(docker inspect -f "{{.State.Status}}" $c)" = running ] || exit 1; done'
 check "Images per Digest festgeschrieben" 'for c in siem-opensearch siem-vector siem-proxy; do docker inspect -f "{{.Config.Image}}" $c | grep -q "@sha256:" || exit 1; done'
-check "OpenSearch nur auf 127.0.0.1" '! ss -Hltn | awk "{print \$4}" | grep -E ":(9200|9300)$" | grep -vq "^127.0.0.1:"'
+check "OpenSearch nur auf 127.0.0.1" '! ss -Hltn | awk "{print \$4}" | grep -E ":(9200|9300)$" | grep -vqE "^(\[::ffff:)?127\.0\.0\.1\]?:"'
 check "OpenSearch ohne Anmeldung abgewiesen (401)" '[ "$(curl -s -o /dev/null -w "%{http_code}" --cacert /opt/siem/data/secrets/pki/ca.crt https://127.0.0.1:9200/)" = 401 ]'
 check "11 Index-Templates und 11 ISM-Richtlinien" "$OSI show | jq -e '(.templates|length)==11 and ([.policies[]|select(startswith(\"siem-\"))]|length)==11' >/dev/null"
 check "Vector-Benutzer darf keine Indizes löschen (403)" 'pw=$(cat /opt/siem/data/secrets/vector.pw); [ "$(curl -s -o /dev/null -w "%{http_code}" -X DELETE -u vector:$pw --cacert /opt/siem/data/secrets/pki/ca.crt https://127.0.0.1:9200/siem-system-$(date -u +%Y.%m.%d))" = 403 ]'

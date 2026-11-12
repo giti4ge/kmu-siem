@@ -57,12 +57,11 @@ services:
     network_mode: host
     user: "2000:2000"
     read_only: true
-    env_file:
-      - ${SIEM_DATA}/app/vector.env
     command: ["--config", "/etc/vector/vector.yaml"]
     volumes:
       - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
       - ${SIEM_DATA}/secrets/pki/vector:/etc/vector/certs:ro
+      - ${SIEM_DATA}/secrets/vector:/etc/vector/secrets:ro
       - ${SIEM_DATA}/vector-buffer:/var/lib/vector
     tmpfs:
       - /tmp

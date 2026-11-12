@@ -99,8 +99,12 @@ EOF
         (( $? <= 1 )) || return 1
         printf '%s\n' "$sum" >"$sumfile"
     fi
-    printf 'SIEM_VECTOR_PASSWORD=%s\n' "$(cat "$vector_pw")" | write_file "$APP_DATA/vector.env" 0600
-    (( $? <= 1 ))
+    # Vector liest das Kennwort über sein Secrets-Backend (Datei, nur für den Vector-Benutzer)
+    install -d -m 0500 -o "$UID_VECTOR" -g "$UID_VECTOR" "$SECRETS_DIR/vector" || return 1
+    printf '{"opensearch_password": "%s"}\n' "$(cat "$vector_pw")" \
+        | write_file "$SECRETS_DIR/vector/secrets.json" 0400 "$UID_VECTOR:$UID_VECTOR"
+    (( $? <= 1 )) || return 1
+    rm -f "$APP_DATA/vector.env"
 }
 
 # OpenSearch-Heap: ¼ des RAM, mindestens 1 GB, höchstens 6 GB (SPEC 1.1)
