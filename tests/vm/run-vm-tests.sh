@@ -11,9 +11,11 @@
 #   2. Preflight mit abgesenkten Grenzwerten → keine Fehler
 #   3. Preflight mit nicht erreichbarem Proxy → Internet-Fehler
 #   4. Preflight verändert nichts (Pakete, /etc, /usr, /opt, /var/lib/siem)
-#   5. Unbeaufsichtigte Installation: Antworten werden übernommen, Zustand und
-#      Rechte korrekt, Abbruch am ersten noch nicht implementierten Schritt (Exit 3)
-#   6. --resume setzt am offenen Schritt fort
+#   5. Unbeaufsichtigte Installation der Host-Schritte (base … firewall):
+#      Pakete, LVM-Daten-Disk, Härtung, SSH (nur siemadmin mit Schlüssel),
+#      auditd, chrony, Docker, nftables inkl. Wirksamkeit der Freigaben
+#   6. Idempotenz: erneuter Lauf aller Host-Schritte ändert nichts
+#   7. Preflight nach Teilinstallation meldet keine Fehler durch eigene Änderungen
 #
 # Umgebungsvariablen: VM_RAM_MB (4096), VM_CPUS (2), WORKDIR (./.vm), DEBIAN_IMAGE_URL
 set -euo pipefail
@@ -66,13 +68,27 @@ qemu-system-x86_64 "${ACCEL[@]}" -m "$VM_RAM_MB" -smp "$VM_CPUS" \
     -drive file=system.qcow2,if=virtio \
     -drive file=data.qcow2,if=virtio \
     -drive file=seed.img,if=virtio,format=raw \
-    -nic user,model=virtio,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22 \
+    -nic "user,model=virtio,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22,hostfwd=tcp:127.0.0.1:8443-:443,hostfwd=tcp:127.0.0.1:8080-:8080" \
     -display none -serial file:serial.log -daemonize -pidfile qemu.pid
 trap 'kill "$(cat "$WORKDIR/qemu.pid" 2>/dev/null)" 2>/dev/null || true' EXIT
 
 SSH=(ssh -i id_ed25519 -p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-     -o LogLevel=ERROR -o ConnectTimeout=5 install@127.0.0.1)
-vm() { "${SSH[@]}" "$@"; }
+     -o LogLevel=ERROR -o ConnectTimeout=10 -o BatchMode=yes -o ServerAliveInterval=30)
+VM_USER=install
+ADMIN_PW="Kennwort-fuer-siemadmin-1"
+vm() { "${SSH[@]}" "$VM_USER@127.0.0.1" "$@"; }
+
+# vmr SKRIPT – als root in der VM ausführen (nach der Installation: siemadmin + sudo-Kennwort)
+vmr() {
+    if [[ $VM_USER == install ]]; then
+        "${SSH[@]}" "$VM_USER@127.0.0.1" "sudo bash -s" <<<"$1"
+    else
+        printf '%s\n%s\n' "$ADMIN_PW" "$1" | "${SSH[@]}" "$VM_USER@127.0.0.1" "sudo -S -p '' bash -s"
+    fi
+}
+# check BESCHREIBUNG ROOT-SKRIPT
+check() { if vmr "$2" >/dev/null 2>&1; then pass "$1"; else fail "$1"; fi; }
+expect() { if grep -qE -- "$1" <<<"$OUT"; then pass "$2"; else fail "$2 (Muster: $1)"; fi; }
 
 for (( t = 0; t < BOOT_TIMEOUT; t += 5 )); do
     vm true 2>/dev/null && break
@@ -93,7 +109,6 @@ run_pf() {  # run_pf [ENV…] -- [ARGS…]; Ausgabe in $OUT, Exit in $RC
     set -e
     printf '%s\n' "$OUT"
 }
-expect() { if grep -qE -- "$1" <<<"$OUT"; then pass "$2"; else fail "$2 (Muster: $1)"; fi; }
 
 # --- Test 1 ------------------------------------------------------------------
 log "Test 1: Preflight mit realen Grenzwerten"
@@ -109,6 +124,7 @@ expect '✔ Daten-Disk +/dev/vdb' "leere Daten-Disk /dev/vdb erkannt"
 expect '✔ Internet: Debian ' "Internet erreichbar"
 expect '✔ Internet: GitHub Container Registry' "ghcr.io erreichbar"
 expect '⚠ IP-Adresse .*DHCP' "DHCP-Adresse als Warnung"
+expect 'nur lokal auf 127\.0\.1\.1' "FQDN nur in /etc/hosts erkannt"
 
 # --- Test 2 ------------------------------------------------------------------
 log "Test 2: Preflight mit abgesenkten Grenzwerten"
@@ -139,7 +155,7 @@ vm 'sudo test -b /dev/vdb && [ "$(sudo lsblk -npo NAME /dev/vdb | wc -l)" -eq 1 
     && pass "Daten-Disk unberührt" || fail "Daten-Disk verändert"
 
 # --- Test 5 ------------------------------------------------------------------
-log "Test 5: unbeaufsichtigte Installation (bis zum ersten offenen Schritt)"
+log "Test 5: unbeaufsichtigte Installation der Host-Schritte"
 vm 'cat > ~/antworten.env' <<EOF
 SIEM_LANG=de
 SIEM_FQDN=siem.test.local
@@ -149,37 +165,104 @@ SIEM_DATA_DISK_CONFIRM=yes
 SIEM_ADMIN_SSH_KEY="$(cat id_ed25519.pub)"
 SIEM_ADMIN_PASSWORD_FILE=/home/install/pw1
 SIEM_WEB_ADMIN_PASSWORD_FILE=/home/install/pw2
+SIEM_SSH_PASSWORD_AUTH=no
 SIEM_ACCEPT_WARNINGS=yes
 EOF
-vm 'printf "Kennwort-fuer-siemadmin-1\n" > ~/pw1; printf "Kennwort-fuer-webadmin-1\n" > ~/pw2'
+printf '%s\n' "$ADMIN_PW" | vm 'cat > ~/pw1'
+printf '%s\n' "Kennwort-fuer-webadmin-1" | vm 'cat > ~/pw2'
 set +e
 OUT=$(vm "sudo env NO_COLOR=1 ${LOW[*]} bash ~/siem/host/install.sh --unattended ~/antworten.env" 2>&1)
 RC=$?
 set -e
-printf '%s\n' "$OUT"
-[[ $RC -eq 3 ]] && pass "Exit 3 (nächster Schritt noch nicht implementiert)" || fail "Exit 3 erwartet, erhalten $RC"
-expect "Schritt 'base' ist noch nicht implementiert" "Abbruch bei Schritt base"
-vm 'sudo grep -q "^questions done" /var/lib/siem/install.state' && pass "Zustand: questions done" || fail "Zustand questions fehlt"
-vm 'sudo grep -q "^base pending" /var/lib/siem/install.state' && pass "Zustand: base pending" || fail "Zustand base fehlt"
-vm '[ "$(sudo stat -c %a /var/lib/siem)" = 700 ]' && pass "Zustandsverzeichnis 0700" || fail "Rechte Zustandsverzeichnis"
-vm '[ "$(sudo stat -c %a /var/lib/siem/answers.env)" = 600 ]' && pass "answers.env 0600" || fail "Rechte answers.env"
-vm '[ "$(sudo stat -c %a /var/lib/siem/secrets)" = 700 ]' && pass "secrets/ 0700" || fail "Rechte secrets/"
-vm 'sudo grep -q "siem.test.local" /var/lib/siem/answers.env && ! sudo grep -rq "Kennwort-fuer" /var/lib/siem/answers.env' \
-    && pass "Antworten gespeichert, ohne Kennwörter" || fail "answers.env Inhalt"
-vm '[ "$(sudo cat /var/lib/siem/secrets/web_admin_password)" = "Kennwort-fuer-webadmin-1" ]' \
-    && pass "Geheimnis korrekt abgelegt" || fail "Geheimnis falsch"
+printf '%s\n' "$OUT" | tail -40
+if [[ $RC -eq 3 ]]; then pass "Exit 3 (nächster Schritt noch nicht implementiert)"
+else fail "Exit 3 erwartet, erhalten $RC"; printf '%s\n' "$OUT"; vm 'sudo tail -80 /var/log/siem-install.log' || true; fi
+expect "Schritt 'hostd' ist noch nicht implementiert" "Host-Schritte vollständig, Abbruch bei hostd"
+
+# Ab hier: Zugang nur noch als siemadmin mit Schlüssel
+if vm true 2>/dev/null; then fail "Installationsbenutzer hat noch SSH-Zugang"; else pass "Installationsbenutzer ohne SSH-Zugang"; fi
+VM_USER=siemadmin
+if vm true; then pass "SSH als siemadmin mit Schlüssel"; else fail "SSH als siemadmin nicht möglich"; exit 1; fi
+check "sudo für siemadmin mit Kennwort" 'true'
+
+# Zustand
+for s in questions base datadisk hardening docker firewall; do
+    check "Zustand: $s done" "grep -q '^$s done' /var/lib/siem/install.state"
+done
+check "Zustand: hostd pending" "grep -q '^hostd pending' /var/lib/siem/install.state"
+check "Geheimnis siemadmin verbraucht und gelöscht" 'test ! -e /var/lib/siem/secrets/admin_password'
+check "Geheimnis Web-Admin bleibt bis Schritt app" '[ "$(cat /var/lib/siem/secrets/web_admin_password)" = "Kennwort-fuer-webadmin-1" ]'
+
+# Basis
+check "Pakete installiert" 'dpkg-query -W nftables chrony auditd aide lvm2 unattended-upgrades lynis jq >/dev/null'
+check "Installer nach /opt/siem/host kopiert" 'test -x /opt/siem/host/install.sh && test -f /opt/siem/VERSION'
+
+# Daten-Disk
+check "LVM siem/data auf /dev/vdb" 'lvs siem/data >/dev/null && pvs --noheadings -o pv_name | grep -q /dev/vdb'
+check "Daten-Disk eingehängt mit nodev,nosuid,noexec" 'o=$(findmnt -no OPTIONS /opt/siem/data); [[ $o == *nodev* && $o == *nosuid* && $o == *noexec* ]]'
+check "genau ein fstab-Eintrag" '[ "$(grep -c " /opt/siem/data " /etc/fstab)" -eq 1 ]'
+check "Verzeichnisstruktur und Backups-Link" 'test -d /opt/siem/data/opensearch && test -L /opt/siem/backups && [ "$(stat -c %a /opt/siem/data/secrets)" = 700 ]'
+
+# Härtung
+check "sysctl: Kernel-Härtung aktiv" '[ "$(sysctl -n kernel.kptr_restrict)" = 2 ] && [ "$(sysctl -n net.ipv4.tcp_syncookies)" = 1 ] && [ "$(sysctl -n net.ipv4.conf.all.accept_redirects)" = 0 ]'
+check "sysctl: OpenSearch vm.max_map_count" '[ "$(sysctl -n vm.max_map_count)" = 262144 ]'
+check "Module gesperrt (usb-storage)" 'modprobe -n -v usb-storage 2>&1 | grep -q "/bin/false"'
+check "SSH: root-Login aus" 'sshd -T | grep -qx "permitrootlogin no"'
+check "SSH: Kennwort-Anmeldung aus" 'sshd -T | grep -qx "passwordauthentication no"'
+check "SSH: nur Gruppe siem-ssh" 'sshd -T | grep -qx "allowgroups siem-ssh"'
+check "SSH: MaxAuthTries 3" 'sshd -T | grep -qx "maxauthtries 3"'
+check "auditd aktiv mit SIEM-Regeln" 'systemctl is-active --quiet auditd && auditctl -l | grep -q "key=identity"'
+check "chrony mit konfigurierten Servern" 'grep -q "0.debian.pool.ntp.org" /etc/chrony/sources.d/siem.sources && ! grep -qE "^pool " /etc/chrony/chrony.conf && systemctl is-active --quiet chrony'
+check "Automatische Sicherheitsupdates" 'grep -q "Unattended-Upgrade \"1\"" /etc/apt/apt.conf.d/20auto-upgrades'
+
+# Docker
+check "Docker läuft" 'docker info >/dev/null && docker compose version >/dev/null'
+check "Docker: live-restore, kein docker0" 'docker info --format "{{.LiveRestoreEnabled}}" | grep -q true && ! ip link show docker0 >/dev/null 2>&1'
+
+# Firewall
+check "nftables: Tabelle inet siem geladen" 'nft list table inet siem >/dev/null'
+check "nftables: Dienst aktiv, Drop-in vorhanden" 'systemctl is-enabled --quiet nftables && test -f /etc/systemd/system/nftables.service.d/siem.conf'
+check "nftables: input policy drop" 'nft list chain inet siem input | grep -q "policy drop"'
+
+# Wirksamkeit: Testdienste auf 443 (freigegeben) und 8080 (nicht freigegeben)
+vmr 'cd /tmp && { setsid python3 -m http.server 443 >/dev/null 2>&1 & } ; { setsid python3 -m http.server 8080 >/dev/null 2>&1 & } ; sleep 2' || true
+if curl -s -o /dev/null --max-time 5 http://127.0.0.1:8443/; then pass "Port 443 aus freigegebenem Netz erreichbar"; else fail "Port 443 nicht erreichbar"; fi
+if curl -s -o /dev/null --max-time 5 http://127.0.0.1:8080/; then fail "nicht freigegebener Port 8080 erreichbar"; else pass "nicht freigegebener Port 8080 blockiert"; fi
+vmr 'nft delete element inet siem allow_https "{ 10.0.0.0/8 }"' || true
+if curl -s -o /dev/null --max-time 5 http://127.0.0.1:8443/; then fail "443 trotz entfernter Freigabe erreichbar"; else pass "443 nach Entfernen der Freigabe blockiert"; fi
+vmr 'nft -f /etc/nftables.conf; pkill -f "http.server" || true' || true
+if vm true; then pass "SSH nach Neuladen der Firewall weiterhin möglich"; else fail "SSH nach Neuladen der Firewall verloren"; exit 1; fi
+check "Docker-Regeln nach Neuladen der Firewall erhalten" 'nft list tables | grep -vq "inet siem"'
 
 # --- Test 6 ------------------------------------------------------------------
-log "Test 6: --resume"
+log "Test 6: Idempotenz – erneuter Lauf aller Host-Schritte"
+FILES="/etc/fstab /etc/nftables.conf /etc/ssh/sshd_config.d/00-siem.conf /etc/docker/daemon.json /etc/sysctl.d/99-siem-hardening.conf /etc/chrony/sources.d/siem.sources /etc/chrony/chrony.conf /etc/audit/rules.d/50-siem.rules /etc/modprobe.d/siem-blacklist.conf /etc/apt/sources.list.d/docker.sources"
+SUM_BEFORE=$(vmr "sha256sum $FILES")
+vmr 'sed -i -E "s/^(base|datadisk|hardening|docker|firewall) done/\1 pending/" /var/lib/siem/install.state'
 set +e
-OUT=$(vm "sudo env NO_COLOR=1 ${LOW[*]} bash ~/siem/host/install.sh --resume" 2>&1 </dev/null)
+OUT=$(vmr "env NO_COLOR=1 ${LOW[*]} bash /opt/siem/host/install.sh --resume </dev/null" 2>&1)
+RC=$?
+set -e
+printf '%s\n' "$OUT" | tail -25
+if [[ $RC -eq 3 ]]; then pass "erneuter Lauf: Exit 3 bei hostd"; else fail "erneuter Lauf: Exit 3 erwartet, erhalten $RC"; printf '%s\n' "$OUT"; fi
+if grep -q 'Installationsfragen' <<<"$OUT"; then fail "Resume stellt Fragen erneut"; else pass "keine erneuten Fragen"; fi
+SUM_AFTER=$(vmr "sha256sum $FILES")
+if [[ $SUM_BEFORE == "$SUM_AFTER" ]]; then pass "Konfigurationsdateien unverändert"
+else fail "Konfiguration verändert:"; diff <(echo "$SUM_BEFORE") <(echo "$SUM_AFTER") || true; fi
+check "weiterhin genau ein LV und ein fstab-Eintrag" '[ "$(lvs --noheadings siem | wc -l)" -eq 1 ] && [ "$(grep -c " /opt/siem/data " /etc/fstab)" -eq 1 ]'
+check "Daten weiterhin eingehängt" 'findmnt /opt/siem/data >/dev/null'
+if vm true; then pass "SSH weiterhin möglich"; else fail "SSH nach erneutem Lauf verloren"; fi
+
+# --- Test 7 ------------------------------------------------------------------
+log "Test 7: Preflight nach Teilinstallation"
+set +e
+OUT=$(vmr "env NO_COLOR=1 ${LOW[*]} bash /opt/siem/host/install.sh --preflight" 2>&1)
 RC=$?
 set -e
 printf '%s\n' "$OUT"
-# Die Zustimmung zu Warnungen wurde gespeichert → Resume läuft ohne Rückfrage
-[[ $RC -eq 3 ]] && pass "Exit 3" || fail "Resume: Exit 3 erwartet, erhalten $RC"
-expect "Schritt base bereits erledigt|Schritt 'base' ist noch nicht implementiert" "Resume setzt beim offenen Schritt fort"
-if grep -q 'Installationsfragen' <<<"$OUT"; then fail "Resume stellt Fragen erneut"; else pass "keine erneuten Fragen"; fi
+[[ $RC -le 1 ]] && pass "keine Fehler durch eigene Änderungen (Exit $RC)" || fail "Preflight meldet Fehler (Exit $RC)"
+expect 'Daten-Disk +bereits eingerichtet' "Daten-Disk als eingerichtet erkannt"
+expect 'Container-Laufzeit +durch SIEM-Installation' "Docker als eigene Installation erkannt"
 
 log "Ergebnis"
 if (( FAILED )); then echo "VM-Tests FEHLGESCHLAGEN"; exit 1; fi

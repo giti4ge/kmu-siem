@@ -19,7 +19,7 @@ set -o pipefail
 SIEM_HOST_DIR=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)
 SIEM_LIB_DIR="$SIEM_HOST_DIR/lib"
 SIEM_VERSION=$(cat "$SIEM_HOST_DIR/../VERSION" 2>/dev/null || cat "$SIEM_HOST_DIR/VERSION" 2>/dev/null || echo unknown)
-readonly SIEM_DEV_PHASE="Phase 0"
+readonly SIEM_DEV_PHASE="Phase 1.1"
 
 # shellcheck source=lib/common.sh
 . "$SIEM_LIB_DIR/common.sh"
@@ -37,6 +37,18 @@ readonly SIEM_DEV_PHASE="Phase 0"
 . "$SIEM_LIB_DIR/prompts.sh"
 # shellcheck source=lib/steps.sh
 . "$SIEM_LIB_DIR/steps.sh"
+# shellcheck source=lib/system.sh
+. "$SIEM_LIB_DIR/system.sh"
+# shellcheck source=lib/step_base.sh
+. "$SIEM_LIB_DIR/step_base.sh"
+# shellcheck source=lib/step_datadisk.sh
+. "$SIEM_LIB_DIR/step_datadisk.sh"
+# shellcheck source=lib/step_hardening.sh
+. "$SIEM_LIB_DIR/step_hardening.sh"
+# shellcheck source=lib/step_docker.sh
+. "$SIEM_LIB_DIR/step_docker.sh"
+# shellcheck source=lib/step_firewall.sh
+. "$SIEM_LIB_DIR/step_firewall.sh"
 
 MODE=install
 ANSWER_FILE=""
