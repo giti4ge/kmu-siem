@@ -401,5 +401,15 @@ if (( N >= 500 )); then pass "Disk-Puffer: $N/500 Ereignisse nach Vector-Neustar
 else fail "Disk-Puffer: nur $N/500 Ereignisse angekommen"; fi
 
 log "Ergebnis"
-if (( FAILED )); then echo "VM-Tests FEHLGESCHLAGEN"; exit 1; fi
+if (( FAILED )); then
+    log "Diagnose"
+    vmr 'docker ps -a --format "{{.Names}} {{.Status}}"
+         echo "--- Ports"; ss -Hltnup | awk "{print \$1, \$5, \$7}"
+         echo "--- Vector"; docker logs --tail 60 siem-vector 2>&1
+         echo "--- OpenSearch"; docker logs --tail 40 siem-opensearch 2>&1 | cut -c1-300
+         echo "--- Indizes"; pw=$(cat /opt/siem/data/secrets/opensearch-admin.pw); curl -s -u admin:$pw --cacert /opt/siem/data/secrets/pki/ca.crt "https://127.0.0.1:9200/_cat/indices?v"
+         echo "--- nft prerouting"; nft list chain inet siem prerouting
+         echo "--- install.log"; tail -40 /var/log/siem-install.log' 2>&1 || true
+    echo "VM-Tests FEHLGESCHLAGEN"; exit 1
+fi
 echo "Alle VM-Tests bestanden."

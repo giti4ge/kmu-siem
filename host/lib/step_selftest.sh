@@ -44,7 +44,17 @@ _st_syslog() {
         return 0
     fi
     err "$(msg selftest_syslog_fail "${proto^^}" "$SELFTEST_TIMEOUT")"
+    _st_diagnose
     return 1
+}
+
+# Diagnose bei Fehlschlag: letzte Log-Zeilen der beteiligten Dienste (auch ins Protokoll)
+_st_diagnose() {
+    local c
+    for c in siem-vector siem-opensearch; do
+        printf '\n--- %s (letzte Zeilen) ---\n' "$c" >&2
+        docker logs --tail 25 "$c" 2>&1 | tee -a "$SIEM_LOG_FILE" >&2
+    done
 }
 
 _st_proxy() {
