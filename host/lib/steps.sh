@@ -1,0 +1,59 @@
+# shellcheck shell=bash
+# Installationsschritte in fester Reihenfolge.
+# Jeder Schritt ist idempotent und wird nach Erfolg im Zustand als "done" vermerkt.
+#
+# Entwicklungsstand Phase 0: Die Schritte ab "base" sind Platzhalter und enden mit
+# EX_NOT_IMPLEMENTED. Sie werden ab Phase 1 implementiert (siehe SPEC Abschnitt 4.1).
+
+# "name|Beschreibung|geplante Phase"
+STEPS=(
+    "base|Basis: Paketquellen, Systemaktualisierung, Abhängigkeiten|Phase 1"
+    "datadisk|Daten-Disk: LVM, Dateisystem, Einhängen|Phase 1"
+    "hardening|Härtung: Kernel, Module, SSH, auditd, AIDE, AppArmor, Zeit, Updates|Phase 1"
+    "docker|Docker Engine|Phase 1"
+    "firewall|Firewall (nftables)|Phase 1"
+    "hostd|Host-Dienste (siem-hostd)|Phase 1"
+    "app|Anwendung: Images, Zertifikate, Start, Initialisierung|Phase 1"
+    "selftest|Abschluss-Selbsttest|Phase 1"
+)
+
+step_name()  { local s=${STEPS[$1]}; printf '%s' "${s%%|*}"; }
+step_desc()  { local s=${STEPS[$1]#*|}; printf '%s' "${s%%|*}"; }
+step_phase() { local s=${STEPS[$1]}; printf '%s' "${s##*|}"; }
+
+# Platzhalter für noch nicht implementierte Schritte
+step_not_implemented() {
+    local name=$1 phase=$2
+    warn "$(msg step_not_impl "$name" "$phase")"
+    return "$EX_NOT_IMPLEMENTED"
+}
+
+# run_steps – führt alle offenen Schritte aus
+run_steps() {
+    local i total=${#STEPS[@]} name rc fn
+    for (( i = 0; i < total; i++ )); do
+        name=$(step_name "$i")
+        if state_is_done "$name"; then
+            info "$(msg step_skip "$name")"
+            continue
+        fi
+        heading "$(msg step_running $((i + 1)) "$total" "$(step_desc "$i")")"
+        fn="step_$name"
+        state_set "$name" running
+        if declare -F "$fn" >/dev/null; then
+            "$fn"; rc=$?
+        else
+            step_not_implemented "$name" "$(step_phase "$i")"; rc=$?
+        fi
+        if (( rc == 0 )); then
+            state_set "$name" "done"
+        elif (( rc == EX_NOT_IMPLEMENTED )); then
+            state_set "$name" pending
+            return "$rc"
+        else
+            state_set "$name" failed
+            return "$rc"
+        fi
+    done
+    return 0
+}

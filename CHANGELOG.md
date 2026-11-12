@@ -11,6 +11,11 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 ## [Unreleased]
 
 ### Added
+- **Phase 0:** Installer-Grundgerüst `host/install.sh` mit Preflight (Debian 13, Ressourcen, Daten-Disk, Netzwerk, DNS, Zeit, Internet-Ziele inkl. GitHub/GHCR, Ports, fremde Container-Laufzeiten, Desktop), interaktiven Abfragen, sicherem Antwortdatei-Parser, Zustandsverwaltung für `--resume` und Schrittsteuerung; Texte DE/EN.
+- Tests: bats-Unit-Tests, Preflight-Integrationstest im Debian-13-Container, VM-Test auf frischer Debian-13-VM (QEMU).
+- CI auf GitHub Actions (Lint, Unit, Integration, VM-Test).
+- Synthetischer Log-Generator für das Testlabor (`tests/generators/loggen.py`).
+- ADR-0001 bis ADR-0021 als Einzeldokumente, Entwicklerdokumentation (`docs/ENTWICKLUNG.md`).
 - Projekt-Repository mit Dokumentationsstruktur (`docs/`).
 - Master-Spezifikation 2.4.0 inklusive Änderungshistorie und Versionsvergleich zu 1.0.0.
 - Versionierungs- und Änderungskonzept.
