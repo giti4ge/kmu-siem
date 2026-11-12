@@ -18,13 +18,13 @@ jobs:
     name: Lint (ShellCheck, Python, Doku-Links)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: ShellCheck
         run: |
           shellcheck --version
           shellcheck -x -s bash -P host host/install.sh host/lib/*.sh
           shellcheck -s bash tests/integration/*.sh tests/vm/*.sh
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Ruff
@@ -43,7 +43,7 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends bats git ca-certificates openssh-client util-linux iproute2 >/dev/null
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: bats
         run: bats --print-output-on-failure tests/installer
 
@@ -56,6 +56,6 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y -qq --no-install-recommends git ca-certificates wget iproute2 util-linux procps >/dev/null
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Preflight-Integrationstest
         run: bash tests/integration/preflight-container.sh

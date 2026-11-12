@@ -125,6 +125,7 @@ setup() {
     probe_resolve() { printf '127.0.1.1'; }
     run run_preflight
     [ "$status" -eq 1 ]
+    [[ "$output" == *"nur lokal auf 127.0.1.1"* ]]
 }
 
 @test "Zeit nicht synchron -> Warnung" {

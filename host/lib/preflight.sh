@@ -269,10 +269,12 @@ pf_dns() {
         return
     fi
     addr=$(probe_resolve "$fqdn")
-    if [[ -n $addr && $addr != 127.* ]]; then
-        pf_add ok "$(msg pf_dns)" "$(msg pf_dns_ok "$fqdn" "$addr")"
-    else
+    if [[ -z $addr ]]; then
         pf_add warn "$(msg pf_dns)" "$(msg pf_dns_bad "$fqdn")"
+    elif [[ $addr == 127.* ]]; then
+        pf_add warn "$(msg pf_dns)" "$(msg pf_dns_loopback "$fqdn" "$addr")"
+    else
+        pf_add ok "$(msg pf_dns)" "$(msg pf_dns_ok "$fqdn" "$addr")"
     fi
 }
 
@@ -365,7 +367,7 @@ pf_print() {
             fail) sym='✘'; color=$C_RED ;;
             *)    sym='ℹ'; color='' ;;
         esac
-        printf '  %s%s%s %-28s %s\n' "$color" "$sym" "$C_RST" "${PF_KEYS[$i]}" "${PF_DETAIL[$i]}"
+        printf '  %s%s%s %-38s %s\n' "$color" "$sym" "$C_RST" "${PF_KEYS[$i]}" "${PF_DETAIL[$i]}"
     done
 }
 

@@ -55,8 +55,13 @@ setup() {
 }
 
 @test "Installation ohne root wird abgelehnt" {
-    [[ ${EUID:-$(id -u)} -ne 0 ]] || skip "läuft als root"
-    run bash "$INSTALL" --unattended /dev/null
+    local runner=()
+    if [[ ${EUID:-$(id -u)} -eq 0 ]]; then
+        # Als root (z. B. CI-Container): Test unter unprivilegiertem Benutzer ausführen
+        command -v setpriv >/dev/null || skip "setpriv nicht vorhanden"
+        runner=(setpriv --reuid=65534 --regid=65534 --clear-groups --)
+    fi
+    run "${runner[@]}" env NO_COLOR=1 SIEM_LOG_FILE=/dev/null bash "$INSTALL" --unattended /dev/null
     [ "$status" -eq 2 ]
     [[ "$output" == *"Root-Rechte"* ]]
 }
