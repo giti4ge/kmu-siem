@@ -16,6 +16,8 @@
 #      auditd, chrony, Docker, nftables inkl. Wirksamkeit der Freigaben
 #   6. Idempotenz: erneuter Lauf aller Host-Schritte ändert nichts
 #   7. Preflight nach Teilinstallation meldet keine Fehler durch eigene Änderungen
+#   8. siem-hostd: Socket-Rechte, Aktions-Allowlist, Validierung, Dead-Man's-Switch
+#      (Rücknahme, Bestätigung, Aussperren per SSH, Neustart während der Frist)
 #
 # Umgebungsvariablen: VM_RAM_MB (4096), VM_CPUS (2), WORKDIR (./.vm), DEBIAN_IMAGE_URL
 set -euo pipefail
@@ -177,7 +179,7 @@ set -e
 printf '%s\n' "$OUT" | tail -40
 if [[ $RC -eq 3 ]]; then pass "Exit 3 (nächster Schritt noch nicht implementiert)"
 else fail "Exit 3 erwartet, erhalten $RC"; printf '%s\n' "$OUT"; vm 'sudo tail -80 /var/log/siem-install.log' || true; fi
-expect "Schritt 'hostd' ist noch nicht implementiert" "Host-Schritte vollständig, Abbruch bei hostd"
+expect "Schritt 'app' ist noch nicht implementiert" "Host-Schritte und siem-hostd vollständig, Abbruch bei app"
 
 # Ab hier: Zugang nur noch als siemadmin mit Schlüssel
 if vm true 2>/dev/null; then fail "Installationsbenutzer hat noch SSH-Zugang"; else pass "Installationsbenutzer ohne SSH-Zugang"; fi
@@ -186,10 +188,10 @@ if vm true; then pass "SSH als siemadmin mit Schlüssel"; else fail "SSH als sie
 check "sudo für siemadmin mit Kennwort" 'true'
 
 # Zustand
-for s in questions base datadisk hardening docker firewall; do
+for s in questions base datadisk hardening docker firewall hostd; do
     check "Zustand: $s done" "grep -q '^$s done' /var/lib/siem/install.state"
 done
-check "Zustand: hostd pending" "grep -q '^hostd pending' /var/lib/siem/install.state"
+check "Zustand: app pending" "grep -q '^app pending' /var/lib/siem/install.state"
 check "Geheimnis siemadmin verbraucht und gelöscht" 'test ! -e /var/lib/siem/secrets/admin_password'
 check "Geheimnis Web-Admin bleibt bis Schritt app" '[ "$(cat /var/lib/siem/secrets/web_admin_password)" = "Kennwort-fuer-webadmin-1" ]'
 
@@ -236,15 +238,15 @@ check "Docker-Regeln nach Neuladen der Firewall erhalten" 'nft list tables | gre
 
 # --- Test 6 ------------------------------------------------------------------
 log "Test 6: Idempotenz – erneuter Lauf aller Host-Schritte"
-FILES="/etc/fstab /etc/nftables.conf /etc/ssh/sshd_config.d/00-siem.conf /etc/docker/daemon.json /etc/sysctl.d/99-siem-hardening.conf /etc/chrony/sources.d/siem.sources /etc/chrony/chrony.conf /etc/audit/rules.d/50-siem.rules /etc/modprobe.d/siem-blacklist.conf /etc/apt/sources.list.d/docker.sources"
+FILES="/etc/systemd/system/siem-hostd.service /usr/local/sbin/siem-hostd /opt/siem/data/hostd/firewall.json /etc/fstab /etc/nftables.conf /etc/ssh/sshd_config.d/00-siem.conf /etc/docker/daemon.json /etc/sysctl.d/99-siem-hardening.conf /etc/chrony/sources.d/siem.sources /etc/chrony/chrony.conf /etc/audit/rules.d/50-siem.rules /etc/modprobe.d/siem-blacklist.conf /etc/apt/sources.list.d/docker.sources"
 SUM_BEFORE=$(vmr "sha256sum $FILES")
-vmr 'sed -i -E "s/^(base|datadisk|hardening|docker|firewall) done/\1 pending/" /var/lib/siem/install.state'
+vmr 'sed -i -E "s/^(base|datadisk|hardening|docker|firewall|hostd) done/\1 pending/" /var/lib/siem/install.state'
 set +e
 OUT=$(vmr "env NO_COLOR=1 ${LOW[*]} bash /opt/siem/host/install.sh --resume </dev/null" 2>&1)
 RC=$?
 set -e
 printf '%s\n' "$OUT" | tail -25
-if [[ $RC -eq 3 ]]; then pass "erneuter Lauf: Exit 3 bei hostd"; else fail "erneuter Lauf: Exit 3 erwartet, erhalten $RC"; printf '%s\n' "$OUT"; fi
+if [[ $RC -eq 3 ]]; then pass "erneuter Lauf: Exit 3 bei app"; else fail "erneuter Lauf: Exit 3 erwartet, erhalten $RC"; printf '%s\n' "$OUT"; fi
 if grep -q 'Installationsfragen' <<<"$OUT"; then fail "Resume stellt Fragen erneut"; else pass "keine erneuten Fragen"; fi
 SUM_AFTER=$(vmr "sha256sum $FILES")
 if [[ $SUM_BEFORE == "$SUM_AFTER" ]]; then pass "Konfigurationsdateien unverändert"
@@ -263,6 +265,57 @@ printf '%s\n' "$OUT"
 [[ $RC -le 1 ]] && pass "keine Fehler durch eigene Änderungen (Exit $RC)" || fail "Preflight meldet Fehler (Exit $RC)"
 expect 'Daten-Disk +bereits eingerichtet \(/dev/vdb' "Daten-Disk als eingerichtet erkannt"
 expect 'Container-Laufzeit +durch SIEM-Installation' "Docker als eigene Installation erkannt"
+
+# --- Test 8 ------------------------------------------------------------------
+log "Test 8: siem-hostd und Dead-Man's-Switch"
+reach() { curl -s -o /dev/null --max-time 5 http://127.0.0.1:8443/; }
+check "siem-hostd aktiv" 'systemctl is-active --quiet siem-hostd'
+check "Socket root:siem-hostd 0660" '[ "$(stat -c "%U:%G %a" /run/siem/hostd.sock)" = "root:siem-hostd 660" ]'
+check "Systemstatus über den Socket" 'siem-hostd system status | jq -e ".version and .services.docker == \"active\"" >/dev/null'
+if vm '/usr/local/sbin/siem-hostd system status' >/dev/null 2>&1; then fail "Socket ohne Gruppenrecht nutzbar"
+else pass "kein Socket-Zugriff ohne Gruppe siem-hostd"; fi
+check "unbekannte Aktion wird abgelehnt" 'python3 -c "import socket; s = socket.socket(socket.AF_UNIX); s.connect(\"/run/siem/hostd.sock\"); s.sendall(b\"{\\\"action\\\": \\\"shell.exec\\\"}\\n\"); print(s.recv(4096).decode())" | grep -q "Unbekannte Aktion"'
+check "ungültige Freigabe abgelehnt, nichts ausstehend" 'echo "{\"services\": {\"https\": {\"sources\": [\"10.0.0.0/33\"]}}}" > /tmp/bad.json; ! siem-hostd firewall apply --file /tmp/bad.json --no-wait 2>/dev/null && siem-hostd firewall show | jq -e ".pending == null" >/dev/null'
+
+vmr 'siem-hostd firewall show | jq ".committed | .services.https.sources = []" > /tmp/fw-nohttps.json
+     siem-hostd firewall show | jq ".committed | .services.ssh.sources = [\"192.0.2.1/32\"]" > /tmp/fw-nossh.json
+     siem-hostd firewall show | jq ".committed" > /tmp/fw-orig.json
+     cd /tmp && { setsid python3 -m http.server 443 >/dev/null 2>&1 & } ; sleep 2'
+if reach; then pass "443 vor der Änderung erreichbar"; else fail "443 vor der Änderung nicht erreichbar"; fi
+
+# 8a: ohne Bestätigung → automatische Rücknahme
+TOKEN=$(vmr 'siem-hostd firewall apply --file /tmp/fw-nohttps.json --no-wait' | jq -r .token)
+[[ -n $TOKEN && $TOKEN != null ]] && pass "apply liefert Bestätigungs-Token" || fail "kein Token"
+if reach; then fail "443 trotz entzogener Freigabe erreichbar"; else pass "Änderung sofort aktiv (443 gesperrt)"; fi
+check "unbestätigte Änderung nicht dauerhaft gespeichert" 'grep -q "set allow_https { type ipv4_addr; flags interval; auto-merge; elements" /etc/nftables.conf'
+sleep 70
+if reach; then pass "Dead-Man's-Switch: Regeln nach 60 s automatisch zurückgesetzt"; else fail "keine automatische Rücknahme"; fi
+check "keine ausstehende Änderung mehr" 'siem-hostd firewall show | jq -e ".pending == null" >/dev/null'
+check "Rücknahme im Audit-Log" 'grep -q "Dead-Man" /var/log/siem-hostd.log'
+
+# 8b: mit Bestätigung → dauerhaft
+TOKEN=$(vmr 'siem-hostd firewall apply --file /tmp/fw-nohttps.json --no-wait' | jq -r .token)
+check "falsches Token abgelehnt" '! siem-hostd firewall confirm falsches-token 2>/dev/null'
+check "Bestätigung mit Token" "siem-hostd firewall confirm $TOKEN >/dev/null"
+sleep 65
+if reach; then fail "bestätigte Änderung wurde zurückgesetzt"; else pass "bestätigte Änderung bleibt nach Fristablauf aktiv"; fi
+check "bestätigte Änderung dauerhaft in nftables.conf" '! grep -q "set allow_https { type ipv4_addr; flags interval; auto-merge; elements" /etc/nftables.conf'
+check "Neustart von nftables: eigene Regeln geladen, Docker-Tabellen erhalten" 'systemctl restart nftables && ! nft list set inet siem allow_https | grep -q elements && nft list tables | grep -v "inet siem" | grep -q table'
+check "Ausgangszustand wiederherstellen" 't=$(siem-hostd firewall apply --file /tmp/fw-orig.json --no-wait | jq -r .token) && siem-hostd firewall confirm "$t" >/dev/null'
+if reach; then pass "443 wieder erreichbar"; else fail "443 nach Wiederherstellung nicht erreichbar"; fi
+
+# 8c: sich selbst aussperren → automatische Rücknahme
+vmr 'siem-hostd firewall apply --file /tmp/fw-nossh.json --no-wait >/dev/null' || true
+if vm true 2>/dev/null; then fail "neue SSH-Verbindung trotz entzogener Freigabe möglich"; else pass "Aussperren simuliert: neue SSH-Verbindung blockiert"; fi
+sleep 60
+if vm true; then pass "Dead-Man's-Switch: SSH nach Fristablauf wieder möglich"; else fail "SSH bleibt gesperrt"; exit 1; fi
+
+# 8d: Neustart von siem-hostd während der Frist
+vmr 'siem-hostd firewall apply --file /tmp/fw-nohttps.json --no-wait >/dev/null; systemctl restart siem-hostd' || true
+if reach; then fail "Änderung nach Neustart nicht aktiv"; else pass "Änderung aktiv, siem-hostd neu gestartet"; fi
+sleep 70
+if reach; then pass "Rücknahme auch nach Neustart von siem-hostd"; else fail "keine Rücknahme nach Neustart"; fi
+vmr 'pkill -f "http.server" || true' || true
 
 log "Ergebnis"
 if (( FAILED )); then echo "VM-Tests FEHLGESCHLAGEN"; exit 1; fi

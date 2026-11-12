@@ -7,3 +7,6 @@ ignore = [
     "S311",  # random ist für Testdaten ausreichend
     "S101",  # assert in Hilfsskripten erlaubt
 ]
+
+[lint.per-file-ignores]
+"tests/**" = ["E501"]  # erwartete Ausgaben dürfen lang sein

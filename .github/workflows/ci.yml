@@ -30,22 +30,24 @@ jobs:
       - name: Ruff
         run: |
           pip install --quiet ruff
-          ruff check tests/generators tools
+          ruff check host/siem-hostd tests/hostd tests/generators tools
       - name: Doku-Links prüfen
         run: python tools/check_links.py
 
   unit:
-    name: Unit-Tests Installer (Debian 13)
+    name: Unit-Tests Installer und siem-hostd (Debian 13)
     runs-on: ubuntu-latest
     container: debian:trixie
     steps:
       - name: Werkzeuge
         run: |
           apt-get update -qq
-          apt-get install -y -qq --no-install-recommends bats git ca-certificates openssh-client util-linux iproute2 >/dev/null
+          apt-get install -y -qq --no-install-recommends bats git ca-certificates openssh-client util-linux iproute2 python3 >/dev/null
       - uses: actions/checkout@v7
       - name: bats
         run: bats --print-output-on-failure tests/installer
+      - name: siem-hostd (unittest)
+        run: python3 -m unittest discover -s tests/hostd -v
 
   integration:
     name: Preflight im Debian-13-Container

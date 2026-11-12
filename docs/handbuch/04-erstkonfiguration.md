@@ -90,6 +90,18 @@ Je Dienst wird festgelegt, welche Quellnetze zugreifen dürfen:
 
 > **Achtung:** Nach der Installation sind alle privaten Netze (RFC 1918) zugelassen. Die Einschränkung ist Teil der Abnahme (3.8).
 
+**Per SSH (ohne Web-UI):**
+
+```bash
+sudo siem-hostd firewall show | jq .committed > fw.json   # aktuelle Freigaben exportieren
+nano fw.json                                              # z. B. "ssh": {"sources": ["10.0.10.0/24"]}
+sudo siem-hostd firewall apply --file fw.json             # aktiv – Rückfrage innerhalb von 60 s
+```
+
+Wird die Rückfrage nicht mit `j` beantwortet, etwa weil die Verbindung abgerissen ist, setzt die Appliance die vorherigen Regeln automatisch zurück. Das gilt auch, wenn `siem-hostd` zwischendurch neu startet. Erst nach der Bestätigung werden die Regeln dauerhaft gespeichert und gelten auch nach einem Neustart.
+
+Format von `fw.json`: je Dienst (`ssh`, `https`, `syslog`, `syslog_tls`, `wef`, `wef_https`, `snmptrap`) eine Liste `sources` mit IPv4-/IPv6-Adressen oder Netzen. Ungültige Einträge werden abgelehnt, ohne dass sich etwas ändert.
+
 ## 4.7 Updates
 
 **System → Updates**: Modus **Automatisch (Stable)** empfohlen, Wartungsfenster festlegen (z. B. Dienstag 22:00–23:00). Details in [Kap. 9.1](09-betrieb-wartung.md#91-updates).

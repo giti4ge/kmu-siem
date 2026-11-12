@@ -71,7 +71,10 @@ Siehe [Kapitel 2.5](02-systemueberblick.md#25-log-kategorien).
 | `sudo siem-hostd update check \| list \| apply [--version vX.Y.Z] \| rollback` | Updates von GitHub |
 | `sudo siem-hostd update set-token --file <datei>` | GitHub-Zugangstoken setzen/erneuern |
 | `sudo siem-hostd backup create` | Backup sofort erstellen |
-| `sudo siem-hostd firewall show` | Aktive Firewall-Regeln anzeigen |
+| `sudo siem-hostd firewall show` | Gespeicherte Freigaben und ggf. unbestätigte Änderung anzeigen |
+| `sudo siem-hostd firewall apply --file <json>` | Freigaben ändern (Bestätigung innerhalb von 60 s, sonst automatische Rücknahme) |
+| `sudo siem-hostd firewall confirm <token>` / `rollback` | Unbestätigte Änderung bestätigen bzw. sofort zurücknehmen |
+| `sudo journalctl -u siem-hostd`, `/var/log/siem-hostd.log` | Protokoll und Audit-Log von siem-hostd |
 
 ## E. Dateien und Protokolle
 

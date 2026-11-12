@@ -11,6 +11,7 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 ## [Unreleased]
 
 ### Added
+- **Phase 1.2:** `siem-hostd` – privilegierter Host-Dienst mit Aktions-Allowlist (`system.status`, `firewall.show/apply/confirm/rollback`), Unix-Socket mit Gruppenrecht, Audit-Log, Kommandozeile `siem-hostd`. Firewall-Änderungen mit Dead-Man's-Switch (60 s, Token-Bestätigung, Rücknahme auch nach Neustart des Dienstes). Installationsschritt `hostd`.
 - **Phase 1.1:** Installationsschritte `base` (Proxy/CA für apt, Systemaktualisierung, Abhängigkeiten, Kopie nach /opt/siem/host), `datadisk` (LVM `siem/data`, ext4, `nodev,nosuid,noexec`, Verzeichnisstruktur), `hardening` (sysctl, Modulsperren, Benutzer `siemadmin`, SSH-Härtung mit Schutz vor Aussperren, auditd-Regeln, chrony, unattended-upgrades), `docker` (offizielles Repository mit Prüfung des GPG-Fingerabdrucks, gehärtete Daemon-Konfiguration, Proxy) und `firewall` (nftables-Tabelle `inet siem` mit Quell-Freigaben je Dienst, Docker-verträglich).
 - Antwortschlüssel `SIEM_SSH_PASSWORD_AUTH`.
 - VM-Test: vollständige Host-Installation, SSH-Zugang, Firewall-Wirksamkeit, Idempotenz, Preflight nach Teilinstallation.
@@ -26,6 +27,8 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 - Vorlagen für Architecture Decision Records und Release Notes.
 
 ### Changed
+- Firewall-Regeln werden nur noch von `siem-hostd` erzeugt (Freigaben in `/opt/siem/data/hostd/firewall.json`); der Installer ruft `siem-hostd firewall init` auf.
+- Bei jedem Lauf nach der Basis-Installation wird die aktuelle Installer-Version nach `/opt/siem/host` übernommen.
 - Spezifikation 4.1 (PATCH): `ip_forward=1` für ausgehenden Container-Verkehr, durch nftables auf die Bridge `br-siem` beschränkt; SSH-Drop-in `00-siem.conf`.
 - Auslieferung ausschließlich per `install.sh` auf frischer Debian-13-VM; fertige VM-Vorlagen (`.ova`, `.vhdx`) entfallen (Spezifikation 2.3.0, ADR-20).
 - Versions-, Funktions- und Content-Updates direkt über GitHub Releases und GitHub Container Registry; Installation optional per `bootstrap.sh` direkt von GitHub (Spezifikation 2.4.0, ADR-21).

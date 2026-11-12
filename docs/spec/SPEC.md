@@ -163,6 +163,7 @@ Einzige Brücke zwischen Web-UI und Host. Kein Docker-Socket in Containern.
 - **Feste Aktions-Allowlist** mit Pydantic-validierten Parametern: `firewall.apply`, `firewall.confirm`, `network.vlan.apply`, `update.check|apply|rollback`, `backup.create|restore`, `system.reboot`, `system.ntp.set`, `system.proxy.set`, `system.status`.
 - Keine Shell-Interpolation (`subprocess` mit Argumentlisten), jede Aktion im Audit-Log.
 - Kritische Aktionen nur für System-Admin mit frischer MFA-Bestätigung (Re-Auth ≤ 5 min).
+- **Umsetzung (ab 1.2):** Python-Dienst nur mit Standardbibliothek, Socket `root:siem-hostd 0660` (Gruppenmitglieder dürfen zugreifen, später der API-Container), JSON-Zeilenprotokoll, Audit-Log `/var/log/siem-hostd.log`. Firewall-Freigaben liegen in `/opt/siem/data/hostd/firewall.json` als einzige Quelle; die nftables-Konfiguration wird ausschließlich von siem-hostd erzeugt. Eine unbestätigte Änderung wird dauerhaft im Datenverzeichnis vermerkt, damit die Rücknahme auch nach einem Neustart des Dienstes erfolgt.
 
 ---
 

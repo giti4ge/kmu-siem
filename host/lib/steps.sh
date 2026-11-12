@@ -31,6 +31,10 @@ step_not_implemented() {
 # run_steps – führt alle offenen Schritte aus
 run_steps() {
     local i total=${#STEPS[@]} name rc fn
+    # Nach der Basis-Installation immer die aktuelle Installer-Version nach /opt/siem/host
+    if state_is_done base && declare -F _base_install_host >/dev/null; then
+        _base_install_host || return 1
+    fi
     for (( i = 0; i < total; i++ )); do
         name=$(step_name "$i")
         if state_is_done "$name"; then
