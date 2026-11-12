@@ -1,4 +1,4 @@
-# Versionsvergleich Spezifikation v1.0.0 ↔ v2.3.0
+# Versionsvergleich Spezifikation v1.0.0 ↔ v2.4.0
 
 Dieses Dokument erklärt **was** sich geändert hat, **warum**, und **welche Folgen** das für Entwicklung, Installation und Betrieb hat.
 
@@ -8,7 +8,7 @@ Legende: 🔴 Korrektur eines technischen Fehlers · 🟠 geänderte Entscheidun
 
 ## 1. Plattform & Infrastruktur
 
-| | v1.0.0 | v2.3.0 | Grund | Folge |
+| | v1.0.0 | v2.4.0 | Grund | Folge |
 |---|---|---|---|---|
 | 🟠 | Debian 12 oder 13 | Debian 13 | Debian 12 ist seit Mitte 2026 nur noch im LTS-Support | Ein Zielsystem, weniger Testaufwand |
 | 🔴 | 16 GB RAM, Heap 50 % (max. 8 GB) | 16 GB min./24 GB empf., Heap 4–6 GB | 8 GB Heap lassen zu wenig RAM für Page-Cache und übrige Dienste | Stabilere Suchleistung |
@@ -21,7 +21,7 @@ Legende: 🔴 Korrektur eines technischen Fehlers · 🟠 geänderte Entscheidun
 
 ## 2. Daten & Speicherung
 
-| | v1.0.0 | v2.3.0 | Grund | Folge |
+| | v1.0.0 | v2.4.0 | Grund | Folge |
 |---|---|---|---|---|
 | 🟠 | ECS oder OCSF | nur ECS | Ein Schema; Sigma-Mappings basieren auf ECS | Klare Parser-Vorgaben |
 | 🟠 | Ein Index `siem-logs-*` | Ein Index je Kategorie `siem-<kategorie>-*` | Retention je Log-Typ | Retention-Einstellung je Kategorie |
@@ -34,7 +34,7 @@ Legende: 🔴 Korrektur eines technischen Fehlers · 🟠 geänderte Entscheidun
 
 ## 3. Datenquellen
 
-| | v1.0.0 | v2.3.0 | Grund | Folge |
+| | v1.0.0 | v2.4.0 | Grund | Folge |
 |---|---|---|---|---|
 | 🟠 | WEF über 5985/5986 | Kerberos über 5985 als Standard, Assistent mit PowerShell-Skript | Einfaches Onboarding in AD-Umgebungen | Keine Zertifikate auf Servern nötig |
 | 🟢 | – | Subscriptions je Rolle (DC, Exchange, Member-Server, optional Clients) | Klarer Datenumfang | – |
@@ -47,7 +47,7 @@ Legende: 🔴 Korrektur eines technischen Fehlers · 🟠 geänderte Entscheidun
 
 ## 4. Netzwerk-Sichtbarkeit
 
-| | v1.0.0 | v2.3.0 | Grund | Folge |
+| | v1.0.0 | v2.4.0 | Grund | Folge |
 |---|---|---|---|---|
 | 🔴 | ARP-Guard rein passiv am Trunk erkennt Spoofing | Passiv + Switch-FDB + FortiGate-ARP-Tabelle | Ohne Port-Mirroring sind ARP-Replies (Unicast) unsichtbar | Spoofing-Erkennung über Korrelation |
 | 🟠 | nmap | Eigener Python-Discovery-Scanner | NPSL-Lizenz ungeeignet für Mitlieferung | – |
@@ -55,7 +55,7 @@ Legende: 🔴 Korrektur eines technischen Fehlers · 🟠 geänderte Entscheidun
 
 ## 5. Detection & Alarmierung
 
-| | v1.0.0 | v2.3.0 | Grund | Folge |
+| | v1.0.0 | v2.4.0 | Grund | Folge |
 |---|---|---|---|---|
 | 🟠 | Sigma + ElastAlert2 / OpenSearch Security Analytics | Eine eigene Alert-Engine (pySigma) | Throttling, Matrix, Wartungsfenster an einer Stelle | – |
 | 🟢 | – | Neue Sigma-Regeln 7 Tage „silent“ | Fehlalarme vermeiden | – |
@@ -66,7 +66,7 @@ Legende: 🔴 Korrektur eines technischen Fehlers · 🟠 geänderte Entscheidun
 
 ## 6. Web-UI, Sicherheit & Datenschutz
 
-| | v1.0.0 | v2.3.0 | Grund | Folge |
+| | v1.0.0 | v2.4.0 | Grund | Folge |
 |---|---|---|---|---|
 | 🟠 | „OWASP-konform“ | OWASP ASVS 4.0 Level 2 | Prüfbarer Maßstab | – |
 | 🟠 | Caddy oder nginx + ModSecurity | nginx + ModSecurity v3 + CRS 4 mit Ausnahmen für die Log-Suche | Suchbegriffe würden sonst geblockt | – |
@@ -77,8 +77,9 @@ Legende: 🔴 Korrektur eines technischen Fehlers · 🟠 geänderte Entscheidun
 
 ## 7. Updates
 
-| | v1.0.0 | v2.3.0 | Grund | Folge |
+| | v1.0.0 | v2.4.0 | Grund | Folge |
 |---|---|---|---|---|
+| 🟠 | Eigener Update-Server (implizit) | Updates, Content und Installationspakete direkt über GitHub Releases + GHCR; separates Distributions-Repository; Token je Kunde | Kundenentscheidung Runde 5 | Kein eigener Server; Offline-Signatur bleibt Vertrauensanker |
 | 🔴 | Signatur auf `release.json`, Pull per Tag | Pull per Image-Digest aus signiertem Manifest, Downgrade-Schutz, Schlüsselrotation | Signatur schützte sonst nicht vor Registry-Manipulation | – |
 | 🔴 | Rollback per Alembic | Rollback per Backup-Restore, Snapshot vor OpenSearch-Update | Down-Migrationen unzuverlässig, Index-Formate nicht abwärtskompatibel | – |
 | 🟠 | Healthcheck 60 s | 120 s inkl. Ende-zu-Ende-Testevent | Realistische Startzeit von OpenSearch | – |
@@ -94,7 +95,7 @@ Legende: 🔴 Korrektur eines technischen Fehlers · 🟠 geänderte Entscheidun
 
 ## 9. Entwicklungsphasen
 
-| v1.0.0 | v2.3.0 |
+| v1.0.0 | v2.4.0 |
 |---|---|
 | – | **Phase 0** Fundament (Repo, CI, Installationstest-Umgebung, Preflight-Grundgerüst, Testlabor) |
 | Phase 1 Infrastruktur | Phase 1 Host & Datenbasis |

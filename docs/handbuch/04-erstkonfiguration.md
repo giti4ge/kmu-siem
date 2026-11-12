@@ -1,6 +1,6 @@
 # 4. Erstkonfiguration
 
-> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.3.0)
+> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.4.0)
 
 Empfohlene Reihenfolge: Zeit und Netzwerk → Zertifikate → Benachrichtigung → Firewall → Quellen (Kap. 5) → Regeln/Alarm-Matrix (Kap. 7) → Retention und Datenschutz (Kap. 8) → Backup (Kap. 9).
 

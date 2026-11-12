@@ -7,7 +7,7 @@ Architekturentscheidungen werden als einzelne, unveränderliche Dokumente festge
 
 ## Übersicht
 
-ADR-01 bis ADR-19 sind aktuell gesammelt in [SPEC.md Abschnitt 8](../spec/SPEC.md#8-entscheidungsprotokoll-adr) dokumentiert. Sie werden zu Beginn von Phase 0 in Einzeldateien überführt.
+ADR-01 bis ADR-21 sind aktuell gesammelt in [SPEC.md Abschnitt 8](../spec/SPEC.md#8-entscheidungsprotokoll-adr) dokumentiert. Sie werden zu Beginn von Phase 0 in Einzeldateien überführt.
 
 | Nr. | Titel | Status | Datum |
 |---|---|---|---|
@@ -30,3 +30,5 @@ ADR-01 bis ADR-19 sind aktuell gesammelt in [SPEC.md Abschnitt 8](../spec/SPEC.m
 | 17 | FIM/Change-Auditing agentlos | Akzeptiert | 2026-11-12 |
 | 18 | Report-Engine mit WeasyPrint | Akzeptiert | 2026-11-12 |
 | 19 | Rechte konsistent bis in OpenSearch (DLS/FLS) | Akzeptiert | 2026-11-12 |
+| 20 | Auslieferung ausschließlich per `install.sh` | Akzeptiert | 2026-11-13 |
+| 21 | Updates direkt über GitHub Releases + GHCR | Akzeptiert | 2026-11-13 |

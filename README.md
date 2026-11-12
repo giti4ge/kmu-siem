@@ -4,7 +4,7 @@ Gehärtete SIEM-Appliance für die zentrale Protokollierung, Erkennung von Siche
 
 **Installation:** ausschließlich über `install.sh` auf einer frischen, schlanken Debian-13-VM mit SSH. Das Skript installiert alle Abhängigkeiten, härtet das System und richtet die Anwendung ein. Es gibt keine VM-Vorlagen. Details: [Handbuch Kap. 3](docs/handbuch/03-installation.md).
 
-> **Projektstatus:** Spezifikation 2.3.0 – Freigabe ausstehend. Die Implementierung hat noch nicht begonnen (Produktversion: unreleased).
+> **Projektstatus:** Spezifikation 2.4.0 freigegeben (2026-11-13). Implementierung Phase 0 läuft (Produktversion: unreleased).
 
 ## Funktionsüberblick
 
@@ -15,7 +15,7 @@ Gehärtete SIEM-Appliance für die zentrale Protokollierung, Erkennung von Siche
 - **Active Response**: IP-Sperre auf der FortiGate (manuell oder regelbasiert)
 - **Compliance**: Change-Auditing, agentloses File-Integrity-Monitoring, revisionssicheres Archiv, Reports (NIS2, ISO 27001, DSGVO)
 - **Datenschutz**: Retention je Kategorie, optionaler Datenschutzmodus und Vier-Augen-Prinzip
-- **Betrieb**: Web-UI für die gesamte Konfiguration, signierte Updates mit automatischem Rollback
+- **Betrieb**: Web-UI für die gesamte Konfiguration, signierte Updates direkt über GitHub (Releases + Container Registry) mit automatischem Rollback
 
 ## Dokumentation
 

@@ -1,6 +1,6 @@
 # 3. Installation
 
-> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.3.0)
+> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.4.0)
 
 > **Geändert gegenüber früheren Entwürfen:** Es gibt **keine** fertigen VM-Vorlagen (`.ova`/`.vhdx`) mehr. Die Installation inklusive aller Abhängigkeiten und der Härtung erfolgt ausschließlich über das Installationsskript `install.sh` auf einer frischen Debian-13-VM.
 
@@ -40,8 +40,10 @@ Beispiel: 3 GB/Tag × 180 Tage × 0,8 + 50 = **482 GB**. Nach einer Woche Betrie
 |---|---|
 | `deb.debian.org`, `security.debian.org` | Debian-Pakete und Sicherheitsupdates |
 | `download.docker.com` | Docker Engine |
-| Container-Registry (im Manifest angegeben) | Container-Images der Appliance |
-| Update-Server | Manifest, Content-Pakete |
+| `github.com`, `api.github.com`, `objects.githubusercontent.com` | Installationspaket, Manifest, Content-Pakete (GitHub Releases) |
+| `ghcr.io`, `pkg-containers.githubusercontent.com` | Container-Images der Appliance (GitHub Container Registry) |
+
+> **⚠ Zu verifizieren:** Die vollständige Liste der GitHub-Download-Hosts wird bei der Implementierung gegen die aktuelle GitHub-Dokumentation abgeglichen und im Preflight geprüft.
 
 ## 3.3 Vorbereitung im Netzwerk
 
@@ -92,7 +94,47 @@ Mit dem offiziellen **Debian-13-netinst**-Image (amd64):
 
 > **Hinweis:** Weitere Pakete müssen nicht vorab installiert werden. Alles Nötige installiert `install.sh`. Auf der VM sollen keine anderen Dienste laufen.
 
-## 3.6 Installationspaket übertragen und prüfen
+## 3.6 Installationspaket beziehen
+
+Es gibt zwei Wege. Beide führen zum selben Ergebnis.
+
+### Variante A – direkt von GitHub (empfohlen)
+
+Auf der VM:
+
+```bash
+curl -fsSLO https://github.com/giti4ge/kmu-siem-releases/releases/latest/download/bootstrap.sh
+less bootstrap.sh                     # kurz ansehen – es lädt nur und prüft die Signatur
+sudo bash bootstrap.sh                # neueste Stable-Version
+sudo bash bootstrap.sh --version v1.0.0 --preflight   # bestimmte Version, nur prüfen
+```
+
+`bootstrap.sh`:
+1. lädt das Installationspaket der gewünschten Version samt Signatur von GitHub,
+2. prüft die Signatur mit dem eingebetteten öffentlichen Schlüssel des Dienstleisters,
+3. entpackt das Paket nach `~/siem-installer-<version>`,
+4. startet `install.sh` mit den übergebenen Optionen.
+
+**Privates Distributions-Repository:** Solange die Releases nicht öffentlich sind, wird ein **Zugangstoken** benötigt. Der Dienstleister stellt dafür je Kunde ein read-only Token aus.
+
+```bash
+# Token einmalig in eine Datei legen (nicht in die Shell-History tippen):
+install -m 600 /dev/null ~/github.token && nano ~/github.token
+curl -fsSL -H "Authorization: Bearer $(cat ~/github.token)" \
+  -H "Accept: application/octet-stream" -o bootstrap.sh \
+  "$(curl -fsSL -H "Authorization: Bearer $(cat ~/github.token)" \
+     https://api.github.com/repos/giti4ge/kmu-siem-releases/releases/latest \
+     | jq -r '.assets[] | select(.name=="bootstrap.sh") | .url')"
+sudo bash bootstrap.sh --token-file ~/github.token
+```
+
+> **⚠ Zu verifizieren:** Der genaue Download-Weg für private Releases wird bei der Implementierung festgelegt. Ziel ist ein einzeiliger Aufruf.
+
+Das Token wird bei der Installation verschlüsselt auf der Appliance gespeichert und für spätere Updates verwendet. Die Token-Datei wird danach gelöscht.
+
+### Variante B – Paket manuell übertragen
+
+Für Umgebungen, in denen GitHub nur vom Arbeitsplatz aus erreichbar ist:
 
 ```bash
 # Auf dem Arbeitsplatz:
@@ -106,7 +148,7 @@ cd siem-installer-1.0.0
 
 Den Prüfwert in `SHA256SUMS` mit dem veröffentlichten Wert (Release-Seite) vergleichen. Das Skript prüft zusätzlich vor jeder Änderung die Ed25519-Signatur seines Manifests.
 
-> **Ab GitHub-Veröffentlichung:** Das Paket kann direkt auf der VM per `curl -LO` von der Release-Seite geladen werden.
+Das Installationspaket steht auf der GitHub-Release-Seite der jeweiligen Version zum Download bereit.
 
 ## 3.7 Voraussetzungen prüfen (Preflight)
 
@@ -236,7 +278,7 @@ Jeder Schritt ist wiederholbar. Ein zweiter Lauf auf einem korrekten System änd
 - [ ] **Dashboard → Systemstatus**: alle Dienste grün
 - [ ] Zeit synchron (Abweichung < 1 s)
 - [ ] Testmail und Teams-Testnachricht empfangen
-- [ ] Update-Server erreichbar (**System → Updates → Jetzt prüfen**)
+- [ ] GitHub erreichbar, Zugangstoken gültig (**System → Updates → Verbindung testen**)
 - [ ] Firewall-Allowlists auf die tatsächlichen Quellen eingeschränkt
 - [ ] Erstes Backup erstellt und extern abgelegt
 - [ ] Antwortdatei/Kennwort-Dateien gelöscht

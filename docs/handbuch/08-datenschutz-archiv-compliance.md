@@ -1,6 +1,6 @@
 # 8. Datenschutz, Archiv & Compliance
 
-> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.3.0)
+> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.4.0)
 
 ## 8.1 Aufbewahrung (Retention)
 

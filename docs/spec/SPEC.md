@@ -2,7 +2,7 @@
 
 | Dokument-Version | Stand | Status | Ersetzt |
 |---|---|---|---|
-| **2.3.0** | 2026-11-13 | Freigabe ausstehend | [SPEC-v1.md](SPEC-v1.md) (1.0.0) |
+| **2.4.0** | 2026-11-13 | **Freigegeben** (2026-11-13) | [SPEC-v1.md](SPEC-v1.md) (1.0.0) |
 
 **Änderungshistorie:** siehe [SPEC-HISTORY.md](SPEC-HISTORY.md). Den detaillierten Vergleich v1 ↔ v2 enthält [SPEC-DIFF-v1-v2.md](SPEC-DIFF-v1-v2.md).
 
@@ -28,7 +28,7 @@
 | Sophos | SIEM-API | **XDR Data Lake Queries primär**, Fallback SIEM Events/Alerts API |
 | Windows | WEF 5985/5986 | WEF über **Kerberos/5985** (Standard), Onboarding-Assistent mit PowerShell-Skript |
 | Config-DB | SQLite oder PostgreSQL | **SQLite (WAL)** |
-| Updates | Signatur auf release.json | + **Image-Digest-Pinning**, Downgrade-Schutz, OpenSearch-Snapshot vor Update |
+| Updates | Signatur auf release.json | + **Image-Digest-Pinning**, Downgrade-Schutz, OpenSearch-Snapshot vor Update; **Bezug direkt über GitHub Releases + GHCR** (ab 2.4.0) |
 | Sizing | 250–500 GB | **min. 500 GB**, Heap 4–6 GB |
 | Archivierung | – | **Revisionssicheres Archiv** (Hash-Kette, Signatur, optional RFC-3161-Zeitstempel) + externes Langzeitarchiv |
 | Reporting | Digest | **Report-Engine** (PDF/HTML/CSV, geplant per Mail, Compliance-Vorlagen NIS2/ISO 27001/DSGVO) |
@@ -173,7 +173,8 @@ Einzige Brücke zwischen Web-UI und Host. Kein Docker-Socket in Containern.
 `install.sh` ist der **einzige Installationsweg**. Er erledigt Abhängigkeiten, Härtung und Anwendung in einem Durchlauf.
 
 **Bereitstellung:**
-- Installationspaket `siem-installer-<version>.tar.gz` mit `SHA256SUMS` und Ed25519-Signatur (später GitHub Releases).
+- Installationspaket `siem-installer-<version>.tar.gz` mit `SHA256SUMS` und Ed25519-Signatur, veröffentlicht als **GitHub Release** im Distributions-Repository (4.14.0).
+- **Bootstrap direkt von GitHub:** Jedes Release enthält ein kleines `bootstrap.sh`. Es lädt das Installationspaket der gewählten Version (Standard: neueste Stable) samt Signatur von GitHub, prüft die Signatur mit dem eingebetteten öffentlichen Schlüssel und startet dann `install.sh`. Bei privatem Distributions-Repository wird das Zugangstoken abgefragt bzw. per `--token-file` übergeben. Alternativ kann das Paket weiterhin manuell kopiert werden (z. B. bei Proxy-Problemen).
 - Das Skript prüft die Integrität seiner Bestandteile gegen das signierte Manifest, bevor es Änderungen vornimmt.
 
 **Betriebsarten:**
@@ -187,7 +188,7 @@ Einzige Brücke zwischen Web-UI und Host. Kein Docker-Socket in Containern.
 | `sudo ./install.sh --repair` | Idempotenter Neu-Durchlauf: stellt Härtung, Pakete und Dienste auf Sollzustand zurück, ohne Daten zu verändern |
 
 **Ablauf (jeder Schritt idempotent, Zustand in `/var/lib/siem/install.state`, Log in `/var/log/siem-install.log`):**
-1. **Preflight**: Debian 13 amd64, root/sudo, CPU/RAM/Disk gemäß Sizing, Internet bzw. Proxy erreichbar (Debian-Spiegel, Docker-Repository, Container-Registry, Update-Server), Zeit synchron, DNS, feste IP (Warnung bei DHCP), keine Konflikte mit belegten Ports oder vorhandenem Docker. Bei hartem Fehler wird abgebrochen, ohne etwas zu ändern.
+1. **Preflight**: Debian 13 amd64, root/sudo, CPU/RAM/Disk gemäß Sizing, Internet bzw. Proxy erreichbar (Debian-Spiegel, Docker-Repository, GitHub API/Releases, `ghcr.io`), Zeit synchron, DNS, feste IP (Warnung bei DHCP), keine Konflikte mit belegten Ports oder vorhandenem Docker. Bei hartem Fehler wird abgebrochen, ohne etwas zu ändern.
 2. **Abfragen** (interaktiv oder aus Antwortdatei): FQDN, NTP-Server, Proxy, Daten-Disk, SSH-Public-Key des Admin-Benutzers, erstes Web-UI-Konto, Sprache, optional VLAN-Trunk-Interface.
 3. **Basis**: APT-Quellen (Debian 13 + Sicherheitsupdates), Pakete auf aktuellen Stand, Installation aller Abhängigkeiten (u. a. nftables, chrony, auditd, aide, apparmor, lvm2, unattended-upgrades, python3, jq, curl, ca-certificates).
 4. **Daten-Disk** einrichten (LVM, Mount, `fstab` mit UUID).
@@ -431,10 +432,63 @@ Unabhängig vom Such-Index (OpenSearch) wird ein **unveränderliches Rohdaten-Ar
 
 ### 4.14 Update-Architektur
 
-**Kanal 1 – Content (täglich, automatisch, Hot-Reload):** Sigma-Set, IOC-Feeds (abuse.ch Feodo Tracker, URLhaus, ThreatFox; erweiterbar), IEEE-OUI, GeoIP-frei (DB-IP Lite optional). Signiert (Ed25519), atomar ausgetauscht.
+#### 4.14.0 Update-Quelle GitHub (ab 2.4.0)
+
+Versions- und Funktionsupdates sowie Content-Pakete bezieht die Appliance **direkt von GitHub**. Einen eigenen Update-Server gibt es nicht.
+
+| Artefakt | Ort auf GitHub |
+|---|---|
+| Installationspaket, signiertes Manifest `release.json` + `release.json.sig`, `SHA256SUMS`, Release Notes | **GitHub Releases** im Distributions-Repository |
+| Container-Images | **GitHub Container Registry** `ghcr.io/<owner>/kmu-siem-*`, Pull ausschließlich per Digest aus dem Manifest |
+| Content-Pakete (Sigma, Parser-Hotfixes, OUI-Snapshot) | GitHub Releases mit Tag `content-YYYY.MM.DD.N` |
+
+**Kanalzuordnung:**
+- `stable` = neuestes GitHub-Release, das nicht als Pre-Release markiert ist.
+- `beta` = neuestes Release einschließlich Pre-Releases.
+- Die Release-Tags entsprechen der Produktversion (`v1.4.2`).
+
+**Distributions-Repository:**
+- Releases und Images werden in einem eigenen Repository `<owner>/kmu-siem-releases` veröffentlicht, getrennt vom Quellcode-Repository `kmu-siem`.
+- So erhält eine Appliance bei privaten Repositories nur Zugriff auf fertige Artefakte, nicht auf Quellcode und Historie.
+- Die Sichtbarkeit (privat/öffentlich) ist umstellbar, ohne dass sich an der Appliance etwas ändert.
+
+**Zugriff der Appliance:**
+- **Privat (Standard):** read-only Zugangstoken **je Kunde**, nur für das Distributions-Repository und dessen Pakete. Es wird bei der Installation oder im Web-UI hinterlegt, verschlüsselt gespeichert und kann je Kunde einzeln widerrufen werden.
+- **Öffentlich:** ohne Token.
+- **⚠ Zu verifizieren:** Tokenart für GHCR-Pull (fine-grained PAT oder klassischer PAT mit `read:packages` oder GitHub App).
+
+**Vertrauen unabhängig von GitHub:**
+- GitHub ist nur Transportweg. Maßgeblich ist die **Ed25519-Signatur** des Manifests mit dem Offline-Release-Schlüssel des Dienstleisters.
+- Die CI erstellt Releases nur als **Entwurf**. Der Release-Verantwortliche signiert das Manifest lokal mit dem Offline-Schlüssel, lädt die Signatur hoch und veröffentlicht erst dann.
+- Ein kompromittiertes GitHub-Konto oder eine kompromittierte CI kann daher keine von der Appliance akzeptierten Updates erzeugen.
+- Content-Pakete werden auf demselben Weg signiert. Für tägliche Content-Pakete ist ein separater, eingeschränkter Content-Schlüssel zulässig, der nur Content signieren darf (der öffentliche Schlüssel ist im Manifest mit Rolle `content` hinterlegt).
+
+**Abfrage:**
+- GitHub REST API (`/repos/{owner}/{repo}/releases`), Prüfung stündlich, Download im Wartungsfenster bzw. bei manuellem Auslösen.
+- ETag-Caching und Rate-Limit-Beachtung; ohne Token gilt das Limit von 60 Anfragen pro Stunde, das für den Prüfrhythmus ausreicht.
+- Proxy-Unterstützung.
+
+**Bedienung:**
+- **Web-UI:** **System → Updates** zeigt verfügbare Versionen aus GitHub mit Release Notes. Möglich sind:
+  - neueste Version installieren,
+  - eine **bestimmte Version** wählen (nur ≥ installiert, Upgrade-Pfad-Regeln beachtet),
+  - Kanal wechseln.
+- **SSH:**
+
+  ```
+  siem-hostd update check
+  siem-hostd update list
+  siem-hostd update apply [--version vX.Y.Z]
+  siem-hostd update set-token --file <datei>
+  siem-hostd update rollback
+  ```
+
+- **Erstinstallation:** `install.sh` kann das Installationspaket der gewünschten Version selbst von GitHub laden (Bootstrap-Skript im Release, siehe 4.1).
+
+**Kanal 1 – Content (täglich, automatisch, Hot-Reload):** Sigma-Set, IOC-Feeds (abuse.ch Feodo Tracker, URLhaus, ThreatFox; erweiterbar), IEEE-OUI, GeoIP-frei (DB-IP Lite optional). Signiert (Ed25519), atomar ausgetauscht. Eigene Pakete (Sigma-Kuratierung, Parser-Hotfixes) kommen aus GitHub Releases (`content-*`), externe Feeds (abuse.ch, IEEE) direkt von deren Quellen.
 
 **Kanal 2 – Releases (`siem-hostd update`):**
-1. `release.json` + Signatur laden.
+1. `release.json` + Signatur aus dem GitHub-Release laden.
 2. Ed25519-Signaturprüfung, Prüfung Versionsnummer > installiert (Downgrade-Schutz), Ablaufdatum.
 3. Manifest enthält **Image-Digests**; Pull nur per Digest.
 4. Pre-Update-Backup: Config-DB (SQLite Online-Backup), `/opt/siem/app`, Secrets (verschlüsselt); OpenSearch-Snapshot, falls OpenSearch-Version sich ändert.
@@ -576,6 +630,10 @@ Alert-Engine (Sigma + intern), Regel-Import/-Export, Report-Engine mit allen Vor
 - ✅ Eigene Rolle mit eingeschränkten Kategorien sieht in UI, API, Reports und Dashboards ausschließlich diese Kategorien.
 - ✅ Absichtlich fehlerhaftes Release wird automatisch zurückgerollt, ohne Datenverlust.
 - ✅ Manipulierte Signatur oder älteres Release wird abgelehnt.
+- ✅ Update auf die neueste Stable-Version und auf eine gezielt gewählte Version direkt von GitHub (privates Distributions-Repository mit Token sowie öffentlich ohne Token) funktioniert per Web-UI und per `siem-hostd`.
+- ✅ Ein auf GitHub veröffentlichtes Release ohne gültige Offline-Signatur wird von der Appliance nicht angeboten.
+- ✅ Widerrufenes Token führt zu klarer Fehlermeldung und Alarm, nicht zu einem defekten System.
+- ✅ `bootstrap.sh` installiert auf frischer Debian-13-VM die neueste Stable-Version direkt von GitHub.
 - ✅ 72-h-Dauertest mit 300 EPS ohne Event-Verlust, RAM stabil.
 
 ---
@@ -604,6 +662,7 @@ Alert-Engine (Sigma + intern), Regel-Import/-Export, Report-Engine mit allen Vor
 | ADR-18 | Report-Engine mit WeasyPrint | Open Source, PDF ohne Browser-Abhängigkeit |
 | ADR-19 | Rechte konsistent bis in OpenSearch (DLS/FLS) | Sonst Umgehung von Rollen und Vier-Augen über Dashboards |
 | ADR-20 | Auslieferung ausschließlich per `install.sh` auf frischer Debian-13-VM, keine OVA/VHDX | Kundenvorgabe; hypervisorunabhängig, kleinere Artefakte, kein Image-Build; Reparatur und Nachhärtung über denselben Weg (`--repair`) |
+| ADR-21 | Updates und Content direkt über GitHub Releases + GHCR, separates Distributions-Repository, Signatur offline | Kein eigener Update-Server nötig; Trennung von Quellcode und Artefakten; Vertrauen über Offline-Signatur statt über GitHub |
 
 ---
 
@@ -653,6 +712,8 @@ Alert-Engine (Sigma + intern), Regel-Import/-Export, Report-Engine mit allen Vor
 | R-09 | Umfang wächst deutlich (Reporting, Archiv, Change-Audit) | Phasen-Abnahmekriterien strikt einhalten; Reports iterativ erweitern |
 | R-10 | Uneinheitliche Ausgangs-VMs (Partitionierung, Zusatzpakete, Netzwerk) | Strenger Preflight, klare Anleitung zur VM-Vorbereitung, CI-Tests mit mehreren Varianten |
 | R-11 | Installation benötigt Internet (Docker-Repo, Registry) | Proxy-Unterstützung; Erreichbarkeit im Preflight geprüft |
+| R-12 | Abhängigkeit von GitHub (Verfügbarkeit, Rate-Limits, Kontosperre) | Updates sind nicht zeitkritisch; Retry/Backoff; manueller Paket-Upload im Web-UI als Ausweichweg; Distributions-Repository bei Bedarf umziehbar (Quelle konfigurierbar) |
+| R-13 | Zugangstoken auf Kundensystem wird kompromittiert | Token je Kunde, read-only, nur Distributions-Repository, widerrufbar; Quellcode in getrenntem Repository; Signatur verhindert manipulierte Updates |
 
 ---
 

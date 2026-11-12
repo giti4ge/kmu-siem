@@ -1,6 +1,6 @@
 # 11. Fehlerbehebung
 
-> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.3.0)
+> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.4.0)
 
 ## 11.1 Erste Schritte
 
@@ -75,4 +75,14 @@
 
 ## 11.7 Update fehlgeschlagen
 
-Ein fehlgeschlagenes Update wird automatisch zurückgerollt. Details: **System → Updates → Versionshistorie → Protokoll**. Häufige Ursachen: zu wenig freier Speicher, Registry nicht erreichbar. Nach Behebung erneut starten. Den Support-Export dem Dienstleister übergeben, wenn der Fehler bleibt.
+Ein fehlgeschlagenes Update wird automatisch zurückgerollt. Details: **System → Updates → Versionshistorie → Protokoll**. Häufige Ursachen: zu wenig freier Speicher, GitHub nicht erreichbar. Nach Behebung erneut starten. Den Support-Export dem Dienstleister übergeben, wenn der Fehler bleibt.
+
+### Probleme mit der Update-Quelle GitHub
+
+| Symptom | Ursache / Lösung |
+|---|---|
+| „401/403 – Zugriff verweigert“ | Zugangstoken abgelaufen oder widerrufen → neues Token vom Dienstleister, **System → Updates → GitHub-Zugang** oder `siem-hostd update set-token` |
+| „429 / Rate-Limit“ | Zu viele Abfragen ohne Token (z. B. mehrere Systeme hinter einer IP). Die Appliance wartet automatisch; mit Token entfällt das Problem |
+| Images können nicht geladen werden | `ghcr.io` bzw. `pkg-containers.githubusercontent.com` im Proxy freigeben; bei TLS-Inspection Proxy-CA hinterlegen |
+| „Release ohne gültige Signatur ignoriert“ | Sicherheitsmeldung. Auf GitHub liegt eine Version ohne gültige Offline-Signatur. **Nicht** manuell installieren; Dienstleister informieren |
+| Neue Version wird nicht angezeigt | Kanal prüfen (Pre-Releases nur im Kanal Beta); Release eventuell noch Entwurf/nicht signiert |

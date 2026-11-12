@@ -12,13 +12,15 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 
 ### Added
 - Projekt-Repository mit Dokumentationsstruktur (`docs/`).
-- Master-Spezifikation 2.3.0 inklusive Änderungshistorie und Versionsvergleich zu 1.0.0.
+- Master-Spezifikation 2.4.0 inklusive Änderungshistorie und Versionsvergleich zu 1.0.0.
 - Versionierungs- und Änderungskonzept.
-- Betriebshandbuch mit 11 Kapiteln und Anhang (Soll-Stand gemäß Spezifikation 2.3.0, wird mit der Implementierung fortgeschrieben).
+- Betriebshandbuch mit 11 Kapiteln und Anhang (Soll-Stand gemäß Spezifikation 2.4.0, wird mit der Implementierung fortgeschrieben).
 - Vorlagen für Architecture Decision Records und Release Notes.
 
 ### Changed
 - Auslieferung ausschließlich per `install.sh` auf frischer Debian-13-VM; fertige VM-Vorlagen (`.ova`, `.vhdx`) entfallen (Spezifikation 2.3.0, ADR-20).
+- Versions-, Funktions- und Content-Updates direkt über GitHub Releases und GitHub Container Registry; Installation optional per `bootstrap.sh` direkt von GitHub (Spezifikation 2.4.0, ADR-21).
+- Spezifikation auf 2.4.0 angehoben.
 
 <!--
 Vorlage für ein Release:

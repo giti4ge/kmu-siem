@@ -1,6 +1,6 @@
 # 5. Quellen anbinden
 
-> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.3.0)
+> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.4.0)
 
 Alle Quellen werden unter **Quellen & Onboarding** angelegt. Jede Quelle hat einen Assistenten, der die nötigen Einstellungen auf dem Gerät anzeigt und anschließend prüft, ob Ereignisse ankommen.
 

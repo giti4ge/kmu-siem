@@ -22,7 +22,7 @@
 
 | Dokument | Version | Stand |
 |---|---|---|
-| Spezifikation | 2.3.0 | Freigabe ausstehend |
+| Spezifikation | 2.4.0 | Freigegeben (2026-11-13) |
 | Handbuch | Entwurf für Produktversion 1.0.0 | **Soll-Dokumentation**, beschreibt den spezifizierten Zielzustand |
 | Produkt | unreleased | Implementierung nicht begonnen |
 

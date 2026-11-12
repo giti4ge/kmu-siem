@@ -2,7 +2,7 @@
 
 | Handbuch für Produktversion | Grundlage | Status |
 |---|---|---|
-| 1.0.0 (geplant) | Spezifikation 2.3.0 | **Soll-Dokumentation** – Entwurf vor Implementierung |
+| 1.0.0 (geplant) | Spezifikation 2.4.0 | **Soll-Dokumentation** – Entwurf vor Implementierung |
 
 ## Inhalt
 

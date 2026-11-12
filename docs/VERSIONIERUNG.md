@@ -16,7 +16,21 @@ Dieses Dokument legt fest, wie Produkt, Content, Spezifikation und Handbuch vers
 | **PRERELEASE** | Vorabversion | 1.5.0-beta.2, 1.5.0-rc.1 | Nur Kanal *Beta* |
 
 - Versionen **< 1.0.0** sind Entwicklungsstände (Phase 0–6). **1.0.0** ist die erste produktiv auslieferbare Version (Abnahme Phase 6).
-- Git-Tags: `v1.4.2`. Jedes Tag erzeugt in der CI das signierte Release-Manifest.
+- Git-Tags: `v1.4.2`. Jedes Tag erzeugt in der CI einen **Release-Entwurf** im Distributions-Repository (Installationspaket, Manifest, Images in GHCR).
+- Veröffentlichung: Der Release-Verantwortliche signiert `release.json` lokal mit dem Offline-Schlüssel, lädt `release.json.sig` hoch und veröffentlicht den Entwurf. Erst dann sehen die Appliances die Version.
+
+### 1.1a Abbildung auf GitHub
+
+| Produktbegriff | GitHub |
+|---|---|
+| Version `X.Y.Z` | Release mit Tag `vX.Y.Z` im Repository `kmu-siem-releases` |
+| Kanal `stable` | Releases **ohne** Pre-Release-Markierung |
+| Kanal `beta` | zusätzlich Releases **mit** Pre-Release-Markierung (`-beta.N`, `-rc.N`) |
+| Content-Paket `YYYY.MM.DD.N` | Release mit Tag `content-YYYY.MM.DD.N` |
+| Release Notes | Release-Beschreibung (aus `docs/release-notes/vX.Y.Z.md` erzeugt) |
+| Container-Images | `ghcr.io/<owner>/kmu-siem-<dienst>@sha256:…` |
+
+Ein zurückgezogenes Release wird auf GitHub nicht gelöscht, sondern im Manifest der Folgeversion als `revoked` geführt und von den Appliances nicht mehr angeboten.
 
 ### 1.2 Release-Kanäle
 
@@ -103,4 +117,5 @@ Issue/Anforderung
 - Hauptzweig `main` (immer releasefähig), Feature-Branches `feat/…`, `fix/…`, `docs/…`.
 - Commit-Nachrichten nach **Conventional Commits** (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, `BREAKING CHANGE:` im Footer). Daraus lassen sich Changelog-Entwürfe automatisch erzeugen.
 - Tags `vX.Y.Z` nur auf `main`.
-- Aktuell lokales Repository. Die spätere Migration nach GitHub: Remote hinzufügen, Branch-Schutz für `main`, CI auf GitHub Actions, Releases + Pages für Handbuch.
+- Quellcode: privates Repository `giti4ge/kmu-siem` auf GitHub (`origin`). Distribution: `giti4ge/kmu-siem-releases` (wird mit dem ersten Release angelegt).
+- CI auf GitHub Actions. Branch-Schutz für `main` erfordert bei privaten Repositories GitHub Pro (derzeit nicht aktiv). Handbuch später über GitHub Pages.

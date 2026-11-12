@@ -1,6 +1,6 @@
 # Anhang
 
-> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.3.0)
+> Gilt ab Version: 1.0.0 · Stand: Soll-Dokumentation (Spezifikation 2.4.0)
 
 ## A. Ports
 
@@ -25,7 +25,7 @@
 | Switches | 161 UDP | SNMP-Abfrage |
 | FortiGate | 443 TCP | REST-API |
 | SMTP-Server | 25/465/587 TCP | E-Mail |
-| Internet (direkt oder Proxy) | 443 TCP | Debian-, Docker-, Container-Registry-, Update-Server, Sophos Central, Teams-Webhook, abuse.ch, IEEE, Zeitstempeldienst, KI-Anbieter |
+| Internet (direkt oder Proxy) | 443 TCP | Debian, Docker, GitHub (Releases, API, `ghcr.io`), Sophos Central, Teams-Webhook, abuse.ch, IEEE, Zeitstempeldienst, KI-Anbieter |
 | Langzeitarchiv | 443 / 445 / 2049 / 22 TCP | S3 / SMB / NFS / SFTP |
 | Domain Controller | 88 TCP/UDP | Kerberos (Validierung der Keytab) |
 | Kundennetze (Discovery) | diverse | Aktive Asset-Discovery |
@@ -68,7 +68,8 @@ Siehe [Kapitel 2.5](02-systemueberblick.md#25-log-kategorien).
 | `sudo /opt/siem/host/install.sh --repair` | Sollzustand wiederherstellen |
 | `sudo siem-hostd system status` | Status von Diensten, Speicher, Versionen |
 | `sudo siem-hostd system storage-grow` | Daten-Disk nach Vergrößerung erweitern |
-| `sudo siem-hostd update check \| apply \| rollback` | Updates |
+| `sudo siem-hostd update check \| list \| apply [--version vX.Y.Z] \| rollback` | Updates von GitHub |
+| `sudo siem-hostd update set-token --file <datei>` | GitHub-Zugangstoken setzen/erneuern |
 | `sudo siem-hostd backup create` | Backup sofort erstellen |
 | `sudo siem-hostd firewall show` | Aktive Firewall-Regeln anzeigen |
 
