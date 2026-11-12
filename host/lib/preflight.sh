@@ -219,6 +219,11 @@ pf_rootfs() {
 # Setzt PF_DATA_DISK (erste geeignete Disk oder leer)
 pf_datadisk() {
     local name bytes gb best="" best_gb=0 small=""
+    if [[ -n $(state_get datadisk) ]]; then
+        PF_DATA_DISK=${ANSWERS[SIEM_DATA_DISK]:-}
+        pf_add info "$(msg pf_datadisk)" "$(msg pf_datadisk_done "${ANSWERS[SIEM_DATA_DISK]:-?}")"
+        return
+    fi
     local min_bytes=$(( SIEM_MIN_DATA_GB * 1000000000 ))
     while read -r name bytes; do
         [[ -n $name ]] || continue
@@ -308,7 +313,7 @@ pf_ports() {
     done
     if (( ${#used[@]} == 0 )); then
         pf_add ok "$(msg pf_ports)" "$(msg pf_ports_ok)"
-    elif state_is_done app; then
+    elif [[ -n $(state_get app) ]]; then
         pf_add info "$(msg pf_ports)" "$(msg pf_ports_siem)"
     else
         pf_add fail "$(msg pf_ports)" "$(msg pf_ports_bad "${used[*]}")"
@@ -320,7 +325,7 @@ pf_container() {
     found=$(probe_installed_pkgs "${PF_CONTAINER_PKGS[@]}" | paste -sd' ' -)
     if [[ -z $found ]]; then
         pf_add ok "$(msg pf_docker)" "$(msg pf_docker_ok)"
-    elif state_is_done docker; then
+    elif [[ -n $(state_get docker) ]]; then
         pf_add info "$(msg pf_docker)" "$(msg pf_docker_siem)"
     else
         pf_add fail "$(msg pf_docker)" "$(msg pf_docker_bad "$found")"

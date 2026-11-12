@@ -68,5 +68,5 @@ setup() {
 
 @test "Entwicklungsstand wird angezeigt" {
     run bash "$INSTALL" --preflight
-    [[ "$output" == *"Entwicklungsstand Phase 0"* ]]
+    [[ "$output" == *"Entwicklungsstand Phase "* ]]
 }

@@ -209,9 +209,10 @@ Einzige Brücke zwischen Web-UI und Host. Kein Docker-Socket in Containern.
 **Härtung:**
 - **Debian 13 minimal** als Basis, Logging nach `/var/log/siem-install.log`.
 - Es wird ein eigener Admin-Benutzer `siemadmin` angelegt (Gruppe `siem-ssh`, sudo). Ein vom Debian-Installer angelegter Benutzer bleibt erhalten, verliert aber den SSH-Zugang (abschaltbar per Option `--keep-installer-user-ssh`).
-- **Kernel/sysctl** (`/etc/sysctl.d/99-siem-hardening.conf`): SYN-Cookies, ICMP-Redirects aus, Source-Route aus, `rp_filter=1`, `randomize_va_space=2`, `kptr_restrict=2`, `dmesg_restrict=1`, `vm.max_map_count=262144` (OpenSearch), `ip_forward=0` (möglich, da keine Docker-Port-Publishings – interne Container-Kommunikation via Bridge benötigt kein Forwarding nach außen; Verifikation in Phase 1).
-- **Module** deaktiviert: usb-storage, bluetooth, firewire-core, cramfs, freevxfs, udf.
-- **SSH**: `PermitRootLogin no`, nur Key-Auth (Passwort optional während Erstinbetriebnahme), moderne KEX/Ciphers/MACs, `MaxAuthTries 3`, `AllowGroups siem-ssh`.
+- **Kernel/sysctl** (`/etc/sysctl.d/99-siem-hardening.conf`): SYN-Cookies, ICMP-Redirects aus, Source-Route aus, `rp_filter=1`, `randomize_va_space=2`, `kptr_restrict=2`, `dmesg_restrict=1`, `vm.max_map_count=262144` (OpenSearch), `ip_forward=1`. *(Ergebnis der Verifikation in Phase 1.1: Container auf der Appliance-Bridge – z. B. `worker` für Updates, Mail, Teams, APIs – benötigen ausgehendes Forwarding. Die nftables-Forward-Kette lässt ausschließlich ausgehenden Verkehr der Bridge `br-siem` zu; eingehender Verkehr in Container ist nicht möglich.)*
+- **Module** deaktiviert: usb-storage, uas, bluetooth, firewire, cramfs, freevxfs, jffs2, hfs, hfsplus, udf, dccp, sctp, rds, tipc.
+- **SSH** (`/etc/ssh/sshd_config.d/00-siem.conf` – Präfix `00`, da sshd jeweils den ersten gefundenen Wert übernimmt): `PermitRootLogin no`, `AllowGroups siem-ssh`, moderne KEX (inkl. Post-Quantum-Hybrid)/Ciphers/MACs, `MaxAuthTries 3`, keine Weiterleitungen. Kennwort-Anmeldung wird nur nach bestätigtem Schlüssel-Test (interaktiv) bzw. `SIEM_SSH_PASSWORD_AUTH=no` (Antwortdatei) abgeschaltet.
+- **nftables und Docker:** eigene Tabelle `inet siem` statt `flush ruleset`; systemd-Drop-in verhindert, dass ein Stopp von `nftables.service` Dockers Regeln löscht. Docker ohne Standard-Bridge (`bridge: none`).
 - **unattended-upgrades** mit konfigurierbarem Reboot-Fenster.
 - **chrony** (NTP), Zeitquelle im UI konfigurierbar (Standard: DCs der Domäne). Speicherung UTC, Anzeige Europe/Berlin.
 - **auditd** + **AIDE** (Integritätsprüfung, täglich, Abweichung → Alert).

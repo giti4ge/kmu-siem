@@ -2,19 +2,19 @@
 # Installationsschritte in fester Reihenfolge.
 # Jeder Schritt ist idempotent und wird nach Erfolg im Zustand als "done" vermerkt.
 #
-# Entwicklungsstand Phase 0: Die Schritte ab "base" sind Platzhalter und enden mit
-# EX_NOT_IMPLEMENTED. Sie werden ab Phase 1 implementiert (siehe SPEC Abschnitt 4.1).
+# Schritte ohne Funktion step_<name> enden mit EX_NOT_IMPLEMENTED (noch nicht
+# implementiert). Implementierungen liegen in lib/step_<name>.sh.
 
 # "name|Beschreibung|geplante Phase"
 STEPS=(
-    "base|Basis: Paketquellen, Systemaktualisierung, Abhängigkeiten|Phase 1"
-    "datadisk|Daten-Disk: LVM, Dateisystem, Einhängen|Phase 1"
-    "hardening|Härtung: Kernel, Module, SSH, auditd, AIDE, AppArmor, Zeit, Updates|Phase 1"
-    "docker|Docker Engine|Phase 1"
-    "firewall|Firewall (nftables)|Phase 1"
-    "hostd|Host-Dienste (siem-hostd)|Phase 1"
-    "app|Anwendung: Images, Zertifikate, Start, Initialisierung|Phase 1"
-    "selftest|Abschluss-Selbsttest|Phase 1"
+    "base|Basis: Paketquellen, Systemaktualisierung, Abhängigkeiten|Phase 1.1"
+    "datadisk|Daten-Disk: LVM, Dateisystem, Einhängen|Phase 1.1"
+    "hardening|Härtung: Kernel, Module, SSH, auditd, AppArmor, Zeit, Updates|Phase 1.1"
+    "docker|Docker Engine|Phase 1.1"
+    "firewall|Firewall (nftables)|Phase 1.1"
+    "hostd|Host-Dienste (siem-hostd)|Phase 1.2"
+    "app|Anwendung: Images, Zertifikate, Start, Initialisierung|Phase 1.3"
+    "selftest|Abschluss-Selbsttest (inkl. AIDE, Lynis)|Phase 1.3/1.4"
 )
 
 step_name()  { local s=${STEPS[$1]}; printf '%s' "${s%%|*}"; }

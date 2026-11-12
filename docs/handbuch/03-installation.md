@@ -245,6 +245,8 @@ SIEM_TRUNK_VLANS=                   # z. B. 10,20,30
 ### Schutz vor Aussperren
 
 - Die Kennwort-Anmeldung per SSH wird **nur** abgeschaltet, wenn ein SSH-Key hinterlegt wurde **und** eine Testanmeldung damit bestätigt ist. Andernfalls bleibt sie aktiv und das Dashboard warnt.
+  - **Interaktiv:** Nach der Härtung fordert das Skript auf, in einer **neuen** SSH-Sitzung `ssh siemadmin@<appliance>` mit dem Schlüssel zu testen, und fragt nach dem Ergebnis. Die laufende Sitzung dabei nicht schließen.
+  - **Antwortdatei:** `SIEM_SSH_PASSWORD_AUTH=no` schaltet die Kennwort-Anmeldung ab. Das setzt voraus, dass der hinterlegte Schlüssel vorher geprüft wurde.
 - Die laufende SSH-Sitzung bleibt während der Installation bestehen, die eigene Quell-IP wird in der Firewall zugelassen.
 - Der bei der Debian-Installation angelegte Benutzer (z. B. `install`) verliert nach der Installation den SSH-Zugang. Die Anmeldung erfolgt künftig als `siemadmin`.
 
