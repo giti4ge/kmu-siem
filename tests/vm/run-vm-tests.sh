@@ -104,7 +104,7 @@ vm 'cloud-init status --wait >/dev/null 2>&1 || true'
 pass "VM erreichbar"
 
 # Repository-Teile übertragen
-tar -C "$REPO" -czf - host VERSION | vm 'mkdir -p ~/siem && tar -C ~/siem -xzf -'
+tar -C "$REPO" -czf - host app VERSION | vm 'mkdir -p ~/siem && tar -C ~/siem -xzf -'
 
 run_pf() {  # run_pf [ENV…] -- [ARGS…]; Ausgabe in $OUT, Exit in $RC
     local envs=() ; while [[ $# -gt 0 && $1 != -- ]]; do envs+=("$1"); shift; done; shift || true
