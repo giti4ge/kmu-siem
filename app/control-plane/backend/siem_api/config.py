@@ -35,6 +35,8 @@ class Settings:
     # Kontosperre: ab dieser Zahl Fehlversuche progressive Sperre
     lockout_threshold: int = field(default_factory=lambda: _env_int("SIEM_LOCKOUT_THRESHOLD", 5))
     lockout_max_minutes: int = field(default_factory=lambda: _env_int("SIEM_LOCKOUT_MAX_MINUTES", 60))
+    # Socket von siem-hostd (Allowlist-Aktionen, z. B. System-Protokoll)
+    hostd_socket: str = field(default_factory=lambda: os.environ.get("SIEM_HOSTD_SOCKET", "/run/siem/hostd.sock"))
     # Anzeigename des TOTP-Ausstellers in Authenticator-Apps
     totp_issuer: str = field(default_factory=lambda: os.environ.get("SIEM_TOTP_ISSUER", "KMU-SIEM"))
 

@@ -181,6 +181,7 @@ _app_env() {
 SIEM_DATA=$SIEM_ROOT/data
 OPENSEARCH_JAVA_OPTS=-Xms${heap}g -Xmx${heap}g
 SIEM_API_IMAGE=ghcr.io/giti4ge/kmu-siem/api:${SIEM_VERSION:-dev}
+SIEM_HOSTD_GID=$(getent group siem-hostd | cut -d: -f3)
 EOF
     (( $? <= 1 ))
 }

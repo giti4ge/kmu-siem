@@ -126,3 +126,25 @@ def test_cli_password_stdin_and_reset_mfa(tmp_path, monkeypatch, capsys):
         assert s.query(User).filter_by(username="admin").one().totp_enabled is False
     assert cli.main(["reset-mfa", "--username", "niemand"]) == 1
     assert cli.main(["verify-audit"]) == 0
+
+
+def test_system_logs_via_hostd(h, settings, monkeypatch):
+    from siem_api import hostd
+    calls = []
+
+    def fake_call(sock, action, params, actor, timeout=30.0):
+        calls.append((sock, action, params, actor))
+        return {"source": params["source"], "lines": ["eins", "zwei"], "truncated": False}
+    monkeypatch.setattr(hostd, "call", fake_call)
+    h.create_user("adm", ["system-admin"])
+    adm = h.login("adm")
+    r = adm.get("/api/system/logs", params={"source": "vector", "lines": 10, "query": "err"})
+    assert r.status_code == 200 and r.json()["lines"] == ["eins", "zwei"]
+    assert calls[0][1:] == ("system.logs", {"source": "vector", "lines": 10, "query": "err"}, "adm@web")
+    assert adm.get("/api/system/logs", params={"source": "/etc/shadow"}).status_code == 422
+    assert adm.get("/api/system/logs", params={"lines": 5000}).status_code == 422
+
+    def down(*a, **k):
+        raise hostd.HostdUnavailable("x")
+    monkeypatch.setattr(hostd, "call", down)
+    assert adm.get("/api/system/logs").json()["detail"]["error"] == "hostd_unavailable"

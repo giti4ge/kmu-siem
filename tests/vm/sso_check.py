@@ -93,6 +93,11 @@ check(st == 200 and info.get("user_name") == USER and "siem_reader" in info.get(
 st, _, _ = call(op, "GET", "/dashboards/app/home")
 check(st == 200, "Dashboards-Oberfläche erreichbar", f"{st}")
 
+st, _, body = call(op, "GET", "/api/system/logs?source=install&lines=5")
+logs = json.loads(body or b"{}") if st == 200 else {}
+check(st == 200 and len(logs.get("lines", [])) > 0, "System-Protokoll über siem-hostd (Installation)", f"{st} {body[:200]!r}")
+st, _, body = call(op, "GET", "/api/system/logs?source=vector&lines=5")
+check(st == 200, "System-Protokoll: Container-Log (Vector)", f"{st} {body[:200]!r}")
 st, _, _ = call(op, "GET", "/api/auth/sso/dashboards")
 check(st == 404, "SSO-Token nicht direkt über /api abrufbar", f"{st}")
 st, _, _ = call(op, "POST", "/api/auth/logout", headers=csrf)

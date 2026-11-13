@@ -74,9 +74,13 @@ services:
     network_mode: host
     user: "2100:2100"
     read_only: true
+    # Zugriff auf siem-hostd (nur Allowlist-Aktionen) über die Gruppe siem-hostd
+    group_add:
+      - "${SIEM_HOSTD_GID:-65534}"
     volumes:
       - ${SIEM_DATA}/config-db:/data/config-db
       - ${SIEM_DATA}/secrets/control-plane:/data/secrets
+      - /run/siem:/run/siem
     tmpfs:
       - /tmp
 

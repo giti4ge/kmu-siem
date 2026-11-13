@@ -498,6 +498,75 @@ def system_status(fw: FirewallManager) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------- #
+# System-Protokoll (nur lesen, feste Quellen)
+# --------------------------------------------------------------------------- #
+# Quelle → (Art, Ziel). Keine freien Pfade/Units/Container – nur diese Allowlist.
+LOG_SOURCES: dict[str, tuple[str, str]] = {
+    "install": ("file", "/var/log/siem-install.log"),
+    "hostd-audit": ("file", "/var/log/siem-hostd.log"),
+    "siem-hostd": ("journal", "siem-hostd"),
+    "docker": ("journal", "docker"),
+    "nftables": ("journal", "nftables"),
+    "ssh": ("journal", "ssh"),
+    "chrony": ("journal", "chrony"),
+    "unattended-upgrades": ("file", "/var/log/unattended-upgrades/unattended-upgrades.log"),
+    "opensearch": ("container", "siem-opensearch"),
+    "vector": ("container", "siem-vector"),
+    "proxy": ("container", "siem-proxy"),
+    "api": ("container", "siem-api"),
+    "dashboards": ("container", "siem-dashboards"),
+}
+LOG_MAX_LINES = 2000
+LOG_SCAN_LINES = 20000  # Vorrat für die Filterung
+LOG_FILE_TAIL_BYTES = 4 * 1024 * 1024
+
+
+def _run_lines(cmd: list[str]) -> list[str]:
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=20, check=False)  # noqa: S603
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise HostdError(f"Protokoll nicht lesbar: {exc}") from exc
+    # docker logs schreibt die Container-Ausgabe teils auf stderr
+    return (proc.stdout + proc.stderr).splitlines()
+
+
+def _tail_file(path: str) -> list[str]:
+    p = Path(path)
+    if not p.exists():
+        return []
+    with p.open("rb") as fh:
+        fh.seek(0, os.SEEK_END)
+        size = fh.tell()
+        fh.seek(max(0, size - LOG_FILE_TAIL_BYTES))
+        data = fh.read().decode("utf-8", errors="replace")
+    lines = data.splitlines()
+    return lines[1:] if size > LOG_FILE_TAIL_BYTES else lines
+
+
+def system_logs(params: dict[str, Any], reader: Callable[[list[str]], list[str]] = _run_lines) -> dict[str, Any]:
+    source = params.get("source")
+    if source not in LOG_SOURCES:
+        raise HostdError("Unbekannte Protokollquelle")
+    lines = params.get("lines", 500)
+    if not isinstance(lines, int) or isinstance(lines, bool) or not 1 <= lines <= LOG_MAX_LINES:
+        raise HostdError(f"lines muss zwischen 1 und {LOG_MAX_LINES} liegen")
+    query = params.get("query") or ""
+    if not isinstance(query, str) or len(query) > 100:
+        raise HostdError("Filter ungültig (höchstens 100 Zeichen)")
+    kind, target = LOG_SOURCES[source]
+    if kind == "file":
+        raw = _tail_file(target)
+    elif kind == "journal":
+        raw = reader(["/usr/bin/journalctl", "-u", target, "-n", str(LOG_SCAN_LINES), "--no-pager", "-o", "short-iso"])
+    else:
+        raw = reader(["/usr/bin/docker", "logs", "--tail", str(LOG_SCAN_LINES), "--timestamps", target])
+    if query:
+        q = query.lower()
+        raw = [ln for ln in raw if q in ln.lower()]
+    return {"source": source, "lines": [ln[:4000] for ln in raw[-lines:]], "truncated": len(raw) > lines}
+
+
+# --------------------------------------------------------------------------- #
 # Aktionen (Allowlist)
 # --------------------------------------------------------------------------- #
 class Dispatcher:
@@ -506,6 +575,7 @@ class Dispatcher:
         self.status = status or (lambda: system_status(fw))
         self.actions: dict[str, Callable[[dict[str, Any], str], Any]] = {
             "system.status": lambda p, a: self.status(),
+            "system.logs": lambda p, a: system_logs(p),
             "firewall.show": lambda p, a: self.fw.show(),
             "firewall.apply": lambda p, a: self.fw.apply(p.get("config"), a, p.get("timeout")),
             "firewall.confirm": lambda p, a: self.fw.confirm(p.get("token"), a),
@@ -650,7 +720,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("serve", help="Dienst starten")
 
     p_sys = sub.add_parser("system", help="System")
-    p_sys.add_argument("what", choices=["status"])
+    p_sys.add_argument("what", choices=["status", "logs"])
+    p_sys.add_argument("--source", choices=sorted(LOG_SOURCES), default="install")
+    p_sys.add_argument("--lines", type=int, default=100)
+    p_sys.add_argument("--query", default="")
 
     p_fw = sub.add_parser("firewall", help="Firewall")
     fw_sub = p_fw.add_subparsers(dest="fwcmd", required=True)
@@ -672,6 +745,10 @@ def main(argv: list[str] | None = None) -> int:
         return serve()
 
     if args.cmd == "system":
+        if args.what == "logs":
+            res = _result(call("system.logs", {"source": args.source, "lines": args.lines, "query": args.query}))
+            print("\n".join(res["lines"]))
+            return 0
         _print(_result(call("system.status")))
         return 0
 
