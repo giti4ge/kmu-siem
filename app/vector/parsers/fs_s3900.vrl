@@ -1,0 +1,86 @@
+# KMU-SIEM – FS S3900 (Cisco-ähnliches Format) Syslog → ECS
+# "%LINK-5-CHANGED: Interface eth1/0/5, changed state to UP"
+# Je nach Absender-Format landet "%LINK-5-CHANGED" im Syslog-Appname statt in der Nachricht;
+# beides wird zum Rohtext zusammengesetzt.
+
+body = string(.message) ?? ""
+an = string(.appname) ?? ""
+raw = if starts_with(an, "%") { an + ": " + body } else { body }
+peer_hostname = string(.hostname) ?? null
+syslog_severity = del(.severity)
+syslog_facility = del(.facility)
+del(.hostname)
+del(.appname)
+del(.procid)
+del(.msgid)
+del(.version)
+
+.observer.ip = del(.source_ip)
+.observer.vendor = "FS"
+.observer.product = "S3900"
+.observer.type = "switch"
+.observer.name = peer_hostname
+.observer.hostname = peer_hostname
+.siem.collector = "vector"
+.siem.pipeline = "fs_s3900"
+.siem.category = "network"
+.event.kind = "event"
+.event.module = "fs_s3900"
+.event.dataset = "fs_s3900.generic"
+.event.category = ["network"]
+.event.type = ["info"]
+.event.ingested = now()
+.event.original = raw
+.message = raw
+.log.syslog.facility.name = syslog_facility
+.log.syslog.severity.name = syslog_severity
+.log.level = syslog_severity
+
+head = parse_regex(raw, r'^%(?P<fac>[A-Z0-9_]+)-(?P<sev>\d)-(?P<mnem>[A-Z0-9_]+):\s*(?P<text>.*)$') ?? null
+if head != null {
+    .event.code = (string(head.fac) ?? "") + "-" + (string(head.sev) ?? "") + "-" + (string(head.mnem) ?? "")
+    .event.severity = to_int(head.sev) ?? null
+    .message = head.text
+    text = string(head.text) ?? ""
+
+    link = parse_regex(text, r'(?i)^(Line protocol on )?Interface (?P<port>\S+), changed state to (?P<state>up|down|administratively down)') ?? null
+    login = parse_regex(text, r'(?i)user (?P<user>\S+).*(?P<res>login failed|login success|logged in|logged out|authentication failed)(.*from (?P<ip>[0-9a-fA-F:.]+))?') ?? null
+    cfg = parse_regex(text, r'(?i)(configured from|config.*(changed|saved)|copy .*running-config)') ?? null
+
+    if link != null {
+        .event.dataset = "fs_s3900.link"
+        .observer.ingress.interface.name = link.port
+        if downcase(string(link.state) ?? "") == "up" {
+            .event.action = "port-up"
+            .event.type = ["change", "start"]
+        } else {
+            .event.action = "port-down"
+            .event.type = ["change", "end"]
+        }
+    } else if login != null {
+        .event.dataset = "fs_s3900.auth"
+        .event.category = ["authentication"]
+        .user.name = login.user
+        if login.ip != null { .source.ip = login.ip }
+        res = downcase(string(login.res) ?? "")
+        if res == "login failed" || res == "authentication failed" {
+            .event.action = "login-failed"
+            .event.outcome = "failure"
+            .event.type = ["start", "denied"]
+        } else if res == "logged out" {
+            .event.action = "logout"
+            .event.type = ["end"]
+        } else {
+            .event.action = "login"
+            .event.outcome = "success"
+            .event.type = ["start", "allowed"]
+        }
+    } else if cfg != null {
+        .event.dataset = "fs_s3900.config"
+        .event.category = ["configuration"]
+        .event.type = ["change"]
+        .event.action = "config-change"
+    }
+} else {
+    .event.dataset = "fs_s3900.unstructured"
+}

@@ -1,0 +1,75 @@
+# KMU-SIEM – ArubaOS-Switch (ehem. HPE ProCurve) Syslog → ECS
+# Format RFC 3164: "<190>Nov 13 10:15:30 SW-01 ports: port 12 is now on-line" (appname = Subsystem).
+# Gerätespezifisch erkannt: Link auf/ab, Anmeldung (Erfolg/Fehlschlag), Konfigurationsänderung.
+# Alles andere bleibt als generisches Netzwerk-Ereignis erhalten.
+
+raw = string(.message) ?? ""
+subsystem = string(.appname) ?? ""
+peer_hostname = string(.hostname) ?? null
+syslog_severity = del(.severity)
+syslog_facility = del(.facility)
+del(.hostname)
+del(.appname)
+del(.procid)
+del(.msgid)
+del(.version)
+
+.observer.ip = del(.source_ip)
+.observer.vendor = "HPE Aruba"
+.observer.product = "ArubaOS-Switch"
+.observer.type = "switch"
+.observer.name = peer_hostname
+.observer.hostname = peer_hostname
+.siem.collector = "vector"
+.siem.pipeline = "arubaos"
+.siem.category = "network"
+.event.kind = "event"
+.event.module = "arubaos"
+.event.dataset = "arubaos.generic"
+.event.category = ["network"]
+.event.type = ["info"]
+.event.ingested = now()
+.event.original = raw
+.log.syslog.facility.name = syslog_facility
+.log.syslog.severity.name = syslog_severity
+.log.level = syslog_severity
+.process.name = subsystem
+
+link = parse_regex(raw, r'port (?P<port>\S+) is now (?P<state>on|off)-line') ?? null
+authfail = parse_regex(raw, r'(?i)Invalid user name/password on (?P<proto>\w+) session from (?P<ip>[0-9a-fA-F:.]+)') ?? null
+login = parse_regex(raw, r'(?P<proto>SME|Console|SSH|Telnet|WEB|Web) .*?(from (?P<ip>[0-9a-fA-F:.]+) )?- (?P<mode>MANAGER|OPERATOR) Mode') ?? null
+cfg = parse_regex(raw, r'(?i)(?P<which>startup|running)[- ]config(uration)? .*?(changed|saved|written)') ?? null
+
+if link != null {
+    .event.dataset = "arubaos.link"
+    .observer.ingress.interface.name = link.port
+    if link.state == "on" {
+        .event.action = "port-up"
+        .event.type = ["change", "start"]
+    } else {
+        .event.action = "port-down"
+        .event.type = ["change", "end"]
+    }
+} else if authfail != null {
+    .event.dataset = "arubaos.auth"
+    .event.category = ["authentication"]
+    .event.type = ["start", "denied"]
+    .event.action = "login-failed"
+    .event.outcome = "failure"
+    .source.ip = authfail.ip
+    .network.protocol = downcase(string(authfail.proto) ?? "")
+} else if login != null {
+    .event.dataset = "arubaos.auth"
+    .event.category = ["authentication"]
+    .event.type = ["start", "allowed"]
+    .event.action = "login"
+    .event.outcome = "success"
+    if login.ip != null { .source.ip = login.ip }
+    .network.protocol = downcase(string(login.proto) ?? "")
+    .user.roles = [downcase(string(login.mode) ?? "")]
+} else if cfg != null {
+    .event.dataset = "arubaos.config"
+    .event.category = ["configuration"]
+    .event.type = ["change"]
+    .event.action = "config-change"
+}
