@@ -34,3 +34,4 @@ Thumbs.db
 .vm/
 app/images/
 app/proxy/html/
+*.tsbuildinfo
