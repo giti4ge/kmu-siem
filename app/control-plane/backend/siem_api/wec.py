@@ -180,14 +180,16 @@ def render_subscription(role: str) -> str:
     uid = uuid.uuid5(_NS, f"siem-{role}")
     return f'''uuid = "{uid}"
 name = "siem-{role}"
-uri = "{role_uri(role)}"
-enabled = true
-heartbeat_interval = 900
-max_time = 30
-content_format = "Raw"
 query = """
 {role_query(role)}
 """
+
+[options]
+enabled = true
+uri = "{role_uri(role)}"
+heartbeat_interval = 900
+max_time = 30
+content_format = "Raw"
 
 [[outputs]]
 driver = "Tcp"

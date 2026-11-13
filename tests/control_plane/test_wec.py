@@ -43,7 +43,7 @@ def test_generated_toml_is_valid_for_all_roles():
     uuids = set()
     for role in wec.ROLES:
         sub = tomllib.loads(wec.render_subscription(role))
-        assert sub["name"] == f"siem-{role}" and sub["uri"] == f"/wec/{role}"
+        assert sub["name"] == f"siem-{role}" and sub["options"]["uri"] == f"/wec/{role}"
         assert sub["outputs"][0]["config"]["port"] == wec.VECTOR_PORT
         assert "<QueryList>" in sub["query"]
         uuids.add(sub["uuid"])
