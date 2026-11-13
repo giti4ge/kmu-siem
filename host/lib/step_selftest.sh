@@ -100,16 +100,24 @@ _st_syslog() {
         return 0
     fi
     err "$(msg selftest_syslog_fail "${proto^^}" "$tmo")"
-    _st_diagnose
+    _st_diagnose "$id"
     return 1
 }
 
 # Diagnose bei Fehlschlag: letzte Log-Zeilen der beteiligten Dienste (auch ins Protokoll)
 _st_diagnose() {
     local c
+    {
+        printf '
+--- Ereignis in anderen Indizes? (%s) ---
+' "${1:-}"
+        [[ -n ${1:-} ]] && siem_os_init find --index 'siem-*' --text "$1" --timeout 3 2>&1
+        docker exec siem-opensearch curl -s --max-time 5 -o /dev/null -w 'OpenSearch ohne Zugangsdaten: HTTP %{http_code}
+' https://localhost:9200 -k 2>&1
+    } | tee -a "$SIEM_LOG_FILE" >&2
     for c in siem-vector siem-opensearch; do
         printf '\n--- %s (letzte Zeilen) ---\n' "$c" >&2
-        docker logs --tail 25 "$c" 2>&1 | tee -a "$SIEM_LOG_FILE" >&2
+        docker logs --since 10m --tail 40 "$c" 2>&1 | tee -a "$SIEM_LOG_FILE" >&2
     done
 }
 
