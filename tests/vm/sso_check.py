@@ -79,7 +79,7 @@ check(st == 200 and me.get("stage") == "mfa_enroll", "Anmeldung Web-Admin (2FA-E
 csrf = {"X-CSRF-Token": me.get("csrf_token", "")}
 
 st, _, _ = call(op, "GET", "/dashboards/app/home")
-check(st == 302, "Dashboards vor abgeschlossener 2FA gesperrt", f"{st}")
+check(st == 302, "Dashboards vor abgeschlossener 2FA gesperrt (Weiterleitung)", f"{st}")
 
 st, _, body = call(op, "POST", "/api/auth/totp/setup", headers=csrf)
 secret = json.loads(body or b"{}").get("secret", "")

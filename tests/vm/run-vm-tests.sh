@@ -222,8 +222,16 @@ vmr 'siem-hostd firewall show | jq ".committed | .services.https.sources = []" >
      siem-hostd firewall show | jq ".committed" > /tmp/fw-orig.json'
 if reach; then pass "443 vor der Änderung erreichbar"; else fail "443 vor der Änderung nicht erreichbar"; fi
 
+# apply mit sichtbarer Ausgabe, falls kein Token geliefert wird (Diagnose zu Issue #8)
+apply_nohttps() {
+    local out
+    out=$(vmr 'siem-hostd firewall apply --file /tmp/fw-nohttps.json --no-wait; echo "rc=$?"; siem-hostd firewall show | jq -c .pending' 2>&1 || true)
+    TOKEN=$(head -1 <<<"$out" | jq -r .token 2>/dev/null || true)
+    [[ -n $TOKEN && $TOKEN != null ]] || printf '%s
+' "$out" | sed 's/^/       │ apply: /'
+}
 # 8a: ohne Bestätigung → automatische Rücknahme
-TOKEN=$(vmr 'siem-hostd firewall apply --file /tmp/fw-nohttps.json --no-wait' | jq -r .token)
+apply_nohttps
 [[ -n $TOKEN && $TOKEN != null ]] && pass "apply liefert Bestätigungs-Token" || fail "kein Token"
 if reach; then fail "443 trotz entzogener Freigabe erreichbar"; else pass "Änderung sofort aktiv (443 gesperrt)"; fi
 check "unbestätigte Änderung nicht dauerhaft gespeichert" 'grep -q "set allow_https { type ipv4_addr; flags interval; auto-merge; elements" /etc/nftables.conf'
@@ -233,7 +241,7 @@ check "keine ausstehende Änderung mehr" 'siem-hostd firewall show | jq -e ".pen
 check "Rücknahme im Audit-Log" 'grep -q "Dead-Man" /var/log/siem-hostd.log'
 
 # 8b: mit Bestätigung → dauerhaft
-TOKEN=$(vmr 'siem-hostd firewall apply --file /tmp/fw-nohttps.json --no-wait' | jq -r .token)
+apply_nohttps
 check "falsches Token abgelehnt" '! siem-hostd firewall confirm falsches-token 2>/dev/null'
 check "Bestätigung mit Token" "siem-hostd firewall confirm $TOKEN >/dev/null"
 sleep 65

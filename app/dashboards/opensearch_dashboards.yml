@@ -21,8 +21,5 @@ opensearch_security.cookie.secure: true
 opensearch_security.cookie.password: "${COOKIE_PASSWORD}"
 opensearch_security.readonly_mode.roles: []
 
-telemetry.enabled: false
-telemetry.allowChangingOptInStatus: false
-newsfeed.enabled: false
 home.disableWelcomeScreen: true
 data.search.usageTelemetry.enabled: false

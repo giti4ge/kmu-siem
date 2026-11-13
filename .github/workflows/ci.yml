@@ -180,5 +180,13 @@ jobs:
             -v /tmp/siem/certs/cert.pem:/etc/nginx/siem-certs/web.crt:ro \
             -v /tmp/siem/certs/key.pem:/etc/nginx/siem-certs/web.key:ro \
             "$IMG" nginx -t
+      - name: Dashboards-Konfiguration prüfen (Start ohne Konfigurationsfehler)
+        run: |
+          IMG=$(grep -oE 'opensearchproject/opensearch-dashboards:[^ ]+' app/docker-compose.yml)
+          mkdir -p /tmp/osd-certs && cp /tmp/siem/certs/cert.pem /tmp/osd-certs/ca.crt && chmod 0644 /tmp/osd-certs/ca.crt
+          docker run -d --name osd --network host -e KIBANASERVER_PASSWORD=x -e COOKIE_PASSWORD=$(openssl rand -hex 20)             -v "$PWD/app/dashboards/opensearch_dashboards.yml:/usr/share/opensearch-dashboards/config/opensearch_dashboards.yml:ro"             -v /tmp/osd-certs:/usr/share/opensearch-dashboards/config/certs:ro "$IMG"
+          sleep 45
+          docker logs osd 2>&1 | grep -E '"fatal"|InvalidConfigurationError|FATAL' && exit 1
+          [ "$(docker inspect -f '{{.State.Running}}' osd)" = true ] || { docker logs osd 2>&1 | tail -20; exit 1; }
       - name: OpenSearch-Init (Syntax)
         run: python3 -c "import ast,sys; ast.parse(open('app/opensearch/init.py').read())"

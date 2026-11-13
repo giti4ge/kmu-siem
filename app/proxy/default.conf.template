@@ -58,7 +58,7 @@ server {
     location /dashboards/ {
         auth_request /_sso_dashboards;
         auth_request_set $siem_jwt $upstream_http_x_siem_jwt;
-        error_page 401 = @login;
+        error_page 401 403 = @login;
         proxy_set_header Authorization "Bearer $siem_jwt";
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $remote_addr;
