@@ -1,0 +1,213 @@
+# Parser-Tests FortiGate (ausgeführt per `vector test`, siehe CI-Job "app-config").
+# Fixtures sind aus Herstellerdokumentation nachgebildet (SPEC R-02: keine echten Proben).
+
+tests:
+  - name: fortigate traffic accept (Inter-VLAN)
+    inputs:
+      - insert_at: fortigate
+        type: log
+        log_fields:
+          hostname: FGT-LAB
+          appname: ""
+          source_ip: 10.0.0.1
+          message: >-
+            date=2026-11-13 time=10:15:30 devname="FGT-LAB" devid="FGT60FTK0000LAB0"
+            eventtime=1794561330000000000 tz="+0100" logid="0000000013" type="traffic" subtype="forward"
+            level="notice" vd="root" srcip=10.0.10.21 srcport=51514 srcintf="vlan10" srcintfrole="lan"
+            dstip=10.0.30.5 dstport=445 dstintf="vlan30" dstintfrole="lan" proto=6 service="SMB"
+            action="accept" policyid=7 sentbyte=1200 rcvdbyte=34000
+    outputs:
+      - extract_from: fortigate
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "firewall")
+              assert_eq!(.event.dataset, "fortigate.traffic")
+              assert_eq!(.event.category, ["network"])
+              assert_eq!(.event.type, ["connection", "allowed"])
+              assert_eq!(.event.outcome, "success")
+              assert_eq!(.source.ip, "10.0.10.21")
+              assert_eq!(.source.port, 51514)
+              assert_eq!(.destination.ip, "10.0.30.5")
+              assert_eq!(.destination.port, 445)
+              assert_eq!(.network.transport, "tcp")
+              assert_eq!(.network.protocol, "smb")
+              assert_eq!(.source.bytes, 1200)
+              assert_eq!(.destination.bytes, 34000)
+              assert_eq!(.rule.id, "7")
+              assert_eq!(.observer.name, "FGT-LAB")
+              assert_eq!(.observer.vendor, "Fortinet")
+              assert_eq!(.siem.inter_vlan, true)
+              assert_eq!(format_timestamp!(.@timestamp, "%Y-%m-%dT%H:%M:%SZ"), "2026-11-13T09:15:30Z")
+
+  - name: fortigate traffic deny nach WAN ist nicht Inter-VLAN
+    inputs:
+      - insert_at: fortigate
+        type: log
+        log_fields:
+          source_ip: 10.0.0.1
+          message: >-
+            date=2026-11-13 time=10:15:30 devname="FGT-LAB" devid="FGT60FTK0000LAB0" tz="+0100"
+            logid="0000000013" type="traffic" subtype="forward" level="warning" vd="root"
+            srcip=10.0.10.21 srcport=51514 srcintf="vlan10" srcintfrole="lan" dstip=45.155.205.233
+            dstport=443 dstintf="wan1" dstintfrole="wan" proto=17 service="HTTPS" action="deny" policyid=0
+    outputs:
+      - extract_from: fortigate
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.type, ["connection", "denied"])
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.network.transport, "udp")
+              assert_eq!(.siem.inter_vlan, null)
+              assert_eq!(format_timestamp!(.@timestamp, "%Y-%m-%dT%H:%M:%SZ"), "2026-11-13T09:15:30Z")
+
+  - name: fortigate IPS
+    inputs:
+      - insert_at: fortigate
+        type: log
+        log_fields:
+          source_ip: 10.0.0.1
+          message: >-
+            date=2026-11-13 time=10:15:30 devname="FGT-LAB" devid="FGT60FTK0000LAB0" tz="+0100"
+            logid="0419016384" type="utm" subtype="ips" level="alert" vd="root" srcip=185.199.108.153
+            dstip=10.0.10.5 dstport=445 proto=6 action="dropped"
+            attack="MS.SMB.Server.SMB1.Trans2.Secondary.Handling.Code.Execution" severity="critical"
+    outputs:
+      - extract_from: fortigate
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "fortigate.utm")
+              assert_eq!(.event.category, ["intrusion_detection"])
+              assert_eq!(.event.type, ["denied"])
+              assert_eq!(.rule.name, "MS.SMB.Server.SMB1.Trans2.Secondary.Handling.Code.Execution")
+              assert_eq!(.fortinet.severity, "critical")
+              assert_eq!(.event.severity, 1)
+
+  - name: fortigate Admin-Anmeldung fehlgeschlagen
+    inputs:
+      - insert_at: fortigate
+        type: log
+        log_fields:
+          source_ip: 10.0.0.1
+          message: >-
+            date=2026-11-13 time=10:15:30 devname="FGT-LAB" devid="FGT60FTK0000LAB0" tz="+0100"
+            logid="0100032002" type="event" subtype="system" level="alert" vd="root"
+            user="admin" ui="https(10.0.10.99)" action="login" status="failed"
+            msg="Administrator admin login failed from https(10.0.10.99)"
+    outputs:
+      - extract_from: fortigate
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.category, ["authentication"])
+              assert_eq!(.event.action, "admin-login")
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.user.name, "admin")
+              assert_eq!(.source.ip, "10.0.10.99")
+              assert_eq!(.fortinet.ui, "https")
+
+  - name: fortigate Konfigurationsänderung
+    inputs:
+      - insert_at: fortigate
+        type: log
+        log_fields:
+          source_ip: 10.0.0.1
+          message: >-
+            date=2026-11-13 time=10:15:30 devname="FGT-LAB" devid="FGT60FTK0000LAB0" tz="+0100"
+            logid="0100044547" type="event" subtype="system" level="information" vd="root"
+            user="admin" ui="ssh(10.0.10.99)" action="Edit" cfgpath="firewall.policy" cfgobj="7"
+            cfgattr="status[enable->disable]" msg="Edit firewall.policy 7"
+    outputs:
+      - extract_from: fortigate
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.type, ["change"])
+              assert_eq!(.event.action, "config-change")
+              assert_eq!(.fortinet.cfgpath, "firewall.policy")
+              assert_eq!(.fortinet.cfgattr, "status[enable->disable]")
+
+  - name: fortigate VPN Tunnel-Aufbau
+    inputs:
+      - insert_at: fortigate
+        type: log
+        log_fields:
+          source_ip: 10.0.0.1
+          message: >-
+            date=2026-11-13 time=10:15:30 devname="FGT-LAB" devid="FGT60FTK0000LAB0" tz="+0100"
+            logid="0101039947" type="event" subtype="vpn" level="information" vd="root"
+            action="tunnel-up" tunneltype="ssl-tunnel" remip=91.240.118.172 user="huber"
+            tunnelip=10.212.134.50
+    outputs:
+      - extract_from: fortigate
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "fortigate.vpn")
+              assert_eq!(.event.type, ["start"])
+              assert_eq!(.source.ip, "91.240.118.172")
+              assert_eq!(.client.ip, "10.212.134.50")
+              assert_eq!(.user.name, "huber")
+
+  - name: fortigate ohne Syslog-Header (erste Tokens in Hostname/Appname)
+    inputs:
+      - insert_at: fortigate
+        type: log
+        log_fields:
+          hostname: date=2026-11-13
+          appname: time=10:15:30
+          source_ip: 10.0.0.1
+          message: >-
+            devname="FGT-LAB" devid="FGT60FTK0000LAB0" tz="+0100" logid="0000000013" type="traffic"
+            subtype="forward" level="notice" vd="root" srcip=10.0.10.21 dstip=8.8.8.8 dstport=53
+            proto=17 service="DNS" action="accept" policyid=3
+    outputs:
+      - extract_from: fortigate
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "firewall")
+              assert_eq!(.destination.port, 53)
+              assert_eq!(.observer.name, "FGT-LAB")
+              assert_eq!(format_timestamp!(.@timestamp, "%Y-%m-%dT%H:%M:%SZ"), "2026-11-13T09:15:30Z")
+
+  - name: fortigate unparsbar landet in unparsed
+    inputs:
+      - insert_at: fortigate
+        type: log
+        log_fields:
+          source_ip: 10.0.0.1
+          message: devid=FGT60 kaputt ohne logid
+    outputs:
+      - extract_from: fortigate
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "unparsed")
+              assert_eq!(.event.dataset, "fortigate.unparsed")
+
+  - name: Routing - FortiGate erkannt, andere Quellen bleiben im generischen Parser
+    inputs:
+      - insert_at: route_device
+        type: log
+        log_fields:
+          message: devname="x" devid="FGT1" logid="1" type="traffic"
+      - insert_at: route_device
+        type: log
+        log_fields:
+          hostname: srv1
+          appname: sshd
+          message: Failed password for root from 10.0.0.9 port 22 ssh2
+    outputs:
+      - extract_from: route_device.fortigate
+        conditions:
+          - type: vrl
+            source: |
+              assert!(contains!(.message, "devid="))
+      - extract_from: route_device._unmatched
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.appname, "sshd")
