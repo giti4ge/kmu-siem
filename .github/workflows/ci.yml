@@ -184,7 +184,7 @@ jobs:
             -v /tmp/siem/certs/cert.pem:/etc/vector/certs/syslog.crt:ro \
             -v /tmp/siem/certs/key.pem:/etc/vector/certs/syslog.key:ro \
             -v /tmp/siem/certs/cert.pem:/etc/vector/certs/ca.crt:ro \
-            "$IMG" test --no-environment /etc/vector/vector.yaml $TESTS
+            "$IMG" test /etc/vector/vector.yaml $TESTS
       - name: nginx-Konfiguration prüfen (inkl. ModSecurity/CRS)
         run: |
           IMG=$(grep -oE 'owasp/modsecurity-crs:[^ ]+' app/docker-compose.yml)
