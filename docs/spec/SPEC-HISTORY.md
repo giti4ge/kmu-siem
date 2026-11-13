@@ -12,6 +12,7 @@ Versionierung der Spezifikation nach [VERSIONIERUNG.md](../VERSIONIERUNG.md#2-sp
 | 2.3.0 | 2026-11-13 | Kundenentscheidung (Runde 4) | Auslieferung ausschließlich per `install.sh` auf frischer Debian-13-VM mit SSH; OVA/VHDX und Packer entfallen; Betriebsarten `--preflight/--unattended/--resume/--repair`; Schutz vor SSH-Aussperren; Daten-Disk per LVM durch das Skript; CI-Installationstests; Einrichtungsassistent im Web-UI statt Konsolen-Assistent; Kategorie `linux` ergänzt; ADR-20, R-10, R-11 | [SPEC.md](SPEC.md) |
 
 | 2.4.0 | 2026-11-13 | Kundenentscheidung (Runde 5) | Versions-, Funktions- und Content-Updates direkt über GitHub Releases + GHCR (Abschnitt 4.14.0); separates Distributions-Repository; Zugangstoken je Kunde; Offline-Signatur bleibt Vertrauensanker (CI erstellt nur Entwürfe); Bootstrap-Installation von GitHub; Auswahl bestimmter Versionen im UI/CLI; ADR-21, R-12, R-13 | [SPEC.md](SPEC.md) |
+| 2.5.0 | 2026-11-13 | Kundenentscheidung (Runde 7) | Weitere Quellen: Ubiquiti UniFi (Controller, Switches), Synology NAS, Dell iDRAC (Abschnitt 4.6a, neue Kategorie `infra`); SNMP-MIB-Verwaltung mit Import von Hersteller-MIBs (Abschnitt 4.6b); Phasen 3/4 erweitert; ADR-22, R-14 | [SPEC.md](SPEC.md) |
 
 > **Einstufung 2.3.0 als MINOR:** Die Architektur der Appliance bleibt unverändert, nur der Auslieferungsweg ändert sich. Die Spezifikation war zu diesem Zeitpunkt noch nicht freigegeben.
 
@@ -25,3 +26,4 @@ Versionierung der Spezifikation nach [VERSIONIERUNG.md](../VERSIONIERUNG.md#2-sp
 | 4 | 2026-11-13 | Installation inkl. aller Abhängigkeiten und Härtung ausschließlich über das Installationsskript für Debian; Ausgangssituation neue schlanke Debian-VM mit SSH; keine VMware-/Hyper-V-Vorlage mehr. Repository lokal, später GitHub |
 | 5 | 2026-11-13 | Repository auf GitHub (`giti4ge/kmu-siem`, privat). Versions- und Funktionsupdates auf dem SIEM-Server sollen direkt über GitHub erfolgen |
 | 6 | 2026-11-13 | Spezifikation 2.4.0 freigegeben, inkl. Trennung Quellcode-/Distributions-Repository mit Token je Kunde; Start der Umsetzung (Phase 0) |
+| 7 | 2026-11-13 | Zukünftig mitloggen: Ubiquiti UniFi (Controller, Switches), Synology NAS, Dell iDRAC; Hersteller-MIBs sollen später einfach importierbar sein |

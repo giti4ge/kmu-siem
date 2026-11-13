@@ -11,6 +11,7 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 ## [Unreleased]
 
 ### Added
+- **Spezifikation 2.5.0:** Künftige Quellen Ubiquiti UniFi (Controller, Switches), Synology NAS und Dell iDRAC (Abschnitt 4.6a, Kategorie `infra`) sowie SNMP-MIB-Verwaltung mit Import von Hersteller-MIBs im Web-UI (Abschnitt 4.6b, ADR-22).
 - **Phase 3.4:** Windows-Event-Parser für OpenWEC-JSON (Vector-Quelle `socket` 127.0.0.1:10600, TCP-Zeilen): Anmeldungen/Kerberos/NTLM mit Fehlergrund, Prozesse (4688), Dienste (7045/4697), Tasks, Audit-Policy, Log gelöscht, Change-Auditing für Benutzer/Gruppen (privilegierte Gruppen markiert)/AD-Objekte/GPO (`siem.change.*`), FIM-Zugriffe 4663/4660/4670/5145 (`siem.fim.*`), PowerShell 4104, Defender. Unbekannte IDs bleiben als `windows.other` erhalten.
 - **Testpaket-Workflow:** Actions → „Testpaket (Installer-Tarball)“ baut `kmu-siem-testpaket-<Version>-<Commit>.tar.gz` (host, app, Web-UI, Control-Plane-Image, SHA-256, `INSTALL-TESTPAKET.txt`) als Artefakt (14 Tage) für Tests auf einer frischen Debian-13-VM.
 - **Phase 2.5:** System-Protokoll im Web-UI (System → System-Protokoll): Installation, Host-Dienst inkl. Audit, Docker, Firewall, SSH, Zeit, automatische Updates und alle Container – filterbar und exportierbar. Gelesen über die neue `siem-hostd`-Aktion `system.logs` (feste Quellen-Allowlist, max. 2000 Zeilen), auch per SSH: `siem-hostd system logs --source …`. Der API-Container erreicht `siem-hostd` über die Gruppe `siem-hostd`.

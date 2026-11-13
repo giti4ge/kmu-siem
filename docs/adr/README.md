@@ -30,3 +30,4 @@ Architekturentscheidungen werden als einzelne, unveränderliche Dokumente festge
 | [0019](0019-rechte-dls-fls.md) | Rechte konsistent bis in OpenSearch (DLS/FLS) | Akzeptiert | 2026-11-12 |
 | [0020](0020-installation-install-sh.md) | Auslieferung ausschließlich per install.sh | Akzeptiert | 2026-11-13 |
 | [0021](0021-updates-github.md) | Updates direkt über GitHub Releases + GHCR | Akzeptiert | 2026-11-13 |
+| [0022](0022-mib-import-und-geraeteklassen.md) | SNMP-MIB-Import im Web-UI, erweiterbare Geräteklassen | Akzeptiert | 2026-11-13 |
