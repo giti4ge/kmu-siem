@@ -1,0 +1,60 @@
+# KMU-SIEM – Aruba Instant On Switch Syslog → ECS (vorläufig)
+# Es liegen noch keine echten Proben vor (SPEC R-02, Profil wird in Phase 4 an realer Hardware
+# dokumentiert). Dieser Parser extrahiert daher nur tolerant: Link auf/ab und Anmeldefehler;
+# alles andere bleibt als generisches Netzwerk-Ereignis mit Originaltext erhalten.
+# Erkennung nur über die Geräteliste (siem.device_type = instant_on), nicht über den Inhalt.
+
+raw = string(.message) ?? ""
+subsystem = string(.appname) ?? null
+peer_hostname = string(.hostname) ?? null
+syslog_severity = del(.severity)
+syslog_facility = del(.facility)
+del(.hostname)
+del(.appname)
+del(.procid)
+del(.msgid)
+del(.version)
+
+.observer.ip = del(.source_ip)
+.observer.vendor = "HPE Aruba"
+.observer.product = "Aruba Instant On"
+.observer.type = "switch"
+.observer.name = peer_hostname
+.observer.hostname = peer_hostname
+.siem.collector = "vector"
+.siem.pipeline = "aruba_instant_on"
+.siem.category = "network"
+.event.kind = "event"
+.event.module = "aruba_instant_on"
+.event.dataset = "aruba_instant_on.generic"
+.event.category = ["network"]
+.event.type = ["info"]
+.event.ingested = now()
+.event.original = raw
+.log.syslog.facility.name = syslog_facility
+.log.syslog.severity.name = syslog_severity
+.log.level = syslog_severity
+if subsystem != null { .process.name = subsystem }
+
+link = parse_regex(raw, r'(?i)(port|interface)\s+(?P<port>[0-9A-Za-z/:.-]+).*?\b(?P<state>link\s*up|link\s*down|is up|is down|up|down)\b') ?? null
+authfail = parse_regex(raw, r'(?i)(login|authentication|auth)\s+(failed|failure)(.*?user\s*[:=]?\s*(?P<user>\S+))?(.*?from\s+(?P<ip>[0-9a-fA-F:.]+))?') ?? null
+
+if link != null {
+    .event.dataset = "aruba_instant_on.link"
+    .observer.ingress.interface.name = link.port
+    if contains(downcase(string(link.state) ?? ""), "up") {
+        .event.action = "port-up"
+        .event.type = ["change", "start"]
+    } else {
+        .event.action = "port-down"
+        .event.type = ["change", "end"]
+    }
+} else if authfail != null {
+    .event.dataset = "aruba_instant_on.auth"
+    .event.category = ["authentication"]
+    .event.type = ["start", "denied"]
+    .event.action = "login-failed"
+    .event.outcome = "failure"
+    if authfail.user != null { .user.name = authfail.user }
+    if authfail.ip != null { .source.ip = authfail.ip }
+}

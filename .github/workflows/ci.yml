@@ -167,6 +167,7 @@ jobs:
           docker run --rm \
             -v "$PWD/app/vector/vector.yaml:/etc/vector/vector.yaml:ro" \
             -v "$PWD/app/vector/parsers:/etc/vector/parsers:ro" \
+            -v "$PWD/app/vector/devices.csv:/etc/vector/devices.csv:ro" \
             -v /tmp/siem/data/secrets/vector/secrets.json:/etc/vector/secrets/secrets.json:ro \
             -v /tmp/siem/certs/cert.pem:/etc/vector/certs/syslog.crt:ro \
             -v /tmp/siem/certs/key.pem:/etc/vector/certs/syslog.key:ro \
@@ -179,6 +180,7 @@ jobs:
           docker run --rm \
             -v "$PWD/app/vector/vector.yaml:/etc/vector/vector.yaml:ro" \
             -v "$PWD/app/vector/parsers:/etc/vector/parsers:ro" \
+            -v "$PWD/app/vector/devices.csv:/etc/vector/devices.csv:ro" \
             -v "$PWD/app/vector/tests:/etc/vector/tests:ro" \
             -v /tmp/siem/data/secrets/vector/secrets.json:/etc/vector/secrets/secrets.json:ro \
             -v /tmp/siem/certs/cert.pem:/etc/vector/certs/syslog.crt:ro \

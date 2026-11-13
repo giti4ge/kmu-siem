@@ -64,6 +64,7 @@ services:
     volumes:
       - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
       - ./vector/parsers:/etc/vector/parsers:ro
+      - ./vector/devices.csv:/etc/vector/devices.csv:ro
       - ${SIEM_DATA}/secrets/pki/vector:/etc/vector/certs:ro
       - ${SIEM_DATA}/secrets/vector:/etc/vector/secrets:ro
       - ${SIEM_DATA}/vector-buffer:/var/lib/vector

@@ -190,11 +190,11 @@ tests:
 
   - name: Routing - FortiGate erkannt, andere Quellen bleiben im generischen Parser
     inputs:
-      - insert_at: route_device
+      - insert_at: detect
         type: log
         log_fields:
           message: devname="x" devid="FGT1" logid="1" type="traffic"
-      - insert_at: route_device
+      - insert_at: detect
         type: log
         log_fields:
           hostname: srv1

@@ -1,0 +1,170 @@
+# Parser-Tests Switches (ArubaOS-Switch, FS S3900, Aruba Instant On).
+# Fixtures nachgebildet aus Herstellerdoku/Generator (SPEC R-02: keine echten Proben).
+
+tests:
+  - name: arubaos port up
+    inputs:
+      - insert_at: arubaos
+        type: log
+        log_fields: {hostname: SW-ARUBA-01, appname: ports, source_ip: 10.0.0.2, severity: notice, facility: user, message: "port 12 is now on-line"}
+    outputs:
+      - extract_from: arubaos
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "network")
+              assert_eq!(.event.dataset, "arubaos.link")
+              assert_eq!(.event.action, "port-up")
+              assert_eq!(.observer.ingress.interface.name, "12")
+              assert_eq!(.observer.name, "SW-ARUBA-01")
+              assert_eq!(.observer.vendor, "HPE Aruba")
+
+  - name: arubaos port down
+    inputs:
+      - insert_at: arubaos
+        type: log
+        log_fields: {hostname: SW-ARUBA-01, appname: ports, source_ip: 10.0.0.2, message: "port 3 is now off-line"}
+    outputs:
+      - extract_from: arubaos
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "port-down")
+              assert_eq!(.event.type, ["change", "end"])
+
+  - name: arubaos Anmeldefehler SSH
+    inputs:
+      - insert_at: arubaos
+        type: log
+        log_fields: {hostname: SW-ARUBA-01, appname: auth, source_ip: 10.0.0.2, message: "Invalid user name/password on SSH session from 10.0.10.99"}
+    outputs:
+      - extract_from: arubaos
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.category, ["authentication"])
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.source.ip, "10.0.10.99")
+              assert_eq!(.network.protocol, "ssh")
+
+  - name: arubaos Anmeldung erfolgreich
+    inputs:
+      - insert_at: arubaos
+        type: log
+        log_fields: {hostname: SW-ARUBA-01, appname: mgr, source_ip: 10.0.0.2, message: "SME SSH from 10.0.10.99 - MANAGER Mode"}
+    outputs:
+      - extract_from: arubaos
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "login")
+              assert_eq!(.event.outcome, "success")
+              assert_eq!(.source.ip, "10.0.10.99")
+              assert_eq!(.user.roles, ["manager"])
+
+  - name: arubaos unbekannte Meldung bleibt generisch erhalten
+    inputs:
+      - insert_at: arubaos
+        type: log
+        log_fields: {hostname: SW-ARUBA-01, appname: FFI, source_ip: 10.0.0.2, message: "irgendeine neue Meldung"}
+    outputs:
+      - extract_from: arubaos
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "network")
+              assert_eq!(.event.dataset, "arubaos.generic")
+              assert_eq!(.event.original, "irgendeine neue Meldung")
+
+  - name: fs s3900 link (Format im Appname)
+    inputs:
+      - insert_at: fs_s3900
+        type: log
+        log_fields: {hostname: SW-FS-S3900, appname: "%LINK-5-CHANGED", source_ip: 10.0.0.3, message: "Interface eth1/0/7, changed state to DOWN"}
+    outputs:
+      - extract_from: fs_s3900
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "network")
+              assert_eq!(.event.dataset, "fs_s3900.link")
+              assert_eq!(.event.code, "LINK-5-CHANGED")
+              assert_eq!(.event.action, "port-down")
+              assert_eq!(.observer.ingress.interface.name, "eth1/0/7")
+              assert_eq!(.event.severity, 5)
+
+  - name: fs s3900 link up (Format in der Nachricht)
+    inputs:
+      - insert_at: fs_s3900
+        type: log
+        log_fields: {hostname: SW-FS-S3900, source_ip: 10.0.0.3, message: "%LINEPROTO-5-UPDOWN: Line protocol on Interface eth1/0/9, changed state to up"}
+    outputs:
+      - extract_from: fs_s3900
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "port-up")
+              assert_eq!(.observer.ingress.interface.name, "eth1/0/9")
+
+  - name: fs s3900 Anmeldefehler
+    inputs:
+      - insert_at: fs_s3900
+        type: log
+        log_fields: {hostname: SW-FS-S3900, source_ip: 10.0.0.3, message: "%SYS-4-LOGIN: user admin login failed from 10.0.10.99"}
+    outputs:
+      - extract_from: fs_s3900
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.category, ["authentication"])
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.user.name, "admin")
+              assert_eq!(.source.ip, "10.0.10.99")
+
+  - name: instant on link (tolerant)
+    inputs:
+      - insert_at: aruba_instant_on
+        type: log
+        log_fields: {hostname: SW-IO-01, source_ip: 10.0.0.4, message: "Port 5 link down"}
+    outputs:
+      - extract_from: aruba_instant_on
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "network")
+              assert_eq!(.event.dataset, "aruba_instant_on.link")
+              assert_eq!(.event.action, "port-down")
+              assert_eq!(.observer.ingress.interface.name, "5")
+
+  - name: instant on unbekannt bleibt erhalten
+    inputs:
+      - insert_at: aruba_instant_on
+        type: log
+        log_fields: {hostname: SW-IO-01, source_ip: 10.0.0.4, message: "firmware update scheduled"}
+    outputs:
+      - extract_from: aruba_instant_on
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "aruba_instant_on.generic")
+              assert_eq!(.event.original, "firmware update scheduled")
+
+  - name: Auto-Detect-Routing der Switches
+    inputs:
+      - insert_at: detect
+        type: log
+        log_fields: {hostname: sw1, appname: ports, source_ip: 10.0.0.2, message: "port 1 is now on-line"}
+      - insert_at: detect
+        type: log
+        log_fields: {hostname: sw2, appname: "%LINK-5-CHANGED", source_ip: 10.0.0.3, message: "Interface eth1/0/1, changed state to UP"}
+    outputs:
+      - extract_from: route_device.arubaos
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.device_type, "arubaos")
+      - extract_from: route_device.fs_s3900
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.device_type, "fs_s3900")
