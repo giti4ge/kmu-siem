@@ -1,0 +1,72 @@
+name: Testpaket (Installer-Tarball)
+
+# Baut ein installierbares Testpaket (host + app + Web-UI + Control-Plane-Image) und
+# stellt es als Actions-Artefakt bereit. Manuell starten: Actions → Testpaket → Run workflow.
+# Installation auf einer frischen Debian-13-VM: siehe INSTALL-TESTPAKET.txt im Paket.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch/Tag/Commit (leer = gewählter Branch)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  paket:
+    name: Testpaket bauen
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Web-UI bauen
+        working-directory: app/control-plane/frontend
+        run: npm ci --no-audit --no-fund --silent && npm run build
+      - name: Control-Plane-Image bauen
+        run: |
+          ver=$(cat VERSION)
+          docker build -q -t "ghcr.io/giti4ge/kmu-siem/api:$ver" app/control-plane/backend
+          mkdir -p app/images
+          docker save -o app/images/api.tar "ghcr.io/giti4ge/kmu-siem/api:$ver"
+          echo "ghcr.io/giti4ge/kmu-siem/api:$ver" > app/images/api.ref
+      - name: Paket zusammenstellen
+        id: pack
+        run: |
+          ver=$(cat VERSION)
+          sha=$(git rev-parse --short HEAD)
+          name="kmu-siem-testpaket-${ver}-${sha}"
+          mkdir -p "out/$name"
+          cp -a host app VERSION "out/$name/"
+          find "out/$name" -name node_modules -prune -exec rm -rf {} + 2>/dev/null || true
+          rm -rf "out/$name/app/control-plane/frontend/node_modules"
+          cat > "out/$name/INSTALL-TESTPAKET.txt" <<TXT
+          KMU-SIEM Testpaket $ver ($sha)
+
+          Voraussetzung: frische Debian-13-VM (min. 2 vCPU, 4 GB RAM, 40 GB Disk,
+          optional zweite Disk für Daten), SSH-Zugang als root, Internet.
+
+            scp ${name}.tar.gz root@<vm>:/root/
+            ssh root@<vm>
+            tar -xzf ${name}.tar.gz && cd ${name}
+            bash host/install.sh            # interaktiv; --help zeigt Optionen
+
+          Abgebrochene Installation fortsetzen: bash host/install.sh --resume
+          Reparatur: bash host/install.sh --repair
+          Protokoll: /var/log/siem-install.log
+          TXT
+          sed -i 's/^          //' "out/$name/INSTALL-TESTPAKET.txt"
+          tar -C out -czf "$name.tar.gz" "$name"
+          sha256sum "$name.tar.gz" | tee "$name.tar.gz.sha256"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.name }}
+          path: |
+            ${{ steps.pack.outputs.name }}.tar.gz
+            ${{ steps.pack.outputs.name }}.tar.gz.sha256
+          retention-days: 14
+          if-no-files-found: error
