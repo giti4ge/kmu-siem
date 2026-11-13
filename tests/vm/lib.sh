@@ -105,7 +105,12 @@ vmr() {
     fi
 }
 # check BESCHREIBUNG ROOT-SKRIPT
-check() { if vmr "$2" >/dev/null 2>&1; then pass "$1"; else fail "$1"; fi; }
+check() {
+    local out
+    if out=$(vmr "$2" 2>&1); then pass "$1"
+    else fail "$1"; [[ -n $out ]] && printf '%s\n' "$out" | tail -15 | sed 's/^/       │ /'; fi
+    return 0
+}
 expect() { if grep -qE -- "$1" <<<"$OUT"; then pass "$2"; else fail "$2 (Muster: $1)"; fi; }
 
 # Ergebnis ausgeben und Exit-Code setzen; DIAG = Diagnose-Skript (root, in der VM)
