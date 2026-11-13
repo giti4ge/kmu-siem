@@ -21,7 +21,7 @@ api:
   address: "127.0.0.1:8686"
 
 enrichment_tables:
-  # Geräteliste: ip,type (fortigate | arubaos | instant_on | fs_s3900); wird vom Config-Generator gerendert
+  # Geräteliste: ip,type (fortigate | arubaos | instant_on | fs_s3900 | linux); wird vom Config-Generator gerendert
   devices:
     type: file
     file:
@@ -69,6 +69,8 @@ transforms:
               dt = "fs_s3900"
           } else if includes(["ports", "FFI", "mgr", "stp", "lacp", "dhcp-snoop", "arp-prot"], an) {
               dt = "arubaos"
+          } else if includes(["sshd", "sudo", "su", "su-l", "systemd", "systemd-logind", "CRON", "cron", "audit", "auditd", "audispd", "yum", "dnf", "apt", "apt-get", "dpkg", "packagekitd", "zypper", "polkitd", "useradd", "userdel", "usermod", "groupadd", "passwd", "login"], an) {
+              dt = "linux"
           }
       }
       .siem.device_type = dt
@@ -81,6 +83,7 @@ transforms:
       arubaos: '.siem.device_type == "arubaos"'
       instant_on: '.siem.device_type == "instant_on"'
       fs_s3900: '.siem.device_type == "fs_s3900"'
+      linux: '.siem.device_type == "linux"'
 
   fortigate:
     type: remap
@@ -105,6 +108,12 @@ transforms:
     type: remap
     inputs: ["route_device.fs_s3900"]
     file: /etc/vector/parsers/fs_s3900.vrl
+    drop_on_error: false
+
+  linux:
+    type: remap
+    inputs: ["route_device.linux"]
+    file: /etc/vector/parsers/linux.vrl
     drop_on_error: false
 
   normalize:
@@ -143,7 +152,7 @@ transforms:
 sinks:
   opensearch:
     type: elasticsearch
-    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900"]
+    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux"]
     endpoints: ["https://127.0.0.1:9200"]
     api_version: v8
     mode: bulk
