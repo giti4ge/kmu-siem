@@ -6,6 +6,7 @@
 # Phase 1.4 ergänzt AIDE-Initialisierung und Lynis-Prüfung.
 
 readonly SELFTEST_TIMEOUT=10
+: "${SIEM_MIN_LYNIS:=80}"
 
 step_selftest() {
     _st_containers || return 1
@@ -13,7 +14,60 @@ step_selftest() {
     _st_syslog udp || return 1
     _st_syslog tls || return 1
     _st_proxy || return 1
+    _st_integrity || return 1
+    _st_lynis
     ok "$(msg selftest_ok)"
+}
+
+# Integritätsprüfung: AIDE-Datenbank (nach allen Dateiänderungen), tägliche Prüfung, rkhunter
+_st_integrity() {
+    local rc
+    # Veränderliche Daten nicht überwachen (Ereignisse, Container, Zustand, Protokolle)
+    write_file /etc/aide/aide.conf.d/99_siem_excludes 0644 <<'EOF'
+# Von install.sh verwaltet – veränderliche Bereiche der Appliance
+!/opt/siem/data
+!/opt/siem/backups
+!/var/lib/docker
+!/var/lib/containerd
+!/var/lib/siem
+!/var/lib/sysstat
+!/var/lib/rkhunter
+!/var/lib/chrony
+!/var/log
+!/var/cache
+!/var/tmp
+!/run
+!/tmp
+EOF
+    rc=$?; (( rc <= 1 )) || return 1
+    if [[ ! -s /var/lib/aide/aide.db ]]; then
+        info "$(msg aide_init)"
+        if command -v aideinit >/dev/null; then
+            run_cmd "AIDE-Datenbank initialisieren" aideinit -y -f || return 1
+        else
+            run_cmd "AIDE-Datenbank initialisieren" aide --init --config /etc/aide/aide.conf || return 1
+            mv -f /var/lib/aide/aide.db.new /var/lib/aide/aide.db || return 1
+        fi
+    fi
+    systemctl enable --now dailyaidecheck.timer >/dev/null 2>&1 || true
+    if command -v rkhunter >/dev/null && [[ ! -s /var/lib/rkhunter/db/rkhunter.dat ]]; then
+        run_cmd "rkhunter-Datenbank anlegen" rkhunter --propupd --nocolors || true
+    fi
+    ok "$(msg integrity_ok)"
+}
+
+# Lynis-Härtungsprüfung: Ergebnis melden (Warnung unter Zielwert, kein Abbruch)
+_st_lynis() {
+    local idx
+    command -v lynis >/dev/null || return 0
+    run_cmd "Lynis-Prüfung" lynis audit system --quick --no-colors --cronjob >/dev/null || true
+    idx=$(awk -F= '/^hardening_index=/ { print $2 }' /var/log/lynis-report.dat 2>/dev/null)
+    [[ $idx =~ ^[0-9]+$ ]] || { warn "$(msg lynis_unknown)"; return 0; }
+    if (( idx >= SIEM_MIN_LYNIS )); then
+        ok "$(msg lynis_index "$idx" "$SIEM_MIN_LYNIS")"
+    else
+        warn "$(msg lynis_index "$idx" "$SIEM_MIN_LYNIS")"
+    fi
 }
 
 _st_containers() {

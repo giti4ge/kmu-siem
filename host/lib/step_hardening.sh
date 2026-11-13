@@ -10,6 +10,7 @@ readonly SSHD_DROPIN=/etc/ssh/sshd_config.d/00-siem.conf
 
 step_hardening() {
     _hard_sysctl || return 1
+    _hard_extras || return 1
     _hard_modules || return 1
     _hard_admin_user || return 1
     _hard_ssh || return 1
@@ -52,6 +53,10 @@ kernel.yama.ptrace_scope = 1
 kernel.unprivileged_bpf_disabled = 1
 net.core.bpf_jit_harden = 2
 kernel.sysrq = 0
+kernel.core_uses_pid = 1
+kernel.perf_event_paranoid = 3
+kernel.ctrl-alt-del = 0
+dev.tty.ldisc_autoload = 0
 fs.protected_hardlinks = 1
 fs.protected_symlinks = 1
 fs.protected_fifos = 2
@@ -66,6 +71,66 @@ net.ipv4.ip_forward = 1
 EOF
     rc=$?; (( rc <= 1 )) || return 1
     run_cmd "Kernel-Parameter laden" sysctl --system
+}
+
+# --- Ergänzende Härtung (CIS/Lynis) ---------------------------------------------
+readonly SIEM_BANNER="Autorisierter Zugriff nur für berechtigte Administratoren. Alle Aktivitäten werden protokolliert.
+Authorized access only. All activities are logged."
+
+_hard_extras() {
+    local rc f
+    # Core-Dumps verhindern (können Geheimnisse enthalten)
+    write_file /etc/security/limits.d/90-siem.conf 0644 <<'EOF'
+# Von install.sh verwaltet
+*    hard    core    0
+EOF
+    rc=$?; (( rc <= 1 )) || return 1
+    write_file /etc/systemd/coredump.conf.d/90-siem.conf 0644 <<'EOF'
+# Von install.sh verwaltet
+[Coredump]
+Storage=none
+ProcessSizeMax=0
+EOF
+    rc=$?; (( rc <= 1 )) || return 1
+
+    # Anmelde-Banner (lokal und SSH)
+    printf '%s\n' "$SIEM_BANNER" | write_file /etc/issue 0644; (( $? <= 1 )) || return 1
+    printf '%s\n' "$SIEM_BANNER" | write_file /etc/issue.net 0644; (( $? <= 1 )) || return 1
+
+    # Vorgaben für neue Konten: restriktive umask, Kennwort-Alterung
+    # (siemadmin selbst ohne Ablauf – ein abgelaufenes Kennwort würde den Wartungszugang blockieren)
+    _login_defs UMASK 027
+    _login_defs PASS_MAX_DAYS 365
+    _login_defs PASS_MIN_DAYS 1
+    _login_defs PASS_WARN_AGE 14
+
+    # Rechte von cron und SSH-Konfiguration
+    for f in /etc/crontab /etc/cron.d /etc/cron.daily /etc/cron.hourly /etc/cron.weekly /etc/cron.monthly; do
+        [[ -e $f ]] && chmod og-rwx "$f"
+    done
+    chmod 0600 /etc/ssh/sshd_config
+
+    # Prozess-Accounting und Systemstatistik
+    systemctl enable --now acct.service >/dev/null 2>&1 || true
+    if [[ -f /etc/default/sysstat ]] && ! grep -q '^ENABLED="true"' /etc/default/sysstat; then
+        sed -i 's/^ENABLED=.*/ENABLED="true"/' /etc/default/sysstat
+    fi
+    systemctl enable --now sysstat.service >/dev/null 2>&1 || true
+
+    # rkhunter: Dateieigenschaften nach Paket-Updates automatisch aktualisieren
+    if [[ -f /etc/default/rkhunter ]]; then
+        sed -i -E 's/^#?APT_AUTOGEN=.*/APT_AUTOGEN="true"/; s/^#?CRON_DAILY_RUN=.*/CRON_DAILY_RUN="true"/' /etc/default/rkhunter
+    fi
+    return 0
+}
+
+# _login_defs SCHLÜSSEL WERT – Wert in /etc/login.defs setzen (idempotent)
+_login_defs() {
+    if grep -qE "^[[:space:]]*$1[[:space:]]" /etc/login.defs; then
+        sed -i -E "s/^[[:space:]]*$1[[:space:]].*/$1\t\t$2/" /etc/login.defs
+    else
+        printf '%s\t\t%s\n' "$1" "$2" >>/etc/login.defs
+    fi
 }
 
 # --- Kernel-Module -----------------------------------------------------------
@@ -152,7 +217,10 @@ PubkeyAuthentication yes
 PermitEmptyPasswords no
 AllowGroups ${SIEM_SSH_GROUP}
 MaxAuthTries 3
-MaxSessions 4
+MaxSessions 2
+Compression no
+TCPKeepAlive no
+Banner /etc/issue.net
 LoginGraceTime 30
 ClientAliveInterval 300
 ClientAliveCountMax 2

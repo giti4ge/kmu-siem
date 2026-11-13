@@ -7,6 +7,7 @@ readonly BASE_PACKAGES=(
     nftables chrony auditd aide aide-common apparmor apparmor-utils
     lvm2 e2fsprogs unattended-upgrades apt-listchanges needrestart
     python3 lynis acl iproute2 util-linux apache2-utils
+    libpam-tmpdir debsums apt-show-versions acct sysstat rkhunter
 )
 
 step_base() {

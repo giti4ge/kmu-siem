@@ -134,6 +134,11 @@ Exit-Codes: 0 = OK, 1 = Warnungen, 2 = Fehler, 3 = Schritt noch nicht implementi
     [install_done_ssh]="SSH"
     [install_done_ca]="Root-CA"
     [install_done_log]="Protokoll"
+    [repair_start]="Reparatur: alle Schritte werden mit den gespeicherten Angaben erneut ausgeführt (ohne Datenänderung)."
+    [aide_init]="AIDE-Datenbank wird initialisiert (einige Minuten) …"
+    [integrity_ok]="Integritätsüberwachung aktiv (AIDE täglich, rkhunter)."
+    [lynis_index]="Lynis-Härtungsindex: %s (Zielwert ≥ %s)."
+    [lynis_unknown]="Lynis-Härtungsindex konnte nicht ermittelt werden."
     [resume_nothing]="Keine begonnene Installation gefunden – normale Installation starten."
 )
 
@@ -269,6 +274,11 @@ Exit codes: 0 = OK, 1 = warnings, 2 = failure, 3 = step not implemented yet, 64 
     [install_done_ssh]="SSH"
     [install_done_ca]="Root CA"
     [install_done_log]="Log"
+    [repair_start]="Repair: all steps are run again with the saved settings (no data changes)."
+    [aide_init]="Initialising AIDE database (a few minutes) …"
+    [integrity_ok]="Integrity monitoring active (AIDE daily, rkhunter)."
+    [lynis_index]="Lynis hardening index: %s (target ≥ %s)."
+    [lynis_unknown]="Lynis hardening index could not be determined."
     [resume_nothing]="No started installation found – starting a normal installation."
 )
 

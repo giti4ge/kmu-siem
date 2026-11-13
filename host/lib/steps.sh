@@ -14,7 +14,7 @@ STEPS=(
     "firewall|Firewall (nftables)|Phase 1.1"
     "hostd|Host-Dienste (siem-hostd)|Phase 1.2"
     "app|Anwendung: Images, Zertifikate, Start, Initialisierung|Phase 1.3"
-    "selftest|Abschluss-Selbsttest (inkl. AIDE, Lynis)|Phase 1.3/1.4"
+    "selftest|Abschluss-Selbsttest (Ende-zu-Ende, AIDE, Lynis)|Phase 1.3"
 )
 
 step_name()  { local s=${STEPS[$1]}; printf '%s' "${s%%|*}"; }

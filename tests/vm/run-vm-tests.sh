@@ -21,6 +21,8 @@
 #   9. Anwendung: Syslog UDP/TCP/TLS von extern Ende-zu-Ende, ECS-Felder, Firewall für
 #      Syslog, OpenSearch-Sicherheit/Templates/ISM, Proxy (TLS 1.3, Header, WAF),
 #      Disk-Puffer über Vector-Neustart bei ausgefallenem OpenSearch
+#  10. Integrität (AIDE, rkhunter), Lynis-Index ≥ 80, ergänzende Härtung; --repair stellt
+#      manipulierte Konfiguration und gestoppte Container wieder her, ohne Daten zu verlieren
 #
 # Umgebungsvariablen: VM_RAM_MB (4096), VM_CPUS (2), WORKDIR (./.vm), DEBIAN_IMAGE_URL
 set -euo pipefail
@@ -187,6 +189,8 @@ expect "Selbsttest bestanden" "Selbsttest der Installation bestanden"
 expect "Syslog TCP: Testereignis nach" "Selbsttest: Syslog TCP Ende-zu-Ende"
 expect "Syslog UDP: Testereignis nach" "Selbsttest: Syslog UDP Ende-zu-Ende"
 expect "Syslog TLS: Testereignis nach" "Selbsttest: Syslog TLS Ende-zu-Ende"
+expect "Integritätsüberwachung aktiv" "Selbsttest: AIDE/rkhunter eingerichtet"
+expect "Lynis-Härtungsindex: [0-9]+" "Selbsttest meldet Lynis-Härtungsindex"
 
 # Ab hier: Zugang nur noch als siemadmin mit Schlüssel
 if vm true 2>/dev/null; then fail "Installationsbenutzer hat noch SSH-Zugang"; else pass "Installationsbenutzer ohne SSH-Zugang"; fi
@@ -399,6 +403,46 @@ for _ in $(seq 1 40); do
 done
 if (( N >= 500 )); then pass "Disk-Puffer: $N/500 Ereignisse nach Vector-Neustart bei ausgefallenem OpenSearch"
 else fail "Disk-Puffer: nur $N/500 Ereignisse angekommen"; fi
+
+# --- Test 10 -----------------------------------------------------------------
+log "Test 10: Integrität, Lynis, ergänzende Härtung, --repair"
+check "AIDE-Datenbank initialisiert" 'test -s /var/lib/aide/aide.db'
+check "AIDE: tägliche Prüfung aktiv" 'systemctl is-enabled --quiet dailyaidecheck.timer'
+check "AIDE: Prüfung ohne Abweichungen bei veränderlichen Daten" 'aide --check --config /etc/aide/aide.conf >/tmp/aide.out 2>&1; rc=$?; [ $rc -lt 8 ] || { tail -30 /tmp/aide.out; false; }'
+check "rkhunter-Datenbank vorhanden" 'test -s /var/lib/rkhunter/db/rkhunter.dat'
+check "Anmelde-Banner (SSH)" 'sshd -T | grep -qx "banner /etc/issue.net" && grep -q "Authorized access only" /etc/issue.net'
+check "SSH: MaxSessions 2, keine Kompression" 'sshd -T | grep -qx "maxsessions 2" && sshd -T | grep -qx "compression no"'
+check "Core-Dumps deaktiviert" 'grep -q "hard *core *0" /etc/security/limits.d/90-siem.conf && grep -q "^Storage=none" /etc/systemd/coredump.conf.d/90-siem.conf'
+check "login.defs: UMASK 027" 'grep -qE "^UMASK[[:space:]]+027$" /etc/login.defs'
+check "Prozess-Accounting aktiv" 'systemctl is-active --quiet acct'
+LYNIS=$(vmr "awk -F= '/^hardening_index=/ { print \$2 }' /var/log/lynis-report.dat" || true)
+if [[ $LYNIS =~ ^[0-9]+$ ]] && (( LYNIS >= 80 )); then pass "Lynis-Härtungsindex $LYNIS ≥ 80"
+else fail "Lynis-Härtungsindex ${LYNIS:-unbekannt} < 80"; vmr "grep -E '^(warning|suggestion)\[\]=' /var/log/lynis-report.dat" || true; fi
+
+# Abweichungen vom Sollzustand erzeugen, dann --repair
+DOCS_BEFORE=$(vmr "$OSI count --index 'siem-unparsed-*' --text '${TAG}'" 2>/dev/null || echo 0)
+vmr 'rm -f /etc/ssh/sshd_config.d/00-siem.conf /etc/modprobe.d/siem-blacklist.conf
+     sysctl -qw kernel.kptr_restrict=0
+     sed -i "s/^UMASK.*/UMASK\t\t022/" /etc/login.defs
+     docker stop siem-vector >/dev/null'
+set +e
+OUT=$(vmr "env NO_COLOR=1 ${LOW[*]} bash /opt/siem/host/install.sh --repair </dev/null" 2>&1)
+RC=$?
+set -e
+printf '%s\n' "$OUT" | tail -25
+if [[ $RC -eq 0 ]]; then pass "--repair: Exit 0"; else fail "--repair: Exit 0 erwartet, erhalten $RC"; printf '%s\n' "$OUT"; fi
+expect "Reparatur" "Reparatur angekündigt"
+if grep -q 'Installationsfragen' <<<"$OUT"; then fail "--repair stellt Fragen"; else pass "--repair ohne Fragen"; fi
+check "--repair: SSH-Drop-in wiederhergestellt" 'test -f /etc/ssh/sshd_config.d/00-siem.conf && sshd -T | grep -qx "permitrootlogin no"'
+check "--repair: Modulsperren wiederhergestellt" 'test -f /etc/modprobe.d/siem-blacklist.conf'
+check "--repair: sysctl wiederhergestellt" '[ "$(sysctl -n kernel.kptr_restrict)" = 2 ]'
+check "--repair: UMASK wiederhergestellt" 'grep -qE "^UMASK[[:space:]]+027$" /etc/login.defs'
+check "--repair: Vector läuft wieder" '[ "$(docker inspect -f "{{.State.Status}}" siem-vector)" = running ]'
+check "--repair: Zustand vollständig" '! grep -qvE " done " /var/lib/siem/install.state'
+DOCS_AFTER=$(vmr "$OSI count --index 'siem-unparsed-*' --text '${TAG}'" 2>/dev/null || echo 0)
+if [[ $DOCS_BEFORE =~ ^[0-9]+$ ]] && (( DOCS_AFTER >= DOCS_BEFORE && DOCS_BEFORE > 0 )); then
+    pass "--repair: Ereignisse erhalten ($DOCS_AFTER)"; else fail "--repair: Ereignisse vorher $DOCS_BEFORE, nachher $DOCS_AFTER"; fi
+if vm true; then pass "SSH nach --repair weiterhin möglich"; else fail "SSH nach --repair verloren"; exit 1; fi
 
 log "Ergebnis"
 if (( FAILED )); then
