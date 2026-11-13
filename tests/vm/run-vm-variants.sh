@@ -36,7 +36,10 @@ check_installed() {
 # --- interactive -----------------------------------------------------------------
 variant_interactive() {
     command -v sshpass >/dev/null || { echo "sshpass fehlt"; exit 1; }
-    sudo test -r "$SQUID_LOG" || { echo "squid-Protokoll $SQUID_LOG fehlt"; exit 1; }
+    if ! sudo test -r "$SQUID_LOG"; then
+        echo "squid-Protokoll $SQUID_LOG fehlt"; sudo ls -la "$(dirname "$SQUID_LOG")" || true
+        systemctl status squid --no-pager || true; exit 1
+    fi
     VM_DATA_DISK=no VM_ROOT_SIZE=60G
     vm_boot
     local before input proxied host

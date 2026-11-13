@@ -20,7 +20,8 @@ step_datadisk() {
     fi
 
     dev="/dev/$SIEM_VG/$SIEM_LV"
-    if ! lvs "$SIEM_VG/$SIEM_LV" >/dev/null 2>&1; then
+    # Anlage auch fortsetzen, wenn ein früherer Lauf mittendrin abgebrochen wurde
+    if ! lvs "$SIEM_VG/$SIEM_LV" >/dev/null 2>&1 || [[ -z $(blkid -s TYPE -o value "$dev" 2>/dev/null) ]]; then
         _datadisk_create "$disk" || return 1
     else
         log INFO "LV $SIEM_VG/$SIEM_LV vorhanden – keine Neuanlage"
@@ -30,17 +31,26 @@ step_datadisk() {
 }
 
 _datadisk_create() {
-    local disk=$1 name
+    local disk=$1 name vg dev="/dev/$SIEM_VG/$SIEM_LV"
     [[ ${ANSWERS[SIEM_DATA_DISK_CONFIRM]:-} == yes ]] || { err "Löschung von $disk nicht bestätigt"; return 1; }
-    # Sicherheitsprüfung unmittelbar vor dem Löschen
-    local empty=0
-    while read -r name _; do [[ $name == "$disk" ]] && empty=1; done < <(probe_empty_disks)
-    (( empty )) || { err "$disk ist nicht (mehr) leer – Abbruch ohne Änderung"; return 1; }
-
-    run_cmd "Physical Volume $disk" pvcreate -y "$disk" || return 1
-    run_cmd "Volume Group $SIEM_VG" vgcreate "$SIEM_VG" "$disk" || return 1
-    run_cmd "Logical Volume $SIEM_LV" lvcreate -y -l 100%FREE -n "$SIEM_LV" "$SIEM_VG" || return 1
-    run_cmd "Dateisystem anlegen" mkfs.ext4 -q -L siem-data -m 1 "/dev/$SIEM_VG/$SIEM_LV" || return 1
+    if pvs "$disk" >/dev/null 2>&1; then
+        # Bereits PV: nur fortsetzen, wenn es aus einem abgebrochenen eigenen Lauf stammt
+        vg=$(pvs --noheadings -o vg_name "$disk" 2>/dev/null | tr -d '[:space:]')
+        [[ -z $vg || $vg == "$SIEM_VG" ]] || { err "$disk gehört zur Volume Group $vg – Abbruch ohne Änderung"; return 1; }
+        log INFO "$disk ist bereits PV (abgebrochene Anlage) – wird fortgesetzt"
+    else
+        # Sicherheitsprüfung unmittelbar vor dem Löschen
+        local empty=0
+        while read -r name _; do [[ $name == "$disk" ]] && empty=1; done < <(probe_empty_disks)
+        (( empty )) || { err "$disk ist nicht (mehr) leer – Abbruch ohne Änderung"; return 1; }
+        run_cmd "Physical Volume $disk" pvcreate -y "$disk" || return 1
+    fi
+    vgs "$SIEM_VG" >/dev/null 2>&1 || run_cmd "Volume Group $SIEM_VG" vgcreate "$SIEM_VG" "$disk" || return 1
+    lvs "$SIEM_VG/$SIEM_LV" >/dev/null 2>&1 \
+        || run_cmd "Logical Volume $SIEM_LV" lvcreate -y -l 100%FREE -n "$SIEM_LV" "$SIEM_VG" || return 1
+    if [[ -z $(blkid -s TYPE -o value "$dev" 2>/dev/null) ]]; then
+        run_cmd "Dateisystem anlegen" mkfs.ext4 -q -F -L siem-data -m 1 "$dev" || return 1
+    fi
 }
 
 _datadisk_mount() {

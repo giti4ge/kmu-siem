@@ -78,7 +78,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils sshpass squid >/dev/null
           sudo systemctl restart squid
-          sudo touch /var/log/squid/access.log
+          for i in $(seq 1 30); do ss -Hltn | grep -q ':3128 ' && break; sleep 1; done
+          curl -fsS -o /dev/null -x http://127.0.0.1:3128 http://deb.debian.org/debian/dists/trixie/Release
+          sleep 2
+          sudo ls -la /var/log/squid/
+          sudo tail -3 /var/log/squid/access.log
       - name: Debian-Image cachen
         uses: actions/cache@v6
         with:

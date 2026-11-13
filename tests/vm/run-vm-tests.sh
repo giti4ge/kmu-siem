@@ -278,8 +278,12 @@ send_tcp "<14>1 $(ts) fgt-test test-app - - - ${TAG}-tcp" || true
 if found "${TAG}-udp"; then pass "Syslog UDP 514 von extern in OpenSearch"; else fail "Syslog UDP 514 nicht angekommen"; fi
 if found "${TAG}-tcp"; then pass "Syslog TCP 514 von extern in OpenSearch"; else fail "Syslog TCP 514 nicht angekommen"; fi
 vmr 'cat /opt/siem/data/secrets/pki/ca.crt' > ca.crt
-{ printf '<14>1 %s fgt-test test-app - - - %s-tls\n' "$(ts)" "$TAG"; sleep 1; } \
-    | timeout 10 openssl s_client -connect 127.0.0.1:6514 -quiet -CAfile ca.crt -verify_return_error >/dev/null 2>&1 || true
+send_tls() {  # Verbindung 3 s offen halten, damit der Eintrag sicher übertragen ist
+    { printf '<14>1 %s fgt-test test-app - - - %s\n' "$(ts)" "$1"; sleep 3; } \
+        | timeout 15 openssl s_client -connect 127.0.0.1:6514 -quiet -CAfile ca.crt -verify_return_error >/dev/null 2>&1 || true
+}
+send_tls "${TAG}-tls"
+found "${TAG}-tls" || send_tls "${TAG}-tls"   # einmalige Wiederholung (Verbindungsaufbau über QEMU-Weiterleitung)
 if found "${TAG}-tls"; then pass "Syslog TLS 6514 von extern in OpenSearch (Zertifikat geprüft)"; else fail "Syslog TLS 6514 nicht angekommen"; fi
 
 FIELDS=$(vmr "pw=\$(cat /opt/siem/data/secrets/opensearch-admin.pw); curl -s -u admin:\$pw --cacert /opt/siem/data/secrets/pki/ca.crt -H 'Content-Type: application/json' 'https://127.0.0.1:9200/siem-unparsed-*/_search' -d '{\"query\":{\"match_phrase\":{\"message\":\"${TAG}-udp\"}}}'")

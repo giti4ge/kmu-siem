@@ -33,6 +33,7 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 - Vorlagen für Architecture Decision Records und Release Notes.
 
 ### Fixed
+- Installer: `--resume` nach Abbruch vor oder während der Einrichtung der Daten-Disk scheiterte („Löschung nicht bestätigt“); die Bestätigung wird jetzt gespeichert und eine unvollständige eigene LVM-Anlage fortgesetzt (fremde Volume Groups weiterhin unangetastet).
 - Installer: nach einem Abbruch während apt werden unterbrochene dpkg-Vorgänge vor dem nächsten apt-Aufruf automatisch abgeschlossen.
 
 ### Changed
