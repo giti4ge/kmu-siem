@@ -10,3 +10,13 @@ ignore = [
 
 [lint.per-file-ignores]
 "tests/**" = ["E501"]  # erwartete Ausgaben dürfen lang sein
+
+[lint.flake8-bugbear]
+# FastAPI-Abhängigkeiten in Standardwerten sind das vorgesehene Muster
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query",
+    "siem_api.deps.require", "siem_api.deps.stages",
+]
+
+[lint.isort]
+known-first-party = ["siem_api", "conftest"]
