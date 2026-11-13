@@ -41,4 +41,4 @@ Gehärtete SIEM-Appliance für die zentrale Protokollierung, Erkennung von Siche
     └── release-notes/   Upgrade-Hinweise je Version
 ```
 
-Code-Verzeichnisse (`host/`, `app/`, `build/`, `tests/`) entstehen ab Phase 0.
+Dazu kommen `host/` (Installer), `app/` (Anwendung, ab Phase 1), `tests/` und `tools/`. Details: [docs/ENTWICKLUNG.md](docs/ENTWICKLUNG.md).

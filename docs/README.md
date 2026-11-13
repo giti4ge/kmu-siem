@@ -17,6 +17,7 @@
 | wissen, was sich zwischen Versionen geändert hat | [CHANGELOG](../CHANGELOG.md), [Release Notes](release-notes/), [SPEC-DIFF](spec/SPEC-DIFF-v1-v2.md) |
 | die Anforderungen und Entscheidungen nachlesen | [Spezifikation](spec/SPEC.md), [ADR](adr/README.md) |
 | verstehen, wie versioniert wird | [VERSIONIERUNG.md](VERSIONIERUNG.md) |
+| am Produkt entwickeln und testen | [ENTWICKLUNG.md](ENTWICKLUNG.md) |
 
 ## Dokumentenstatus
 

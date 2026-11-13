@@ -1,0 +1,241 @@
+# shellcheck shell=bash
+# Texte des Installers (Deutsch/Englisch).
+# msg KEY [ARGS…] – gibt den Text in SIEM_LANG aus (printf-Format).
+
+declare -gA MSG_DE=(
+    [yes_no_hint]="j/N"
+    [usage]="Aufruf: install.sh [Optionen]
+
+Optionen:
+  --preflight              Nur Voraussetzungen prüfen, nichts ändern
+  --unattended DATEI       Unbeaufsichtigte Installation mit Antwortdatei
+  --resume                 Abgebrochene Installation fortsetzen
+  --repair                 Sollzustand wiederherstellen (ohne Datenänderung)
+  --proxy URL              HTTP(S)-Proxy für ausgehende Verbindungen
+  --proxy-ca DATEI         CA-Zertifikat eines TLS-inspizierenden Proxys
+  --token-file DATEI       GitHub-Zugangstoken (privates Distributions-Repository)
+  --keep-installer-user-ssh  SSH-Zugang des Installationsbenutzers behalten
+  --lang de|en             Sprache
+  --version                Version anzeigen
+  -h, --help               Diese Hilfe
+
+Exit-Codes: 0 = OK, 1 = Warnungen, 2 = Fehler, 3 = Schritt noch nicht implementiert, 64 = Aufruffehler"
+    [unknown_option]="Unbekannte Option: %s"
+    [missing_arg]="Option %s erwartet einen Wert"
+    [conflicting_modes]="Die Optionen %s und %s schließen sich aus"
+    [need_root]="Dieser Vorgang erfordert Root-Rechte (sudo)."
+    [locked]="Eine andere Installation läuft bereits (Sperre %s)."
+    [dev_banner]="Entwicklungsstand %s: implementiert sind Preflight und Abfragen. Die Installationsschritte folgen ab Phase 1."
+    [pf_title]="Voraussetzungen prüfen (Preflight)"
+    [pf_summary_ok]="Alle Voraussetzungen erfüllt."
+    [pf_summary_warn]="Voraussetzungen erfüllt, %d Warnung(en)."
+    [pf_summary_fail]="%d Voraussetzung(en) nicht erfüllt, %d Warnung(en). Installation nicht möglich."
+    [pf_threshold_override]="Achtung: Prüfgrenzen wurden per Umgebungsvariable geändert (%s)."
+    [pf_os]="Betriebssystem"
+    [pf_os_ok]="Debian %s (%s)"
+    [pf_os_bad]="Gefunden: %s (%s) – erforderlich: Debian 13, amd64"
+    [pf_root]="Root-Rechte"
+    [pf_root_bad]="Nicht als root ausgeführt – sudo verwenden"
+    [pf_systemd]="systemd"
+    [pf_systemd_bad]="systemd läuft nicht als Init-System"
+    [pf_cpu]="CPU"
+    [pf_cpu_val]="%d vCPU (Minimum %d, empfohlen %d)"
+    [pf_ram]="Arbeitsspeicher"
+    [pf_ram_val]="%d GB (Minimum %d, empfohlen %d)"
+    [pf_rootfs]="Systempartition"
+    [pf_rootfs_val]="%d GB gesamt, %d GB frei (empfohlen ≥ %d GB)"
+    [pf_datadisk]="Daten-Disk"
+    [pf_datadisk_found]="%s (%d GB, leer)"
+    [pf_datadisk_small]="%s (%d GB) – zu klein, Minimum %d GB"
+    [pf_datadisk_none_ok]="Keine zweite Disk – Installation auf Systempartition möglich (%d GB frei), zweite Disk empfohlen"
+    [pf_datadisk_none_bad]="Keine leere zweite Disk und zu wenig Platz auf der Systempartition (%d GB frei, Minimum %d GB)"
+    [pf_ip]="IP-Adresse"
+    [pf_ip_static]="%s (statisch)"
+    [pf_ip_dhcp]="%s per DHCP – feste IP-Adresse empfohlen"
+    [pf_ip_none]="Keine globale IPv4-Adresse konfiguriert"
+    [pf_dns]="DNS / FQDN"
+    [pf_dns_ok]="%s löst auf zu %s"
+    [pf_dns_bad]="%s ist nicht per DNS auflösbar (für Windows-Anbindung/Kerberos erforderlich)"
+    [pf_dns_noqual]="Hostname %s ist kein vollqualifizierter Name (FQDN)"
+    [pf_time]="Zeitsynchronisation"
+    [pf_time_ok]="synchronisiert"
+    [pf_time_bad]="nicht synchronisiert"
+    [pf_net]="Internet: %s"
+    [pf_net_ok]="erreichbar%s"
+    [pf_net_bad]="nicht erreichbar%s"
+    [pf_net_via_proxy]=" (über Proxy)"
+    [pf_net_tool_missing]="Weder curl noch wget vorhanden – Erreichbarkeit nicht prüfbar"
+    [pf_ports]="Freie Ports"
+    [pf_ports_ok]="443, 514, 6514, 5985, 5986, 162 frei"
+    [pf_ports_bad]="Bereits belegt: %s"
+    [pf_ports_siem]="belegt durch installierte SIEM-Dienste (erwartet)"
+    [pf_docker]="Container-Laufzeit"
+    [pf_docker_ok]="keine fremde Installation"
+    [pf_docker_bad]="Bereits installiert: %s – frische VM verwenden"
+    [pf_docker_siem]="durch SIEM-Installation eingerichtet"
+    [pf_desktop]="Desktop-Umgebung"
+    [pf_desktop_ok]="keine"
+    [pf_desktop_bad]="Gefunden: %s – Debian ohne Desktop installieren"
+    [pf_existing]="Bestehende Installation"
+    [pf_existing_none]="keine"
+    [pf_existing_partial]="unvollständige Installation gefunden – mit --resume fortsetzen"
+    [pf_existing_done]="installiert – für Reparatur --repair verwenden"
+    [q_title]="Installationsfragen"
+    [q_lang]="Sprache / Language (de/en)"
+    [q_fqdn]="Vollqualifizierter Name (FQDN) der Appliance"
+    [q_ntp]="NTP-Server (kommagetrennt, z. B. Domain Controller)"
+    [q_proxy]="HTTP(S)-Proxy (leer = keiner)"
+    [q_proxy_ca]="CA-Datei des Proxys bei TLS-Inspection (leer = keine)"
+    [q_datadisk]="Daten-Disk (%s; 'none' = keine zweite Disk)"
+    [q_datadisk_confirm]="ACHTUNG: %s wird vollständig gelöscht. Zur Bestätigung den Gerätenamen erneut eingeben"
+    [q_sshkey]="SSH-Public-Key für siemadmin (Schlüssel einfügen oder Pfad zu .pub-Datei; leer = keiner)"
+    [q_sshkey_none]="Ohne SSH-Schlüssel bleibt die Kennwort-Anmeldung per SSH aktiv."
+    [q_admin_pw]="Kennwort für Linux-Benutzer siemadmin (sudo)"
+    [q_web_pw]="Kennwort für Web-UI-Konto admin"
+    [q_pw_repeat]="Kennwort wiederholen"
+    [q_pw_mismatch]="Kennwörter stimmen nicht überein."
+    [q_trunk_if]="Netzwerkkarte für VLAN-Trunk (leer = keine; verfügbar: %s)"
+    [q_trunk_vlans]="VLAN-IDs am Trunk (z. B. 10,20,30-40)"
+    [q_token]="GitHub-Zugangstoken-Datei (leer = öffentliches Distributions-Repository)"
+    [q_invalid]="Ungültige Eingabe: %s"
+    [q_summary]="Zusammenfassung"
+    [q_proceed]="Installation mit diesen Angaben starten?"
+    [q_aborted]="Abgebrochen. Es wurden keine Änderungen vorgenommen."
+    [warn_continue]="Es gibt Warnungen. Trotzdem fortfahren?"
+    [ans_file_missing]="Antwortdatei nicht gefunden: %s"
+    [ans_bad_line]="Antwortdatei Zeile %d: ungültiges Format"
+    [ans_unknown_key]="Antwortdatei Zeile %d: unbekannter Schlüssel %s"
+    [ans_missing_key]="Antwortdatei: Pflichtangabe %s fehlt"
+    [ans_plaintext_secret]="Antwortdatei enthält Klartext-Geheimnis in %s – besser *_FILE verwenden"
+    [ans_file_unreadable]="Datei für %s nicht lesbar: %s"
+    [step_running]="Schritt %d/%d: %s"
+    [step_skip]="Schritt %s bereits erledigt – übersprungen"
+    [step_not_impl]="Schritt '%s' ist noch nicht implementiert (geplant: %s). Fortschritt gespeichert – nach einem Update mit --resume fortsetzen."
+    [repair_needs_install]="Keine abgeschlossene Installation gefunden – --repair ist nicht möglich."
+    [resume_nothing]="Keine begonnene Installation gefunden – normale Installation starten."
+)
+
+declare -gA MSG_EN=(
+    [yes_no_hint]="y/N"
+    [usage]="Usage: install.sh [options]
+
+Options:
+  --preflight              Check prerequisites only, change nothing
+  --unattended FILE        Unattended installation using an answer file
+  --resume                 Resume an interrupted installation
+  --repair                 Restore the target state (no data changes)
+  --proxy URL              HTTP(S) proxy for outbound connections
+  --proxy-ca FILE          CA certificate of a TLS-inspecting proxy
+  --token-file FILE        GitHub access token (private distribution repository)
+  --keep-installer-user-ssh  Keep SSH access of the installation user
+  --lang de|en             Language
+  --version                Show version
+  -h, --help               This help
+
+Exit codes: 0 = OK, 1 = warnings, 2 = failure, 3 = step not implemented yet, 64 = usage error"
+    [unknown_option]="Unknown option: %s"
+    [missing_arg]="Option %s requires a value"
+    [conflicting_modes]="Options %s and %s are mutually exclusive"
+    [need_root]="This operation requires root privileges (sudo)."
+    [locked]="Another installation is already running (lock %s)."
+    [dev_banner]="Development stage %s: preflight and questions are implemented. Installation steps follow from phase 1."
+    [pf_title]="Checking prerequisites (preflight)"
+    [pf_summary_ok]="All prerequisites met."
+    [pf_summary_warn]="Prerequisites met, %d warning(s)."
+    [pf_summary_fail]="%d prerequisite(s) not met, %d warning(s). Installation not possible."
+    [pf_threshold_override]="Attention: check thresholds were overridden via environment (%s)."
+    [pf_os]="Operating system"
+    [pf_os_ok]="Debian %s (%s)"
+    [pf_os_bad]="Found: %s (%s) – required: Debian 13, amd64"
+    [pf_root]="Root privileges"
+    [pf_root_bad]="Not running as root – use sudo"
+    [pf_systemd]="systemd"
+    [pf_systemd_bad]="systemd is not running as init system"
+    [pf_cpu]="CPU"
+    [pf_cpu_val]="%d vCPU (minimum %d, recommended %d)"
+    [pf_ram]="Memory"
+    [pf_ram_val]="%d GB (minimum %d, recommended %d)"
+    [pf_rootfs]="System partition"
+    [pf_rootfs_val]="%d GB total, %d GB free (recommended ≥ %d GB)"
+    [pf_datadisk]="Data disk"
+    [pf_datadisk_found]="%s (%d GB, empty)"
+    [pf_datadisk_small]="%s (%d GB) – too small, minimum %d GB"
+    [pf_datadisk_none_ok]="No second disk – installation on system partition possible (%d GB free), second disk recommended"
+    [pf_datadisk_none_bad]="No empty second disk and not enough space on system partition (%d GB free, minimum %d GB)"
+    [pf_ip]="IP address"
+    [pf_ip_static]="%s (static)"
+    [pf_ip_dhcp]="%s via DHCP – static IP recommended"
+    [pf_ip_none]="No global IPv4 address configured"
+    [pf_dns]="DNS / FQDN"
+    [pf_dns_ok]="%s resolves to %s"
+    [pf_dns_bad]="%s does not resolve via DNS (required for Windows/Kerberos)"
+    [pf_dns_noqual]="Hostname %s is not fully qualified (FQDN)"
+    [pf_time]="Time synchronisation"
+    [pf_time_ok]="synchronised"
+    [pf_time_bad]="not synchronised"
+    [pf_net]="Internet: %s"
+    [pf_net_ok]="reachable%s"
+    [pf_net_bad]="not reachable%s"
+    [pf_net_via_proxy]=" (via proxy)"
+    [pf_net_tool_missing]="Neither curl nor wget available – reachability cannot be checked"
+    [pf_ports]="Free ports"
+    [pf_ports_ok]="443, 514, 6514, 5985, 5986, 162 free"
+    [pf_ports_bad]="Already in use: %s"
+    [pf_ports_siem]="used by installed SIEM services (expected)"
+    [pf_docker]="Container runtime"
+    [pf_docker_ok]="no foreign installation"
+    [pf_docker_bad]="Already installed: %s – use a fresh VM"
+    [pf_docker_siem]="set up by SIEM installation"
+    [pf_desktop]="Desktop environment"
+    [pf_desktop_ok]="none"
+    [pf_desktop_bad]="Found: %s – install Debian without desktop"
+    [pf_existing]="Existing installation"
+    [pf_existing_none]="none"
+    [pf_existing_partial]="incomplete installation found – continue with --resume"
+    [pf_existing_done]="installed – use --repair for repairs"
+    [q_title]="Installation questions"
+    [q_lang]="Language / Sprache (de/en)"
+    [q_fqdn]="Fully qualified domain name (FQDN) of the appliance"
+    [q_ntp]="NTP servers (comma separated, e.g. domain controllers)"
+    [q_proxy]="HTTP(S) proxy (empty = none)"
+    [q_proxy_ca]="Proxy CA file for TLS inspection (empty = none)"
+    [q_datadisk]="Data disk (%s; 'none' = no second disk)"
+    [q_datadisk_confirm]="WARNING: %s will be wiped completely. Re-enter the device name to confirm"
+    [q_sshkey]="SSH public key for siemadmin (paste key or path to .pub file; empty = none)"
+    [q_sshkey_none]="Without an SSH key, SSH password login stays enabled."
+    [q_admin_pw]="Password for Linux user siemadmin (sudo)"
+    [q_web_pw]="Password for web UI account admin"
+    [q_pw_repeat]="Repeat password"
+    [q_pw_mismatch]="Passwords do not match."
+    [q_trunk_if]="Network interface for VLAN trunk (empty = none; available: %s)"
+    [q_trunk_vlans]="VLAN IDs on trunk (e.g. 10,20,30-40)"
+    [q_token]="GitHub access token file (empty = public distribution repository)"
+    [q_invalid]="Invalid input: %s"
+    [q_summary]="Summary"
+    [q_proceed]="Start installation with these settings?"
+    [q_aborted]="Aborted. No changes were made."
+    [warn_continue]="There are warnings. Continue anyway?"
+    [ans_file_missing]="Answer file not found: %s"
+    [ans_bad_line]="Answer file line %d: invalid format"
+    [ans_unknown_key]="Answer file line %d: unknown key %s"
+    [ans_missing_key]="Answer file: required setting %s missing"
+    [ans_plaintext_secret]="Answer file contains plaintext secret in %s – prefer *_FILE"
+    [ans_file_unreadable]="File for %s not readable: %s"
+    [step_running]="Step %d/%d: %s"
+    [step_skip]="Step %s already done – skipped"
+    [step_not_impl]="Step '%s' is not implemented yet (planned: %s). Progress saved – resume with --resume after an update."
+    [repair_needs_install]="No completed installation found – --repair is not possible."
+    [resume_nothing]="No started installation found – starting a normal installation."
+)
+
+msg() {
+    local key=$1; shift
+    local fmt
+    if [[ "${SIEM_LANG}" == "en" ]]; then
+        fmt=${MSG_EN[$key]:-${MSG_DE[$key]:-$key}}
+    else
+        fmt=${MSG_DE[$key]:-$key}
+    fi
+    # shellcheck disable=SC2059  # Format stammt aus den eigenen Texttabellen
+    printf -- "$fmt" "$@"
+}

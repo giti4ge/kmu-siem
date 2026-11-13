@@ -1,0 +1,9 @@
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "S"]
+ignore = [
+    "S311",  # random ist für Testdaten ausreichend
+    "S101",  # assert in Hilfsskripten erlaubt
+]

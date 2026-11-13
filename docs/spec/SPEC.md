@@ -640,6 +640,8 @@ Alert-Engine (Sigma + intern), Regel-Import/-Export, Report-Engine mit allen Vor
 
 ## 8. Entscheidungsprotokoll (ADR)
 
+Ausführliche Einzeldokumente: [docs/adr/](../adr/README.md).
+
 | # | Entscheidung | Begründung |
 |---|---|---|
 | ADR-01 | Debian 13 | Debian 12 nur noch LTS |
