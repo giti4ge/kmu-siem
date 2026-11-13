@@ -9,6 +9,7 @@ import { EnrollPage, LoginPage, MfaPage, PasswordPage } from "./pages/Auth";
 import RolesPage from "./pages/Roles";
 import SystemLogPage from "./pages/SystemLog";
 import UsersPage from "./pages/Users";
+import WindowsPage from "./pages/Windows";
 
 export function useMe() {
   return useQuery({
@@ -29,6 +30,7 @@ export function useMe() {
 // Navigation: nur Module anzeigen, für die eine Leseberechtigung besteht
 const NAV = [
   { to: "/", key: "nav.dashboard", perm: "dashboard:read" },
+  { to: "/sources/windows", key: "nav.windows", perm: "sources:read" },
   { to: "/system/users", key: "nav.users", perm: "users:read" },
   { to: "/system/roles", key: "nav.roles", perm: "users:read" },
   { to: "/system/audit", key: "nav.audit", perm: "audit:read" },
@@ -104,6 +106,7 @@ function Shell({ me }: { me: Me }) {
             {can("users:read") && <Route path="/system/roles" element={<RolesPage canWrite={can("users:write")} />} />}
             {can("audit:read") && <Route path="/system/audit" element={<AuditPage />} />}
             {can("system:read") && <Route path="/system/log" element={<SystemLogPage />} />}
+            {can("sources:read") && <Route path="/sources/windows" element={<WindowsPage canWrite={can("sources:write")} />} />}
             <Route path="/account" element={<PasswordPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

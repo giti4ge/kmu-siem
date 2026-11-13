@@ -14,7 +14,8 @@
     "audit": "Audit log",
     "account": "My account",
     "dashboards": "Deep analysis (Dashboards)",
-    "syslog": "System log"
+    "syslog": "System log",
+    "windows": "Windows integration"
   },
   "common": {
     "save": "Save",
@@ -80,7 +81,17 @@
     "totp_not_set_up": "Please restart the setup.",
     "sso_unavailable": "Sign-in to Dashboards is currently not possible.",
     "hostd_unavailable": "The host service is not reachable.",
-    "invalid_request": "Request rejected."
+    "invalid_request": "Request rejected.",
+    "wec_invalid_settings": "Invalid settings.",
+    "wec_invalid_domain": "Invalid domain name (e.g. company.local).",
+    "wec_invalid_fqdn": "Invalid FQDN (e.g. siem.company.local).",
+    "wec_invalid_account": "Invalid account name (max. 20 characters: letters, digits, . _ -).",
+    "wec_invalid_roles": "Invalid role assignment.",
+    "wec_invalid_ou": "Invalid OU name (distinguished name such as OU=Servers,DC=company,DC=local).",
+    "wec_keytab_invalid": "The file is not a valid keytab.",
+    "wec_keytab_principal": "The keytab does not contain the expected principal HTTP/<FQDN>@<REALM>.",
+    "wec_not_configured": "Please save domain and FQDN first.",
+    "wec_storage_unavailable": "The configuration could not be saved."
   },
   "dashboard": {
     "welcome": "Welcome, {{name}}.",
@@ -197,5 +208,46 @@
       "api": "Control plane",
       "dashboards": "Dashboards"
     }
+  },
+  "wec": {
+    "title": "Windows integration (Event Forwarding)",
+    "intro": "Windows servers send their events agentlessly via Windows Event Forwarding (Kerberos, port 5985) to the appliance. Setup takes three steps.",
+    "step1": "1. Define domain, appliance FQDN and target groups",
+    "domain": "Active Directory domain",
+    "fqdn": "Appliance FQDN",
+    "account": "Service account name",
+    "roles": {
+      "dc": "Domain controllers (OUs)",
+      "exchange": "Exchange servers (OUs)",
+      "member": "Member servers (OUs)",
+      "client": "Windows clients (OUs, optional)"
+    },
+    "roles_hint": {
+      "dc": "Security, Directory Service, DNS, System – one OU (distinguished name) per line.",
+      "exchange": "Admin audit, Application, Security, System.",
+      "member": "Logons, processes, services, tasks, file access, PowerShell, Defender.",
+      "client": "Lean selection: failed logons, local admins, Defender, services, USB."
+    },
+    "saved": "Saved.",
+    "step2": "2. Run the onboarding script",
+    "step2_text": "Run the script as a domain administrator on a domain controller (with RSAT). It creates the service account, SPN, keytab and one GPO per role and links them to the OUs.",
+    "download": "Download script",
+    "sha256": "Script SHA-256",
+    "step3": "3. Upload the keytab",
+    "step3_text": "Upload the file siem-wec.keytab created by the script (principal {{principal}}), then delete it on the domain controller.",
+    "keytab": "Keytab file",
+    "status": "Status",
+    "configured": "Configured",
+    "keytab_state": "Keytab present",
+    "machines": "Connected servers",
+    "unavailable": "Service not active yet",
+    "audit_title": "Recommended audit policy",
+    "audit_text": "The GPO applies this advanced audit policy on all target systems.",
+    "subcategory": "Subcategory",
+    "success": "Success",
+    "failure": "Failure",
+    "ph_domain": "company.local",
+    "ph_fqdn": "siem.company.local",
+    "ph_ou": "OU=Servers,DC=company,DC=local"
   }
 }

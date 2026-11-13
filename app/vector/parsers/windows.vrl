@@ -4,9 +4,11 @@
 # Enthält Change-Auditing (AD, Gruppen, GPO, Dienste, Tasks, Audit-Policy, Log gelöscht) und FIM (4663/5145).
 # Unbekannte Ereignis-IDs bleiben als windows.other erhalten (event.original + winlog.event_data).
 
-raw = encode_json({"Event": .Event, "OpenWEC": .OpenWEC})
+# OpenWEC-Format "Json": System/EventData/OpenWEC auf oberster Ebene (RawJson/XML-Umwandlung
+# mit "Event"-Wrapper wird ebenfalls akzeptiert).
+ev = object(.Event) ?? {"System": .System, "EventData": .EventData, "UserData": .UserData}
+raw = encode_json({"Event": ev, "OpenWEC": .OpenWEC})
 wec = object(.OpenWEC) ?? {}
-ev = object(.Event) ?? {}
 sys = object(ev.System) ?? {}
 
 # --- EventData normalisieren -------------------------------------------------
@@ -26,11 +28,15 @@ eid = to_string(sys.EventID) ?? to_string(sys.EventID."#text") ?? ""
 prov = string(sys.Provider."#attributes".Name) ?? string(sys.Provider.Name) ?? ""
 chan = string(sys.Channel) ?? ""
 comp = string(sys.Computer) ?? null
-ts = parse_timestamp(string(sys.TimeCreated."#attributes".SystemTime) ?? "", "%+") ?? now()
+ts = parse_timestamp(string(sys.TimeCreated) ?? string(sys.TimeCreated."#attributes".SystemTime) ?? "", "%+") ?? now()
 sub = object(wec.Subscription) ?? {}
 
 # --- Grundgerüst ---------------------------------------------------------------
 del(.Event)
+del(.System)
+del(.EventData)
+del(.UserData)
+del(.RenderingInfo)
 del(.OpenWEC)
 del(.source_type)
 .@timestamp = ts

@@ -10,6 +10,7 @@ ignore = [
 
 [lint.per-file-ignores]
 "tests/**" = ["E501"]  # erwartete Ausgaben dürfen lang sein
+"app/control-plane/backend/siem_api/wec.py" = ["E501"]  # PowerShell-Vorlage und XPath-Abfragen
 
 [lint.flake8-bugbear]
 # FastAPI-Abhängigkeiten in Standardwerten sind das vorgesehene Muster
