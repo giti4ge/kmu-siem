@@ -179,11 +179,11 @@ if eid == "4776" {
 
 ip = string(ed.IpAddress) ?? string(ed.ClientAddress) ?? null
 if ip != null {
-    ip = replace(ip, "::ffff:", "")
+    ip = replace(string(ip) ?? "", "::ffff:", "")
     if ip != "::1" && ip != "127.0.0.1" && ip != "-" { .source.ip = ip }
 }
-port = to_int(ed.IpPort) ?? to_int(ed.ClientPort) ?? null
-if port != null && port > 0 { .source.port = port }
+port = to_int(ed.IpPort) ?? to_int(ed.ClientPort) ?? 0
+if port > 0 { .source.port = port }
 ws = string(ed.WorkstationName) ?? null
 if ws != null { .source.domain = ws }
 
@@ -193,7 +193,7 @@ if includes(["4624", "4625", "4648"], eid) {
     if lt != null {
         .winlog.logon.type = lt
         lt_names = {"2": "Interactive", "3": "Network", "4": "Batch", "5": "Service", "7": "Unlock", "8": "NetworkCleartext", "9": "NewCredentials", "10": "RemoteInteractive", "11": "CachedInteractive"}
-        .winlog.logon.type_name = get(lt_names, [to_string(lt) ?? ""]) ?? null
+        .winlog.logon.type_name = get(lt_names, [to_string(lt)]) ?? null
     }
     .winlog.logon.id = string(ed.TargetLogonId) ?? null
     .process.name = string(ed.ProcessName) ?? null
@@ -279,7 +279,7 @@ if eidn >= 4720 && eidn <= 4767 {
     grp = string(ed.TargetUserName) ?? null
     if grp != null {
         privileged = ["domain admins", "enterprise admins", "schema admins", "administrators", "administratoren", "domänen-admins", "organisations-admins", "schema-admins", "backup operators", "sicherungs-operatoren", "account operators", "server operators", "dnsadmins", "group policy creator owners"]
-        if includes(privileged, downcase(grp)) { .siem.change.privileged = true }
+        if includes(privileged, downcase(string(grp) ?? "")) { .siem.change.privileged = true }
     }
 }
 if includes(["5136", "5137", "5139", "5141"], eid) {
@@ -292,7 +292,7 @@ if includes(["5136", "5137", "5139", "5141"], eid) {
     op = string(ed.OperationType) ?? ""
     ops = {"%%14674": "value-added", "%%14675": "value-deleted"}
     .siem.change.operation = get(ops, [op]) ?? .event.action
-    if (string(ed.ObjectClass) ?? "") == "groupPolicyContainer" || contains(dn ?? "", "CN=Policies,CN=System") {
+    if (string(ed.ObjectClass) ?? "") == "groupPolicyContainer" || contains(string(dn) ?? "", "CN=Policies,CN=System") {
         .siem.change.gpo = true
         .event.action = "gpo-changed"
     }
