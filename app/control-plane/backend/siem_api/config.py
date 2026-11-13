@@ -41,6 +41,8 @@ class Settings:
     wec_dir: Path = field(default_factory=lambda: Path(os.environ.get("SIEM_WEC_DIR", "/data/openwec")))
     # Verzeichnis mit devices.csv (gemeinsam mit Vector)
     vector_dir: Path = field(default_factory=lambda: Path(os.environ.get("SIEM_VECTOR_DIR", "/data/vector-config")))
+    # OpenSearch (lokal, TLS mit interner CA); Zugangsdaten aus secrets_dir/opensearch.json
+    opensearch_url: str = field(default_factory=lambda: os.environ.get("SIEM_OPENSEARCH_URL", "https://127.0.0.1:9200"))
     # Anzeigename des TOTP-Ausstellers in Authenticator-Apps
     totp_issuer: str = field(default_factory=lambda: os.environ.get("SIEM_TOTP_ISSUER", "KMU-SIEM"))
 

@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import { EnrollPage, LoginPage, MfaPage, PasswordPage } from "./pages/Auth";
 import RolesPage from "./pages/Roles";
 import SystemLogPage from "./pages/SystemLog";
+import UnparsedPage from "./pages/Unparsed";
 import UsersPage from "./pages/Users";
 import WindowsPage from "./pages/Windows";
 
@@ -31,6 +32,7 @@ export function useMe() {
 // Navigation: nur Module anzeigen, für die eine Leseberechtigung besteht
 const NAV = [
   { to: "/", key: "nav.dashboard", perm: "dashboard:read" },
+  { to: "/sources/unparsed", key: "nav.unparsed", perm: "logs:read" },
   { to: "/sources/devices", key: "nav.devices", perm: "sources:read" },
   { to: "/sources/windows", key: "nav.windows", perm: "sources:read" },
   { to: "/system/users", key: "nav.users", perm: "users:read" },
@@ -110,6 +112,7 @@ function Shell({ me }: { me: Me }) {
             {can("system:read") && <Route path="/system/log" element={<SystemLogPage />} />}
             {can("sources:read") && <Route path="/sources/windows" element={<WindowsPage canWrite={can("sources:write")} />} />}
             {can("sources:read") && <Route path="/sources/devices" element={<DevicesPage canWrite={can("sources:write")} />} />}
+            {can("logs:read") && <Route path="/sources/unparsed" element={<UnparsedPage />} />}
             <Route path="/account" element={<PasswordPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -24,6 +24,7 @@ step_app() {
     _app_dirs || return 1
     _app_secrets || return 1
     pki_ensure || return 1
+    _app_api_ca || return 1
     _app_env || return 1
     _app_load_images || return 1
     # Nur fehlende Images holen (per Digest festgeschrieben bzw. aus dem Bundle geladen)
@@ -33,8 +34,24 @@ step_app() {
     run_cmd "Index-Templates und Aufbewahrung anwenden" siem_os_init apply || return 1
     run_cmd "SSO für Dashboards einrichten" siem_os_init security \
         --jwt-key-file "$SECRETS_DIR/control-plane/dashboards-jwt.key" \
-        --kibanaserver-password-file "$SECRETS_DIR/kibanaserver.pw" || return 1
+        --kibanaserver-password-file "$SECRETS_DIR/kibanaserver.pw" \
+        --api-password-file "$SECRETS_DIR/siem-api.pw" || return 1
     _app_admin || return 1
+}
+
+# Control-Plane: eigenes OpenSearch-Konto (Kennwort + CA für den API-Container)
+_app_api_opensearch() {
+    local pw="$SECRETS_DIR/siem-api.pw" dir="$SECRETS_DIR/control-plane"
+    _gen_password "$pw" || return 1
+    # nicht über write_file: das setzt das Verzeichnis auf 0755 (hier muss es 0700 bleiben)
+    ( umask 077; printf '{"user": "siem_api", "password": "%s"}
+' "$(cat "$pw")" >"$dir/opensearch.json" ) || return 1
+    chown "$UID_API:$UID_API" "$dir/opensearch.json" && chmod 0400 "$dir/opensearch.json" || return 1
+}
+
+# CA-Zertifikat (öffentlich) für den API-Container; erst nach pki_ensure möglich
+_app_api_ca() {
+    install -m 0444 -o "$UID_API" -g "$UID_API" "$SECRETS_DIR/pki/ca.crt" "$SECRETS_DIR/control-plane/opensearch-ca.crt"
 }
 
 # Dashboards: Dienstkonto, Cookie-Schlüssel, JWT-Schlüssel (geteilt mit der Control-Plane)
@@ -135,6 +152,7 @@ _app_secrets() {
     _gen_password "$admin_pw" || return 1
     _gen_password "$vector_pw" || return 1
     _app_dashboards_secrets || return 1
+    _app_api_opensearch || return 1
 
     # internal_users.yml nur neu erzeugen, wenn sich ein Kennwort geändert hat
     sumfile="$APP_DATA/opensearch-security/.pwsum"

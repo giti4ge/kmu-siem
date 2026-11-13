@@ -16,7 +16,8 @@
     "dashboards": "Deep analysis (Dashboards)",
     "syslog": "System log",
     "windows": "Windows integration",
-    "devices": "Devices"
+    "devices": "Devices",
+    "unparsed": "Unrecognized sources"
   },
   "common": {
     "save": "Save",
@@ -97,7 +98,8 @@
     "device_invalid_name": "Invalid name (letters, digits, spaces, . _ -; at most 64 characters).",
     "device_invalid_type": "Unknown device type.",
     "device_exists": "A device with this IP address already exists.",
-    "device_not_found": "Device not found."
+    "device_not_found": "Device not found.",
+    "opensearch_unavailable": "OpenSearch is not reachable."
   },
   "dashboard": {
     "welcome": "Welcome, {{name}}.",
@@ -274,5 +276,15 @@
       "fs_s3900": "FS S3900",
       "linux": "Linux server"
     }
+  },
+  "unparsed": {
+    "title": "Unrecognized sources",
+    "intro": "Events no parser was responsible for. Add the source under \"Devices\" with the right type, or report the format for a new parser.",
+    "period": "Period",
+    "hours": "last {{count}} h",
+    "empty": "No unrecognized events in the selected period.",
+    "program": "Program",
+    "count": "{{count}} events",
+    "last": "last seen"
   }
 }

@@ -16,7 +16,8 @@
     "dashboards": "Tiefenanalyse (Dashboards)",
     "syslog": "System-Protokoll",
     "windows": "Windows-Anbindung",
-    "devices": "Geräte"
+    "devices": "Geräte",
+    "unparsed": "Nicht erkannte Quellen"
   },
   "common": {
     "save": "Speichern",
@@ -97,7 +98,8 @@
     "device_invalid_name": "Ungültiger Name (Buchstaben, Ziffern, Leerzeichen, . _ -; höchstens 64 Zeichen).",
     "device_invalid_type": "Unbekannter Gerätetyp.",
     "device_exists": "Für diese IP-Adresse existiert bereits ein Gerät.",
-    "device_not_found": "Gerät nicht gefunden."
+    "device_not_found": "Gerät nicht gefunden.",
+    "opensearch_unavailable": "OpenSearch ist nicht erreichbar."
   },
   "dashboard": {
     "welcome": "Willkommen, {{name}}.",
@@ -274,5 +276,15 @@
       "fs_s3900": "FS S3900",
       "linux": "Linux-Server"
     }
+  },
+  "unparsed": {
+    "title": "Nicht erkannte Quellen",
+    "intro": "Ereignisse, für die kein Parser zuständig war. Tragen Sie die Quelle unter „Geräte“ mit dem richtigen Typ ein oder melden Sie das Format für einen neuen Parser.",
+    "period": "Zeitraum",
+    "hours": "letzte {{count}} h",
+    "empty": "Keine nicht erkannten Ereignisse im gewählten Zeitraum.",
+    "program": "Programm",
+    "count": "{{count}} Ereignisse",
+    "last": "zuletzt"
   }
 }
