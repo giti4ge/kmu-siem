@@ -52,7 +52,7 @@ VERSION               Produktversion (SemVer)
 | Unit | `tests/hostd/test_hostd.py` | überall (Socket-Tests nur Linux) | `python -m unittest discover -s tests/hostd` |
 | Integration | `tests/integration/preflight-container.sh` | Debian-13-Container als root | `bash tests/integration/preflight-container.sh` |
 | VM | `tests/vm/run-vm-tests.sh` | Linux mit QEMU (CI: GitHub Actions mit KVM) | `bash tests/vm/run-vm-tests.sh` |
-| VM-Varianten | `tests/vm/run-vm-variants.sh` | wie VM, zusätzlich `sshpass` und für `interactive` squid auf Port 3128 | `bash tests/vm/run-vm-variants.sh interactive|resume` |
+| VM-Varianten | `tests/vm/run-vm-variants.sh` | wie VM, zusätzlich `sshpass` und für `interactive` squid auf Port 3128 | `bash tests/vm/run-vm-variants.sh interactive` bzw. `resume` |
 
 ### Lokal unter Windows
 
