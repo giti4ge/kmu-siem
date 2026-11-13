@@ -93,6 +93,47 @@ jobs:
       - name: CSP-tauglich (keine Inline-Skripte)
         run: "! grep -E '<script>|<script [^>]*>[^<]' ../../proxy/html/index.html"
 
+  zap:
+    name: ZAP-Baseline (Web-UI + API hinter dem Proxy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/control-plane/frontend/package-lock.json
+      - name: Web-UI und API-Image bauen
+        run: |
+          (cd app/control-plane/frontend && npm ci --no-audit --no-fund --silent && npm run build)
+          docker build -q -t siem-api:zap app/control-plane/backend
+      - name: api + proxy aus der echten Compose-Datei starten
+        run: |
+          D=/tmp/siem
+          mkdir -p $D/config-db $D/secrets/control-plane $D/secrets/pki/proxy
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost"             -keyout $D/secrets/pki/proxy/web.key -out $D/secrets/pki/proxy/web.crt 2>/dev/null
+          sudo chown -R 2100:2100 $D/config-db $D/secrets/control-plane
+          sudo chown -R 101:101 $D/secrets/pki/proxy
+          SIEM_DATA=$D SIEM_API_IMAGE=siem-api:zap OPENSEARCH_JAVA_OPTS=-Xmx1g             docker compose -p siem -f app/docker-compose.yml up -d api proxy
+          for i in $(seq 1 60); do curl -skf https://127.0.0.1:8443/api/health && break; sleep 2; done
+      - name: ZAP-Baseline-Scan
+        run: |
+          mkdir -p zap && chmod 777 zap
+          docker run --rm --network host -v "$PWD/zap:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable             zap-baseline.py -t https://127.0.0.1:8443/ -J report.json -I || true
+          python3 - <<'EOF'
+          import json, sys
+          r = json.load(open("zap/report.json"))
+          alerts = [a for s in r.get("site", []) for a in s.get("alerts", [])]
+          for a in sorted(alerts, key=lambda a: -int(a["riskcode"])):
+              print(f'{a["riskdesc"]:<28} {a["name"]} ({a["count"]})')
+          bad = [a for a in alerts if int(a["riskcode"]) >= 2]
+          print(f"{len(alerts)} Hinweise, davon High/Medium: {len(bad)}")
+          sys.exit(1 if bad else 0)
+          EOF
+      - name: Container-Protokolle bei Fehler
+        if: failure()
+        run: docker logs siem-proxy 2>&1 | tail -30; docker logs siem-api 2>&1 | tail -30
+
   integration:
     name: Preflight im Debian-13-Container
     runs-on: ubuntu-latest
