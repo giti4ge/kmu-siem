@@ -64,7 +64,7 @@ services:
     volumes:
       - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
       - ./vector/parsers:/etc/vector/parsers:ro
-      - ./vector/devices.csv:/etc/vector/devices.csv:ro
+      - ${SIEM_DATA}/vector-config/devices.csv:/etc/vector/devices.csv:ro
       - ${SIEM_DATA}/secrets/pki/vector:/etc/vector/certs:ro
       - ${SIEM_DATA}/secrets/vector:/etc/vector/secrets:ro
       - ${SIEM_DATA}/vector-buffer:/var/lib/vector
@@ -86,6 +86,7 @@ services:
       - ${SIEM_DATA}/config-db:/data/config-db
       - ${SIEM_DATA}/secrets/control-plane:/data/secrets
       - ${SIEM_DATA}/openwec/conf:/data/openwec
+      - ${SIEM_DATA}/vector-config:/data/vector-config
       - /run/siem:/run/siem
     tmpfs:
       - /tmp

@@ -15,7 +15,8 @@
     "account": "Mein Konto",
     "dashboards": "Tiefenanalyse (Dashboards)",
     "syslog": "System-Protokoll",
-    "windows": "Windows-Anbindung"
+    "windows": "Windows-Anbindung",
+    "devices": "Geräte"
   },
   "common": {
     "save": "Speichern",
@@ -91,7 +92,12 @@
     "wec_keytab_invalid": "Die Datei ist keine gültige Keytab.",
     "wec_keytab_principal": "Die Keytab enthält nicht den erwarteten Prinzipal HTTP/<FQDN>@<REALM>.",
     "wec_not_configured": "Bitte zuerst Domäne und FQDN speichern.",
-    "wec_storage_unavailable": "Die Konfiguration konnte nicht gespeichert werden."
+    "wec_storage_unavailable": "Die Konfiguration konnte nicht gespeichert werden.",
+    "device_invalid_ip": "Ungültige IP-Adresse.",
+    "device_invalid_name": "Ungültiger Name (Buchstaben, Ziffern, Leerzeichen, . _ -; höchstens 64 Zeichen).",
+    "device_invalid_type": "Unbekannter Gerätetyp.",
+    "device_exists": "Für diese IP-Adresse existiert bereits ein Gerät.",
+    "device_not_found": "Gerät nicht gefunden."
   },
   "dashboard": {
     "welcome": "Willkommen, {{name}}.",
@@ -247,5 +253,26 @@
     "ph_domain": "firma.local",
     "ph_fqdn": "siem.firma.local",
     "ph_ou": "OU=Server,DC=firma,DC=local"
+  },
+  "devices": {
+    "title": "Geräte (Logquellen)",
+    "intro": "Ordnen Sie der Absender-IP eines Geräts seinen Typ zu. Daraus wählt die Pipeline den passenden Parser; bei bekannten Formaten erkennt sie den Typ auch selbst.",
+    "ip": "IP-Adresse",
+    "name": "Name",
+    "type": "Typ",
+    "note": "Notiz",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "cancel": "Abbrechen",
+    "empty": "Noch keine Geräte eingetragen.",
+    "applied": "Gespeichert und in der Pipeline aktiv.",
+    "not_applied": "Gespeichert. Die Pipeline konnte nicht automatisch neu geladen werden – bitte Vector neu starten.",
+    "types": {
+      "fortigate": "FortiGate",
+      "arubaos": "ArubaOS-Switch",
+      "instant_on": "Aruba Instant On",
+      "fs_s3900": "FS S3900",
+      "linux": "Linux-Server"
+    }
   }
 }
