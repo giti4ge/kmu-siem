@@ -62,7 +62,14 @@ if app == "sshd" {
 } else if app == "sudo" {
     cmd = parse_regex(raw, r'^\s*(?P<user>\S+) : (.*?TTY=(?P<tty>\S+) ; )?(PWD=(?P<pwd>\S+) ; )?USER=(?P<target>\S+) ; COMMAND=(?P<command>.*)$') ?? null
     sfail = parse_regex(raw, r'^\s*(?P<user>\S+) : (?P<n>\d+) incorrect password attempts?') ?? null
-    if cmd != null {
+    if sfail != null {
+        .event.dataset = "linux.sudo"
+        .event.category = ["authentication", "iam"]
+        .event.type = ["denied"]
+        .event.action = "sudo-failed"
+        .event.outcome = "failure"
+        .user.name = sfail.user
+    } else if cmd != null {
         .event.dataset = "linux.sudo"
         .event.category = ["process", "iam"]
         .event.type = ["start"]
@@ -72,13 +79,6 @@ if app == "sshd" {
         .user.effective.name = cmd.target
         .process.command_line = cmd.command
         if cmd.pwd != null { .process.working_directory = cmd.pwd }
-    } else if sfail != null {
-        .event.dataset = "linux.sudo"
-        .event.category = ["authentication", "iam"]
-        .event.type = ["denied"]
-        .event.action = "sudo-failed"
-        .event.outcome = "failure"
-        .user.name = sfail.user
     }
 } else if app == "su" || app == "su-l" {
     su = parse_regex(raw, r'^(?P<res>FAILED SU|Successful su) .*?for (?P<target>\S+) by (?P<user>\S+)') ?? null
@@ -97,7 +97,7 @@ if app == "sshd" {
         }
     }
 } else if app == "systemd-logind" {
-    sess = parse_regex(raw, r'^New session (?P<id>\S+) of user (?P<user>\S+)') ?? null
+    sess = parse_regex(raw, r'^New session (?P<id>\S+) of user (?P<user>\S+?)\.?\s*$') ?? null
     gone = parse_regex(raw, r'^Removed session (?P<id>\S+)\.') ?? null
     if sess != null {
         .event.dataset = "linux.logind"

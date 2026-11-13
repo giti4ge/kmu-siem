@@ -198,7 +198,7 @@ tests:
         type: log
         log_fields:
           hostname: srv1
-          appname: sshd
+          appname: myapp
           message: Failed password for root from 10.0.0.9 port 22 ssh2
     outputs:
       - extract_from: route_device.fortigate
@@ -210,4 +210,4 @@ tests:
         conditions:
           - type: vrl
             source: |
-              assert_eq!(.appname, "sshd")
+              assert_eq!(.appname, "myapp")
