@@ -85,7 +85,22 @@ services:
     volumes:
       - ${SIEM_DATA}/config-db:/data/config-db
       - ${SIEM_DATA}/secrets/control-plane:/data/secrets
+      - ${SIEM_DATA}/openwec/conf:/data/openwec
       - /run/siem:/run/siem
+    tmpfs:
+      - /tmp
+
+  openwec:
+    <<: *hardening
+    # Windows Event Collector (WEF, Kerberos/5985); wartet auf Konfiguration + Keytab aus dem Web-UI
+    image: ${SIEM_OPENWEC_IMAGE:-ghcr.io/giti4ge/kmu-siem/openwec:dev}
+    container_name: siem-openwec
+    network_mode: host
+    user: "2200:2100"
+    read_only: true
+    volumes:
+      - ${SIEM_DATA}/openwec/conf:/etc/openwec:ro
+      - ${SIEM_DATA}/openwec/db:/var/db/openwec
     tmpfs:
       - /tmp
 

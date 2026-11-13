@@ -33,6 +33,9 @@ jobs:
           mkdir -p app/images
           docker save -o app/images/api.tar "ghcr.io/giti4ge/kmu-siem/api:$ver"
           echo "ghcr.io/giti4ge/kmu-siem/api:$ver" > app/images/api.ref
+          docker build -q -t "ghcr.io/giti4ge/kmu-siem/openwec:$ver" app/openwec
+          docker save -o app/images/openwec.tar "ghcr.io/giti4ge/kmu-siem/openwec:$ver"
+          echo "ghcr.io/giti4ge/kmu-siem/openwec:$ver" > app/images/openwec.ref
       - name: Paket zusammenstellen
         id: pack
         run: |

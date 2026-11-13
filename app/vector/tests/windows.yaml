@@ -1,12 +1,12 @@
 # Parser-Tests Windows (OpenWEC-JSON). Fixtures nach Microsoft-Ereignisschema nachgebildet (SPEC R-02).
 
 tests:
-  - name: 4625 Anmeldefehler (EventData als Objekt)
+  - name: 4625 Anmeldefehler (OpenWEC-Format Json)
     inputs:
       - insert_at: windows
         type: vrl
         source: |
-          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Microsoft-Windows-Security-Auditing"}},"EventID":4625,"Channel":"Security","Computer":"dc01.firma.local","TimeCreated":{"#attributes":{"SystemTime":"2026-11-13T08:15:30.1234567Z"}}},"EventData":{"TargetUserName":"mueller","TargetDomainName":"FIRMA","LogonType":"3","Status":"0xc000006d","SubStatus":"0xc000006a","IpAddress":"10.0.10.77","IpPort":"50122","WorkstationName":"PC-07","SubjectUserName":"-"}},"OpenWEC":{"IpAddress":"10.0.20.5","Subscription":{"Name":"dc"}}}')
+          . = parse_json!(s'{"System":{"Provider":{"Name":"Microsoft-Windows-Security-Auditing"},"EventID":4625,"Channel":"Security","Computer":"dc01.firma.local","TimeCreated":"2026-11-13T08:15:30.1234567Z"},"EventData":{"TargetUserName":"mueller","TargetDomainName":"FIRMA","LogonType":"3","Status":"0xc000006d","SubStatus":"0xc000006a","IpAddress":"10.0.10.77","IpPort":"50122","WorkstationName":"PC-07","SubjectUserName":"-"},"RenderingInfo":{"Message":"x"},"OpenWEC":{"IpAddress":"10.0.20.5","Principal":"DC01$@FIRMA.LOCAL","Subscription":{"Name":"dc"}}}')
     outputs:
       - extract_from: windows
         conditions:
@@ -24,8 +24,10 @@ tests:
               assert_eq!(.winlog.logon.type, 3)
               assert_eq!(.winlog.logon.type_name, "Network")
               assert_eq!(.host.name, "dc01.firma.local")
+              assert_eq!(.siem.subscription, "dc")
+              assert!(!exists(.RenderingInfo))
 
-  - name: 4624 Anmeldung (EventData als Data-Array, EventID als Objekt)
+  - name: 4624 Anmeldung (Wrapper-Format mit Data-Array, EventID als Objekt)
     inputs:
       - insert_at: windows
         type: vrl

@@ -14,7 +14,8 @@
     "audit": "Audit-Log",
     "account": "Mein Konto",
     "dashboards": "Tiefenanalyse (Dashboards)",
-    "syslog": "System-Protokoll"
+    "syslog": "System-Protokoll",
+    "windows": "Windows-Anbindung"
   },
   "common": {
     "save": "Speichern",
@@ -80,7 +81,17 @@
     "totp_not_set_up": "Bitte die Einrichtung neu starten.",
     "sso_unavailable": "Anmeldung an Dashboards derzeit nicht möglich.",
     "hostd_unavailable": "Der Host-Dienst ist nicht erreichbar.",
-    "invalid_request": "Anfrage abgelehnt."
+    "invalid_request": "Anfrage abgelehnt.",
+    "wec_invalid_settings": "Ungültige Einstellungen.",
+    "wec_invalid_domain": "Ungültiger Domänenname (z. B. firma.local).",
+    "wec_invalid_fqdn": "Ungültiger FQDN (z. B. siem.firma.local).",
+    "wec_invalid_account": "Ungültiger Kontoname (höchstens 20 Zeichen: Buchstaben, Ziffern, . _ -).",
+    "wec_invalid_roles": "Ungültige Rollenzuordnung.",
+    "wec_invalid_ou": "Ungültiger OU-Name (Distinguished Name wie OU=Server,DC=firma,DC=local).",
+    "wec_keytab_invalid": "Die Datei ist keine gültige Keytab.",
+    "wec_keytab_principal": "Die Keytab enthält nicht den erwarteten Prinzipal HTTP/<FQDN>@<REALM>.",
+    "wec_not_configured": "Bitte zuerst Domäne und FQDN speichern.",
+    "wec_storage_unavailable": "Die Konfiguration konnte nicht gespeichert werden."
   },
   "dashboard": {
     "welcome": "Willkommen, {{name}}.",
@@ -197,5 +208,44 @@
       "api": "Control-Plane",
       "dashboards": "Dashboards"
     }
+  },
+  "wec": {
+    "title": "Windows-Anbindung (Event Forwarding)",
+    "intro": "Windows-Server senden ihre Ereignisse agentenlos per Windows Event Forwarding (Kerberos, Port 5985) an die Appliance. Die Einrichtung erfolgt in drei Schritten.",
+    "step1": "1. Domäne, Appliance-FQDN und Zielgruppen festlegen",
+    "domain": "Active-Directory-Domäne",
+    "fqdn": "FQDN der Appliance",
+    "account": "Name des Dienstkontos",
+    "roles": {
+      "dc": "Domänencontroller (OUs)",
+      "exchange": "Exchange-Server (OUs)",
+      "member": "Mitgliedsserver (OUs)",
+      "client": "Windows-Clients (OUs, optional)"
+    },
+    "roles_hint": {
+      "dc": "Security, Directory Service, DNS, System – eine OU (Distinguished Name) pro Zeile.",
+      "exchange": "Admin-Audit, Application, Security, System.",
+      "member": "Anmeldungen, Prozesse, Dienste, Aufgaben, Dateizugriffe, PowerShell, Defender.",
+      "client": "Schlanke Auswahl: Anmeldefehler, lokale Administratoren, Defender, Dienste, USB."
+    },
+    "saved": "Gespeichert.",
+    "step2": "2. Onboarding-Skript ausführen",
+    "step2_text": "Das Skript als Domain-Administrator auf einem Domänencontroller (mit RSAT) ausführen. Es legt Dienstkonto, SPN, Keytab und je Rolle eine GPO an und verknüpft sie mit den OUs.",
+    "download": "Skript herunterladen",
+    "sha256": "SHA-256 des Skripts",
+    "step3": "3. Keytab hochladen",
+    "step3_text": "Die vom Skript erzeugte Datei siem-wec.keytab (Prinzipal {{principal}}) hochladen und danach auf dem Domänencontroller löschen.",
+    "keytab": "Keytab-Datei",
+    "status": "Status",
+    "configured": "Konfiguriert",
+    "keytab_state": "Keytab vorhanden",
+    "audit_title": "Empfohlene Audit-Richtlinie",
+    "audit_text": "Diese erweiterte Überwachungsrichtlinie setzt die GPO auf allen Zielsystemen.",
+    "subcategory": "Unterkategorie",
+    "success": "Erfolg",
+    "failure": "Fehler",
+    "ph_domain": "firma.local",
+    "ph_fqdn": "siem.firma.local",
+    "ph_ou": "OU=Server,DC=firma,DC=local"
   }
 }

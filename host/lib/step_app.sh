@@ -108,6 +108,9 @@ _app_dirs() {
     # Control-Plane: Config-DB und eigene Schlüssel (Master-Key, Audit-Schlüssel)
     install -d -m 0750 -o "$UID_API" -g "$UID_API" "$SIEM_ROOT/data/config-db" || return 1
     install -d -m 0700 -o "$UID_API" -g "$UID_API" "$SECRETS_DIR/control-plane" || return 1
+    # OpenWEC: Konfiguration/Keytab/Subscriptions schreibt die Control-Plane (uid 2100), openwecd liest (gid 2100)
+    install -d -m 0750 -o "$UID_API" -g "$UID_API" "$SIEM_ROOT/data/openwec/conf" || return 1
+    install -d -m 0750 -o "$UID_OPENWEC" -g "$UID_OPENWEC" "$SIEM_ROOT/data/openwec/db" || return 1
     install -d -m 0750 "$APP_DATA" || return 1
     install -d -m 0750 -o root -g "$UID_OPENSEARCH" "$APP_DATA/opensearch-security" || return 1
 }
@@ -181,6 +184,7 @@ _app_env() {
 SIEM_DATA=$SIEM_ROOT/data
 OPENSEARCH_JAVA_OPTS=-Xms${heap}g -Xmx${heap}g
 SIEM_API_IMAGE=ghcr.io/giti4ge/kmu-siem/api:${SIEM_VERSION:-dev}
+SIEM_OPENWEC_IMAGE=ghcr.io/giti4ge/kmu-siem/openwec:${SIEM_VERSION:-dev}
 SIEM_HOSTD_GID=$(getent group siem-hostd | cut -d: -f3)
 EOF
     (( $? <= 1 ))
