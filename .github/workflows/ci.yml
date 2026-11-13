@@ -190,7 +190,7 @@ jobs:
       - name: OpenWEC-Container (Image, Konfiguration, Subscriptions laden, Port 5985)
         run: |
           pip install --quiet ./app/control-plane/backend
-          docker build -q -t siem-openwec:ci app/openwec
+          docker build -t siem-openwec:ci app/openwec 2>&1 | tail -40; test -n "$(docker images -q siem-openwec:ci)"
           mkdir -p /tmp/wec/conf /tmp/wec/db
           python tools/ci_wec_prepare.py /tmp/wec/conf
           sudo chown -R 2100:2100 /tmp/wec/conf && sudo chown 2200:2200 /tmp/wec/db
