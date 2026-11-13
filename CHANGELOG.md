@@ -11,6 +11,7 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 ## [Unreleased]
 
 ### Added
+- **Phase 1.5:** VM-Test-Varianten für die Abnahme von Phase 1: interaktive Installation ohne zweite Disk, mit Proxy (Nachweis über das Proxy-Protokoll) und ohne SSH-Schlüssel (Kennwort-Anmeldung bleibt aktiv) sowie Abbruch in jedem Installationsschritt mit anschließendem `--resume`. Gemeinsame VM-Testbibliothek `tests/vm/lib.sh`.
 - **Phase 1.4:** `install.sh --repair` stellt den Sollzustand mit den gespeicherten Angaben wieder her (alle Schritte idempotent, ohne Fragen, ohne Datenänderung). Selbsttest ergänzt um Integritätsüberwachung (AIDE-Datenbank mit Ausnahmen für veränderliche Daten, tägliche Prüfung, rkhunter) und Lynis-Härtungsindex (Zielwert ≥ 80, Warnung bei Unterschreitung). Ergänzende Härtung: Core-Dumps aus, Anmelde-Banner, `UMASK 027` und Kennwort-Alterung für neue Konten, restriktive cron-/SSH-Rechte, zusätzliche sysctl-Werte, SSH `MaxSessions 2`/`Compression no`, Prozess-Accounting, sysstat, libpam-tmpdir.
 - VM-Test 10: AIDE, rkhunter, Lynis ≥ 80, Härtung; `--repair` nach Manipulation (SSH-Drop-in, Modulsperren, sysctl, login.defs, gestoppter Container) ohne Datenverlust.
 - **Phase 1.3:** Anwendungs-Stack (OpenSearch 3.9.0, Vector 0.61.0, nginx + ModSecurity + OWASP CRS 4.25 LTS; Images per Digest). Installationsschritte `app` (Bundle, Verzeichnisse je Container-Benutzer, Geheimnisse, interne PKI mit Root-CA, Heap ¼ RAM, Start, Index-Templates und ISM-Richtlinien für 11 Kategorien mit zstd) und `selftest` (Syslog TCP/UDP/TLS Ende-zu-Ende < 10 s, Proxy mit TLS 1.3 und Sicherheits-Headern). Die Installation läuft damit vollständig durch.
@@ -30,6 +31,10 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 - Versionierungs- und Änderungskonzept.
 - Betriebshandbuch mit 11 Kapiteln und Anhang (Soll-Stand gemäß Spezifikation 2.4.0, wird mit der Implementierung fortgeschrieben).
 - Vorlagen für Architecture Decision Records und Release Notes.
+
+### Fixed
+- Installer: `--resume` nach Abbruch vor oder während der Einrichtung der Daten-Disk scheiterte („Löschung nicht bestätigt“); die Bestätigung wird jetzt gespeichert und eine unvollständige eigene LVM-Anlage fortgesetzt (fremde Volume Groups weiterhin unangetastet).
+- Installer: nach einem Abbruch während apt werden unterbrochene dpkg-Vorgänge vor dem nächsten apt-Aufruf automatisch abgeschlossen.
 
 ### Changed
 - Firewall: 443→8443, 514→10514, 162→10162 per nftables-Umleitung; interne Ports nur für umgeleiteten Verkehr. Preflight prüft zusätzlich die internen Ports.

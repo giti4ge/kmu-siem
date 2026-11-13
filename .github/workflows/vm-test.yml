@@ -1,7 +1,8 @@
 name: VM-Test (frische Debian-13-VM)
 
 # Installiert auf einer frischen Debian-13-VM (QEMU) und prüft Preflight,
-# unbeaufsichtigte Installation und Resume. Dauer ca. 5–15 Minuten.
+# unbeaufsichtigte Installation, Resume, Repair sowie Varianten (interaktiv/Proxy/
+# ohne zweite Disk, Abbruch in jedem Schritt). Dauer ca. 20–40 Minuten.
 on:
   pull_request:
     paths:
@@ -50,6 +51,48 @@ jobs:
           restore-keys: debian-13-genericcloud-
       - name: VM-Tests
         run: bash tests/vm/run-vm-tests.sh
+      - name: Serielle Konsole bei Fehler
+        if: failure()
+        run: tail -100 .vm/serial.log || true
+
+  variants:
+    # Abnahmekriterien Phase 1: interaktiv ohne zweite Disk mit Proxy und ohne SSH-Schlüssel;
+    # Abbruch in jedem Schritt mit --resume
+    name: Debian 13 VM – ${{ matrix.variant }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [interactive, resume]
+    steps:
+      - uses: actions/checkout@v7
+      - name: KVM aktivieren
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+      - name: QEMU, sshpass und squid installieren
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends qemu-system-x86 qemu-utils cloud-image-utils sshpass squid >/dev/null
+          sudo systemctl restart squid
+          for i in $(seq 1 30); do ss -Hltn | grep -q ':3128 ' && break; sleep 1; done
+          curl -fsS -o /dev/null -x http://127.0.0.1:3128 http://deb.debian.org/debian/dists/trixie/Release
+          sleep 2
+          sudo chmod 0755 /var/log/squid
+          sudo chmod 0644 /var/log/squid/access.log
+          ls -la /var/log/squid/
+          tail -3 /var/log/squid/access.log
+      - name: Debian-Image cachen
+        uses: actions/cache@v6
+        with:
+          path: .vm/base.qcow2
+          key: debian-13-genericcloud-${{ github.run_id }}-${{ matrix.variant }}
+          restore-keys: debian-13-genericcloud-
+      - name: VM-Test ${{ matrix.variant }}
+        run: bash tests/vm/run-vm-variants.sh ${{ matrix.variant }}
       - name: Serielle Konsole bei Fehler
         if: failure()
         run: tail -100 .vm/serial.log || true

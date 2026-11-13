@@ -27,86 +27,10 @@
 # Umgebungsvariablen: VM_RAM_MB (4096), VM_CPUS (2), WORKDIR (./.vm), DEBIAN_IMAGE_URL
 set -euo pipefail
 
-REPO=$(cd "$(dirname "$0")/../.." && pwd)
-WORKDIR=${WORKDIR:-$REPO/.vm}
-VM_RAM_MB=${VM_RAM_MB:-4096}
-VM_CPUS=${VM_CPUS:-2}
-DEBIAN_IMAGE_URL=${DEBIAN_IMAGE_URL:-https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2}
-SSH_PORT=2222
-FAILED=0
-
-log()  { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
-pass() { printf '\033[32mOK\033[0m   %s\n' "$*"; }
-fail() { printf '\033[31mFAIL\033[0m %s\n' "$*"; FAILED=1; }
-
-mkdir -p "$WORKDIR"
-cd "$WORKDIR"
-
-# --- VM vorbereiten ----------------------------------------------------------
-log "Debian-13-Cloud-Image"
-[[ -f base.qcow2 ]] || curl -fsSL -o base.qcow2 "$DEBIAN_IMAGE_URL"
-rm -f system.qcow2 data.qcow2 seed.img id_ed25519 id_ed25519.pub serial.log
-qemu-img create -q -f qcow2 -F qcow2 -b base.qcow2 system.qcow2 40G
-qemu-img create -q -f qcow2 data.qcow2 500G          # leer, sparse
-ssh-keygen -q -t ed25519 -N '' -f id_ed25519 -C vm-test
-
-cat >user-data <<EOF
-#cloud-config
-hostname: siem
-fqdn: siem.test.local
-manage_etc_hosts: true
-users:
-  - name: install
-    sudo: "ALL=(ALL) NOPASSWD:ALL"
-    shell: /bin/bash
-    ssh_authorized_keys:
-      - $(cat id_ed25519.pub)
-EOF
-printf 'instance-id: siem-vm-test\nlocal-hostname: siem\n' >meta-data
-cloud-localds seed.img user-data meta-data
-
-ACCEL=(-accel tcg)
-BOOT_TIMEOUT=900
-if [[ -w /dev/kvm ]]; then ACCEL=(-enable-kvm -cpu host); BOOT_TIMEOUT=300; else
-    echo "WARNUNG: /dev/kvm nicht verfügbar – Software-Emulation (langsam)"; fi
-
-log "VM starten (${VM_CPUS} vCPU, ${VM_RAM_MB} MB RAM, Disks 40G + 500G)"
-qemu-system-x86_64 "${ACCEL[@]}" -m "$VM_RAM_MB" -smp "$VM_CPUS" \
-    -drive file=system.qcow2,if=virtio \
-    -drive file=data.qcow2,if=virtio \
-    -drive file=seed.img,if=virtio,format=raw \
-    -nic "user,model=virtio,hostfwd=tcp:127.0.0.1:${SSH_PORT}-:22,hostfwd=tcp:127.0.0.1:8443-:443,hostfwd=tcp:127.0.0.1:8081-:8081,hostfwd=tcp:127.0.0.1:9443-:8443,hostfwd=tcp:127.0.0.1:5514-:514,hostfwd=udp:127.0.0.1:5514-:514,hostfwd=tcp:127.0.0.1:6514-:6514" \
-    -display none -serial file:serial.log -daemonize -pidfile qemu.pid
-trap 'kill "$(cat "$WORKDIR/qemu.pid" 2>/dev/null)" 2>/dev/null || true' EXIT
-
-SSH=(ssh -i id_ed25519 -p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
-     -o LogLevel=ERROR -o ConnectTimeout=10 -o BatchMode=yes -o ServerAliveInterval=30)
-VM_USER=install
-ADMIN_PW="Kennwort-fuer-siemadmin-1"
-vm() { "${SSH[@]}" "$VM_USER@127.0.0.1" "$@"; }
-
-# vmr SKRIPT – als root in der VM ausführen (nach der Installation: siemadmin + sudo-Kennwort)
-vmr() {
-    if [[ $VM_USER == install ]]; then
-        "${SSH[@]}" "$VM_USER@127.0.0.1" "sudo bash -s" <<<"$1"
-    else
-        printf '%s\n%s\n' "$ADMIN_PW" "$1" | "${SSH[@]}" "$VM_USER@127.0.0.1" "sudo -S -p '' bash -s"
-    fi
-}
-# check BESCHREIBUNG ROOT-SKRIPT
-check() { if vmr "$2" >/dev/null 2>&1; then pass "$1"; else fail "$1"; fi; }
-expect() { if grep -qE -- "$1" <<<"$OUT"; then pass "$2"; else fail "$2 (Muster: $1)"; fi; }
-
-for (( t = 0; t < BOOT_TIMEOUT; t += 5 )); do
-    vm true 2>/dev/null && break
-    sleep 5
-done
-vm true || { tail -50 serial.log; echo "VM nicht erreichbar"; exit 1; }
-vm 'cloud-init status --wait >/dev/null 2>&1 || true'
-pass "VM erreichbar"
-
-# Repository-Teile übertragen
-tar -C "$REPO" -czf - host app VERSION | vm 'mkdir -p ~/siem && tar -C ~/siem -xzf -'
+# shellcheck source=tests/vm/lib.sh
+. "$(dirname "$0")/lib.sh"
+VM_HOSTFWD="hostfwd=tcp:127.0.0.1:8443-:443,hostfwd=tcp:127.0.0.1:8081-:8081,hostfwd=tcp:127.0.0.1:9443-:8443,hostfwd=tcp:127.0.0.1:5514-:514,hostfwd=udp:127.0.0.1:5514-:514,hostfwd=tcp:127.0.0.1:6514-:6514"
+vm_boot
 
 run_pf() {  # run_pf [ENV…] -- [ARGS…]; Ausgabe in $OUT, Exit in $RC
     local envs=() ; while [[ $# -gt 0 && $1 != -- ]]; do envs+=("$1"); shift; done; shift || true
@@ -135,7 +59,6 @@ expect 'nur lokal auf 127\.0\.1\.1' "FQDN nur in /etc/hosts erkannt"
 
 # --- Test 2 ------------------------------------------------------------------
 log "Test 2: Preflight mit abgesenkten Grenzwerten"
-LOW=(SIEM_MIN_CPU=1 SIEM_REC_CPU=1 SIEM_MIN_RAM_GB=2 SIEM_REC_RAM_GB=2)
 run_pf "${LOW[@]}" --
 [[ $RC -le 1 ]] && pass "keine Fehler (Exit $RC)" || fail "Exit 0/1 erwartet, erhalten $RC"
 expect 'Prüfgrenzen wurden per Umgebungsvariable geändert' "Hinweis auf geänderte Grenzwerte"
@@ -355,8 +278,12 @@ send_tcp "<14>1 $(ts) fgt-test test-app - - - ${TAG}-tcp" || true
 if found "${TAG}-udp"; then pass "Syslog UDP 514 von extern in OpenSearch"; else fail "Syslog UDP 514 nicht angekommen"; fi
 if found "${TAG}-tcp"; then pass "Syslog TCP 514 von extern in OpenSearch"; else fail "Syslog TCP 514 nicht angekommen"; fi
 vmr 'cat /opt/siem/data/secrets/pki/ca.crt' > ca.crt
-{ printf '<14>1 %s fgt-test test-app - - - %s-tls\n' "$(ts)" "$TAG"; sleep 1; } \
-    | timeout 10 openssl s_client -connect 127.0.0.1:6514 -quiet -CAfile ca.crt -verify_return_error >/dev/null 2>&1 || true
+send_tls() {  # Verbindung 3 s offen halten, damit der Eintrag sicher übertragen ist
+    { printf '<14>1 %s fgt-test test-app - - - %s\n' "$(ts)" "$1"; sleep 3; } \
+        | timeout 15 openssl s_client -connect 127.0.0.1:6514 -quiet -CAfile ca.crt -verify_return_error >/dev/null 2>&1 || true
+}
+send_tls "${TAG}-tls"
+found "${TAG}-tls" || send_tls "${TAG}-tls"   # einmalige Wiederholung (Verbindungsaufbau über QEMU-Weiterleitung)
 if found "${TAG}-tls"; then pass "Syslog TLS 6514 von extern in OpenSearch (Zertifikat geprüft)"; else fail "Syslog TLS 6514 nicht angekommen"; fi
 
 FIELDS=$(vmr "pw=\$(cat /opt/siem/data/secrets/opensearch-admin.pw); curl -s -u admin:\$pw --cacert /opt/siem/data/secrets/pki/ca.crt -H 'Content-Type: application/json' 'https://127.0.0.1:9200/siem-unparsed-*/_search' -d '{\"query\":{\"match_phrase\":{\"message\":\"${TAG}-udp\"}}}'")
@@ -444,16 +371,6 @@ if [[ $DOCS_BEFORE =~ ^[0-9]+$ ]] && (( DOCS_AFTER >= DOCS_BEFORE && DOCS_BEFORE
     pass "--repair: Ereignisse erhalten ($DOCS_AFTER)"; else fail "--repair: Ereignisse vorher $DOCS_BEFORE, nachher $DOCS_AFTER"; fi
 if vm true; then pass "SSH nach --repair weiterhin möglich"; else fail "SSH nach --repair verloren"; exit 1; fi
 
-log "Ergebnis"
-if (( FAILED )); then
-    log "Diagnose"
-    vmr 'docker ps -a --format "{{.Names}} {{.Status}}"
-         echo "--- Ports"; ss -Hltnup | awk "{print \$1, \$5, \$7}"
-         echo "--- Vector"; docker logs --tail 60 siem-vector 2>&1
-         echo "--- OpenSearch"; docker logs --tail 40 siem-opensearch 2>&1 | cut -c1-300
-         echo "--- Indizes"; pw=$(cat /opt/siem/data/secrets/opensearch-admin.pw); curl -s -u admin:$pw --cacert /opt/siem/data/secrets/pki/ca.crt "https://127.0.0.1:9200/_cat/indices?v"
-         echo "--- nft prerouting"; nft list chain inet siem prerouting
-         echo "--- install.log"; tail -40 /var/log/siem-install.log' 2>&1 || true
-    echo "VM-Tests FEHLGESCHLAGEN"; exit 1
-fi
-echo "Alle VM-Tests bestanden."
+finish "$DIAG
+echo \"--- Indizes\"; pw=\$(cat /opt/siem/data/secrets/opensearch-admin.pw); curl -s -u admin:\$pw --cacert /opt/siem/data/secrets/pki/ca.crt \"https://127.0.0.1:9200/_cat/indices?v\"
+echo \"--- nft prerouting\"; nft list chain inet siem prerouting"

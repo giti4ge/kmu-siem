@@ -55,7 +55,18 @@ apt_env() {
 
 apt_get() {
     apt_env
+    apt_recover || return 1
     apt-get -q -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "$@"
+}
+
+# apt_recover – nach einem Abbruch (z. B. Strg+C während apt) unterbrochene
+# dpkg-Vorgänge abschließen, sonst verweigert apt jede weitere Aktion
+apt_recover() {
+    if [[ -n $(ls -A /var/lib/dpkg/updates 2>/dev/null) ]] || [[ -n $(dpkg --audit 2>/dev/null) ]]; then
+        log INFO "Unterbrochene Paketinstallation wird abgeschlossen (dpkg --configure -a)"
+        dpkg --force-confdef --force-confold --configure -a || return 1
+    fi
+    return 0
 }
 
 # apt_install PAKET… – installiert nur fehlende Pakete

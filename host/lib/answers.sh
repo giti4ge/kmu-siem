@@ -20,9 +20,11 @@ readonly ANSWER_KEYS=(
 readonly ANSWER_REQUIRED=(SIEM_FQDN SIEM_NTP SIEM_DATA_DISK)
 
 # Nicht geheime Schlüssel, die im Zustandsverzeichnis gespeichert werden
+# (SIEM_DATA_DISK_CONFIRM: für --resume nach Abbruch vor/während der Disk-Anlage;
+#  gelöscht wird trotzdem nur eine leere Disk bzw. eine eigene, unvollständige Anlage)
 readonly ANSWER_PERSIST=(
     SIEM_LANG SIEM_FQDN SIEM_NTP SIEM_PROXY SIEM_PROXY_CA_FILE
-    SIEM_DATA_DISK SIEM_ADMIN_SSH_KEY SIEM_TRUNK_IF SIEM_TRUNK_VLANS
+    SIEM_DATA_DISK SIEM_DATA_DISK_CONFIRM SIEM_ADMIN_SSH_KEY SIEM_TRUNK_IF SIEM_TRUNK_VLANS
     SIEM_KEEP_INSTALLER_USER_SSH SIEM_ACCEPT_WARNINGS SIEM_SSH_PASSWORD_AUTH
 )
 
