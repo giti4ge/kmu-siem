@@ -24,6 +24,7 @@ step_app() {
     _app_dirs || return 1
     _app_secrets || return 1
     pki_ensure || return 1
+    _app_api_ca || return 1
     _app_env || return 1
     _app_load_images || return 1
     # Nur fehlende Images holen (per Digest festgeschrieben bzw. aus dem Bundle geladen)
@@ -45,7 +46,11 @@ _app_api_opensearch() {
     printf '{"user": "siem_api", "password": "%s"}\n' "$(cat "$pw")" \
         | write_file "$dir/opensearch.json" 0400 "$UID_API:$UID_API"
     (( $? <= 1 )) || return 1
-    install -m 0444 -o "$UID_API" -g "$UID_API" "$SECRETS_DIR/pki/ca.crt" "$dir/opensearch-ca.crt"
+}
+
+# CA-Zertifikat (öffentlich) für den API-Container; erst nach pki_ensure möglich
+_app_api_ca() {
+    install -m 0444 -o "$UID_API" -g "$UID_API" "$SECRETS_DIR/pki/ca.crt" "$SECRETS_DIR/control-plane/opensearch-ca.crt"
 }
 
 # Dashboards: Dienstkonto, Cookie-Schlüssel, JWT-Schlüssel (geteilt mit der Control-Plane)
