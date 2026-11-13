@@ -326,7 +326,8 @@ if python3 "$REPO/tests/vm/sso_check.py" https://127.0.0.1:8443 admin Kennwort-f
 else fail "SSO zu Dashboards"; vmr "$(cat "$REPO/tests/vm/sso_diag.sh")" 2>&1 | sed 's/^/       │ /' || true; fi
 check "Dashboards nur auf 127.0.0.1" '! ss -Hltn | awk "{print \$4}" | grep -E ":5601$" | grep -vqE "^(\[::ffff:)?127\.0\.0\.1\]?:"'
 LOGIN=$(curl -sk --max-time 10 -H 'Content-Type: application/json' -d '{"username":"admin","password":"Kennwort-fuer-webadmin-1"}' https://127.0.0.1:8443/api/auth/login || true)
-if grep -q '"stage":"mfa_enroll"' <<<"$LOGIN"; then pass "Web-Admin meldet sich an, TOTP-Einrichtung verlangt"; else fail "Web-Admin-Anmeldung: $LOGIN"; fi
+# Nach der SSO-Prüfung ist TOTP eingerichtet: Anmeldung verlangt jetzt den zweiten Faktor
+if grep -q '"stage":"mfa_verify"' <<<"$LOGIN"; then pass "Web-Admin meldet sich an, zweiter Faktor verlangt"; else fail "Web-Admin-Anmeldung: $LOGIN"; fi
 CODE=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 -H 'Content-Type: application/json' -d '{"username":"admin","password":"falsch-falsch-falsch"}' https://127.0.0.1:8443/api/auth/login)
 if [[ $CODE == 401 ]]; then pass "falsches Kennwort: 401"; else fail "falsches Kennwort: HTTP $CODE"; fi
 check "Audit-Kette der Control-Plane intakt" 'docker exec siem-api python -m siem_api.cli verify-audit | grep -q "\"ok\": true"'
