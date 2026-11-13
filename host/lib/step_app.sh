@@ -33,8 +33,19 @@ step_app() {
     run_cmd "Index-Templates und Aufbewahrung anwenden" siem_os_init apply || return 1
     run_cmd "SSO für Dashboards einrichten" siem_os_init security \
         --jwt-key-file "$SECRETS_DIR/control-plane/dashboards-jwt.key" \
-        --kibanaserver-password-file "$SECRETS_DIR/kibanaserver.pw" || return 1
+        --kibanaserver-password-file "$SECRETS_DIR/kibanaserver.pw" \
+        --api-password-file "$SECRETS_DIR/siem-api.pw" || return 1
     _app_admin || return 1
+}
+
+# Control-Plane: eigenes OpenSearch-Konto (Kennwort + CA für den API-Container)
+_app_api_opensearch() {
+    local pw="$SECRETS_DIR/siem-api.pw" dir="$SECRETS_DIR/control-plane"
+    _gen_password "$pw" || return 1
+    printf '{"user": "siem_api", "password": "%s"}\n' "$(cat "$pw")" \
+        | write_file "$dir/opensearch.json" 0400 "$UID_API:$UID_API"
+    (( $? <= 1 )) || return 1
+    install -m 0444 -o "$UID_API" -g "$UID_API" "$SECRETS_DIR/pki/ca.crt" "$dir/opensearch-ca.crt"
 }
 
 # Dashboards: Dienstkonto, Cookie-Schlüssel, JWT-Schlüssel (geteilt mit der Control-Plane)
@@ -135,6 +146,7 @@ _app_secrets() {
     _gen_password "$admin_pw" || return 1
     _gen_password "$vector_pw" || return 1
     _app_dashboards_secrets || return 1
+    _app_api_opensearch || return 1
 
     # internal_users.yml nur neu erzeugen, wenn sich ein Kennwort geändert hat
     sumfile="$APP_DATA/opensearch-security/.pwsum"

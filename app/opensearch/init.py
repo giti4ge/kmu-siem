@@ -37,6 +37,7 @@ CATEGORIES: dict[str, int] = {
     "asset": 180,
     "alerts": 365,
     "audit": 365,
+    "infra": 180,
     "system": 90,
     "unparsed": 14,
 }
@@ -239,7 +240,8 @@ def count(client: OS, index: str, text: str | None) -> int:
 JWT_DOMAIN = "siem_jwt"
 
 
-def security(client: OS, jwt_key_b64: str, kibanaserver_password: str) -> dict[str, Any]:
+def security(client: OS, jwt_key_b64: str, kibanaserver_password: str,
+             api_password: str | None = None) -> dict[str, Any]:
     """SSO für Dashboards (idempotent über die REST-API, auch für bestehende Installationen).
 
     - JWT-Authentifizierung (HS256, Schlüssel je Installation): Die Control-Plane stellt nach
@@ -286,6 +288,25 @@ def security(client: OS, jwt_key_b64: str, kibanaserver_password: str) -> dict[s
     client.request("PUT", "/_plugins/_security/api/internalusers/kibanaserver", {
         "password": kibanaserver_password, "description": "Dienstkonto OpenSearch Dashboards"})
     client.request("PUT", "/_plugins/_security/api/rolesmapping/kibana_server", {"users": ["kibanaserver"]})
+    if api_password:
+        # Control-Plane: Ereignisse lesen, Alarme/Audit schreiben, Aufbewahrung (ISM) verwalten
+        client.request("PUT", "/_plugins/_security/api/roles/siem_api", {
+            "description": "KMU-SIEM Control-Plane",
+            "cluster_permissions": [
+                "cluster_monitor", "cluster_composite_ops_ro",
+                "cluster:admin/opendistro/ism/policy/*", "cluster:admin/opendistro/ism/managedindex/*",
+            ],
+            "index_permissions": [
+                {"index_patterns": ["siem-*"],
+                 "allowed_actions": ["read", "indices_monitor", "indices:admin/mappings/get",
+                                     "indices:admin/resolve/index"]},
+                {"index_patterns": ["siem-alerts-*", "siem-audit-*"],
+                 "allowed_actions": ["crud", "create_index", "indices:admin/mapping/put"]},
+            ],
+        })
+        client.request("PUT", "/_plugins/_security/api/rolesmapping/siem_api", {"users": ["siem_api"]})
+        client.request("PUT", "/_plugins/_security/api/internalusers/siem_api", {
+            "password": api_password, "description": "Control-Plane (API)"})
     return {"jwt_domain_changed": changed}
 
 
@@ -304,6 +325,7 @@ def main(argv: list[str] | None = None) -> int:
     sec = sub.add_parser("security")
     sec.add_argument("--jwt-key-file", required=True)
     sec.add_argument("--kibanaserver-password-file", required=True)
+    sec.add_argument("--api-password-file")
     f = sub.add_parser("find")
     f.add_argument("--index", required=True)
     f.add_argument("--text", required=True)
@@ -328,7 +350,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "security":
             key = Path(args.jwt_key_file).read_text(encoding="utf-8").strip()
             kpw = Path(args.kibanaserver_password_file).read_text(encoding="utf-8").strip()
-            print(json.dumps(security(client, key, kpw)))
+            apw = (Path(args.api_password_file).read_text(encoding="utf-8").strip()
+                   if args.api_password_file else None)
+            print(json.dumps(security(client, key, kpw, apw)))
         elif args.cmd == "show":
             _, t = client.request("GET", "/_index_template/siem-*", ok404=True)
             _, pol = client.request("GET", "/_plugins/_ism/policies", ok404=True)
