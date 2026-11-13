@@ -239,8 +239,6 @@
     "status": "Status",
     "configured": "Konfiguriert",
     "keytab_state": "Keytab vorhanden",
-    "machines": "Verbundene Server",
-    "unavailable": "Dienst noch nicht aktiv",
     "audit_title": "Empfohlene Audit-Richtlinie",
     "audit_text": "Diese erweiterte Überwachungsrichtlinie setzt die GPO auf allen Zielsystemen.",
     "subcategory": "Unterkategorie",

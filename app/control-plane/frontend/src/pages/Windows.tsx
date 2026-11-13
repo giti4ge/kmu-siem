@@ -12,7 +12,6 @@ type Wec = {
   configured: boolean;
   keytab: boolean;
   principal: string | null;
-  machines: number | null;
   audit_policy: { subcategory: string; success: boolean; failure: boolean }[];
 };
 
@@ -151,8 +150,6 @@ export default function WindowsPage({ canWrite }: { canWrite: boolean }) {
           <dd>{d?.configured ? t("common.yes") : t("common.no")}</dd>
           <dt className="text-slate-500">{t("wec.keytab_state")}</dt>
           <dd>{d?.keytab ? t("common.yes") : t("common.no")}</dd>
-          <dt className="text-slate-500">{t("wec.machines")}</dt>
-          <dd>{d?.machines == null ? t("wec.unavailable") : d.machines}</dd>
         </dl>
       </section>
 

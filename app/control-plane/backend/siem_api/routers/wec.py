@@ -36,7 +36,6 @@ def _status(request: Request, settings: dict[str, Any]) -> dict[str, Any]:
         "keytab": wec.keytab_present(wec_dir),
         "principal": wec.principal(settings) if configured else None,
         "roles": [{"role": r, "uri": wec.role_uri(r), "ous": settings["roles"].get(r, [])} for r in wec.ROLES],
-        "machines": wec.machine_count() if configured else None,
         "audit_policy": wec.recommended_audit_policy(),
     }
 

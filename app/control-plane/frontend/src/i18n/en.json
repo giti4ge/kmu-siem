@@ -239,8 +239,6 @@
     "status": "Status",
     "configured": "Configured",
     "keytab_state": "Keytab present",
-    "machines": "Connected servers",
-    "unavailable": "Service not active yet",
     "audit_title": "Recommended audit policy",
     "audit_text": "The GPO applies this advanced audit policy on all target systems.",
     "subcategory": "Subcategory",

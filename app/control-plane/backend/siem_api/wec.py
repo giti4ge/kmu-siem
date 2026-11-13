@@ -12,14 +12,12 @@ import json
 import os
 import re
 import struct
-import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
 
 OPENWEC_PORT = 5985
 VECTOR_PORT = 10600
-METRICS_PORT = 9101
 ROLES = ("dc", "exchange", "member", "client")
 
 _FQDN = re.compile(r"^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
@@ -110,10 +108,6 @@ service_principal_name = "{principal(settings)}"
 
 [cli]
 read_only_subscriptions = true
-
-[monitoring]
-listen_address = "127.0.0.1"
-listen_port = {METRICS_PORT}
 """
 
 
@@ -420,7 +414,7 @@ Write-Step 'Fertig'
 Write-Host "Nächste Schritte:" -ForegroundColor White
 Write-Host "  1. Keytab '$KeytabPath' im SIEM-Web-UI (Quellen > Windows) hochladen und danach löschen."
 Write-Host "  2. 'gpupdate /force' auf einem Zielserver ausführen (oder bis zu 90 Minuten warten)."
-Write-Host "  3. Der Server erscheint im Web-UI unter 'Verbundene Server'."
+Write-Host "  3. Der Server sendet danach Ereignisse (Index siem-windows).."
 """
 
 
@@ -511,22 +505,3 @@ def write_all(wec_dir: Path, settings: dict[str, Any]) -> None:
 def keytab_present(wec_dir: Path) -> bool:
     p = wec_dir / "krb5.keytab"
     return p.is_file() and p.stat().st_size > 0
-
-
-def machine_count(timeout: float = 2.0) -> int | None:
-    """Anzahl bekannter Windows-Clients aus den OpenWEC-Metriken (None = Dienst nicht erreichbar)."""
-    try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{METRICS_PORT}/metrics", timeout=timeout) as resp:  # noqa: S310
-            text = resp.read(2_000_000).decode("utf-8", "replace")
-    except (OSError, ValueError):
-        return None
-    total = 0
-    seen = False
-    for line in text.splitlines():
-        if line.startswith("openwec_machines"):
-            try:
-                total += int(float(line.rsplit(" ", 1)[1]))
-                seen = True
-            except (ValueError, IndexError):
-                continue
-    return total if seen else 0

@@ -201,7 +201,6 @@ jobs:
           docker exec wec openwec subscriptions | tee /tmp/subs.txt
           grep -q "siem-dc" /tmp/subs.txt && grep -q "siem-member" /tmp/subs.txt
           docker exec wec openwec subscriptions show siem-dc | grep -q "Tcp"
-          curl -fsS http://127.0.0.1:9101/metrics | head -3
       - name: nginx-Konfiguration prüfen (inkl. ModSecurity/CRS)
         run: |
           IMG=$(grep -oE 'owasp/modsecurity-crs:[^ ]+' app/docker-compose.yml)
