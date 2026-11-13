@@ -87,15 +87,15 @@ _st_containers() {
 _st_syslog() {
     local proto=$1 tmo=${2:-$SELFTEST_TIMEOUT} id line res try per=30 tries
     id="selftest-$(date +%s)-$RANDOM-$proto"
-    tries=$(( (tmo + per - 1) / per ))
+    tries=$(( (tmo + per - 1) / per + 2 ))
     # Ein Ereignis kann beim Sicherheits-Neuladen von OpenSearch (401) verworfen werden → erneut senden
     for (( try = 1; try <= tries; try++ )); do
         line="<14>1 $(date -u +%Y-%m-%dT%H:%M:%SZ) $(hostname) siem-selftest - - - SIEM-SELFTEST $id"
         case $proto in
             tcp) printf '%s
-' "$line" >/dev/tcp/127.0.0.1/10514 || return 1 ;;
+' "$line" >/dev/tcp/127.0.0.1/10514 || { sleep 5; continue; } ;;
             udp) printf '%s
-' "$line" >/dev/udp/127.0.0.1/10514 || return 1 ;;
+' "$line" >/dev/udp/127.0.0.1/10514 || { sleep 5; continue; } ;;
             tls) { printf '%s
 ' "$line"; sleep 1; }                      | timeout 10 openssl s_client -connect 127.0.0.1:6514 -quiet                          -CAfile "$SECRETS_DIR/pki/ca.crt" -verify_return_error >/dev/null 2>>"$SIEM_LOG_FILE" || true ;;
         esac
