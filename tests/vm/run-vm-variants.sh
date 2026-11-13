@@ -6,7 +6,7 @@
 #                MIT Proxy (squid auf dem Test-Host, 10.0.2.2:3128) und OHNE SSH-Schlüssel:
 #                Kennwort-Anmeldung bleibt aktiv, Daten auf der System-Disk, apt/Docker/
 #                Registry nachweislich über den Proxy.
-#   resume       Abbruch (SIGTERM an die Sitzung des Installers) in jedem Installationsschritt,
+#   resume       Abbruch (SIGTERM an die Sitzung des Installers) in jedem der 8 Installationsschritte,
 #                danach jeweils --resume; Endergebnis entspricht einem ununterbrochenen Lauf.
 #
 # Aufruf: run-vm-variants.sh interactive|resume
@@ -36,14 +36,15 @@ check_installed() {
 # --- interactive -----------------------------------------------------------------
 variant_interactive() {
     command -v sshpass >/dev/null || { echo "sshpass fehlt"; exit 1; }
-    if ! sudo test -r "$SQUID_LOG"; then
-        echo "squid-Protokoll $SQUID_LOG fehlt"; sudo ls -la "$(dirname "$SQUID_LOG")" || true
-        systemctl status squid --no-pager || true; exit 1
+    # Der Workflow macht das Protokoll lesbar (ohne sudo auswertbar)
+    if [[ ! -r $SQUID_LOG ]]; then
+        echo "squid-Protokoll $SQUID_LOG nicht lesbar"; ls -la "$(dirname "$SQUID_LOG")" || true
+        id; sudo -n id || true; exit 1
     fi
     VM_DATA_DISK=no VM_ROOT_SIZE=60G
     vm_boot
     local before input proxied host
-    before=$(sudo cat "$SQUID_LOG" | wc -l)
+    before=$(wc -l <"$SQUID_LOG")
 
     log "Interaktive Installation: ohne zweite Disk, mit Proxy, ohne SSH-Schlüssel"
     # Reihenfolge der Eingaben = Reihenfolge der Abfragen (prompts.sh: ask_all):
@@ -76,7 +77,7 @@ variant_interactive() {
     check "apt nutzt den Proxy" 'grep -q "10.0.2.2:3128" /etc/apt/apt.conf.d/95siem-proxy'
     check "Docker nutzt den Proxy" 'grep -q "HTTPS_PROXY=http://10.0.2.2:3128" /etc/systemd/system/docker.service.d/http-proxy.conf'
 
-    proxied=$(sudo tail -n "+$((before + 1))" "$SQUID_LOG")
+    proxied=$(tail -n "+$((before + 1))" "$SQUID_LOG")
     for host in deb.debian.org download.docker.com registry-1.docker.io; do
         if grep -q "$host" <<<"$proxied"; then pass "Zugriff auf $host über den Proxy"
         else fail "kein Zugriff auf $host über den Proxy"; fi
@@ -85,24 +86,39 @@ variant_interactive() {
 }
 
 # --- resume ----------------------------------------------------------------------
-# start_run ARGS – Installer in eigener Sitzung im Hintergrund starten
-start_run() {
-    local cmd="env NO_COLOR=1 ${LOW[*]} bash /home/install/siem/host/install.sh $*"
-    vmr "rm -f /root/run.sid /root/run.rc
-setsid bash -c 'echo \$\$ >/root/run.sid; $cmd >>/root/run.log 2>&1; echo \$? >/root/run.rc' </dev/null >/dev/null 2>&1 &
-for i in \$(seq 1 50); do [ -s /root/run.sid ] && exit 0; sleep 0.1; done
-exit 1"
-}
-run_active() { vmr 'pgrep -s "$(cat /root/run.sid)" >/dev/null'; }
-running_step() { vmr 'awk '\''$2 == "running" { print $1 }'\'' /var/lib/siem/install.state 2>/dev/null' || true; }
+# Läuft in der VM (root): Installer in eigener Sitzung starten, Zustandsdatei alle
+# 0,1 s prüfen, sobald SCHRITT läuft kurz warten und die gesamte Sitzung mit SIGTERM
+# beenden (wie Strg+C/Verbindungsabbruch), notfalls SIGKILL.
+# Ausgabe: ABORTED <laufender Schritt> | DONE (Schritt schon erledigt) | ENDED (Lauf vorher beendet)
+ABORT_SCRIPT=$(cat <<'EOS'
+#!/bin/bash
+step=$1; shift
+state=/var/lib/siem/install.state
+st() { awk -v s="$1" '$1 == s { print $2 }' "$state" 2>/dev/null; }
+rm -f /root/run.sid
+setsid bash -c 'echo $$ >/root/run.sid; exec "$@" >>/root/run.log 2>&1' _ "$@" </dev/null >/dev/null 2>&1 &
+for i in $(seq 1 50); do [ -s /root/run.sid ] && break; sleep 0.1; done
+sid=$(cat /root/run.sid)
+result=""
+for i in $(seq 1 18000); do
+    case $(st "$step") in
+        running) break ;;
+        done) result=DONE; break ;;
+    esac
+    pgrep -s "$sid" >/dev/null || { result=ENDED; break; }
+    sleep 0.1
+done
+if [ -z "$result" ]; then
+    sleep 0.5
+    result="ABORTED $(awk '$2 == "running" { print $1 }' "$state")"
+fi
+pkill -TERM -s "$sid" 2>/dev/null
+for i in $(seq 1 60); do pgrep -s "$sid" >/dev/null || break; sleep 1; done
+pkill -KILL -s "$sid" 2>/dev/null
+echo "$result"
+EOS
+)
 step_state() { vmr "awk -v s=$1 '\$1 == s { print \$2 }' /var/lib/siem/install.state 2>/dev/null" || true; }
-
-# abort_run – SIGTERM an die gesamte Sitzung (wie Strg+C/Verbindungsabbruch), notfalls SIGKILL
-abort_run() {
-    vmr 'sid=$(cat /root/run.sid); pkill -TERM -s "$sid"
-for i in $(seq 1 60); do pgrep -s "$sid" >/dev/null || exit 0; sleep 1; done
-pkill -KILL -s "$sid"; sleep 2' || true
-}
 
 variant_resume() {
     vm_boot
@@ -122,35 +138,25 @@ SIEM_KEEP_INSTALLER_USER_SSH=yes
 EOT
     printf '%s\n' "$ADMIN_PW" | vm 'cat > ~/pw1'
     printf '%s\n' "$WEB_PW" | vm 'cat > ~/pw2'
+    printf '%s\n' "$ABORT_SCRIPT" | vm 'cat > ~/abort-at.sh && chmod +x ~/abort-at.sh'
 
     local steps=(base datadisk hardening docker firewall hostd app selftest)
-    local interrupted=() skipped=() args="--unattended /home/install/antworten.env" s t cur uniq
+    local interrupted=() skipped=() mode=(--unattended /home/install/antworten.env) s res uniq
     for s in "${steps[@]}"; do
-        if [[ $(step_state "$s") == "done" ]]; then skipped+=("$s"); continue; fi
-        start_run "$args" || { fail "Installer nicht gestartet"; break; }
-        args="--resume"
-        cur=""
-        for (( t = 0; t < 1800; t++ )); do
-            cur=$(running_step)
-            [[ $cur == "$s" ]] && break
-            run_active || break
-            [[ $(step_state "$s") == "done" ]] && break
-            sleep 1
-        done
-        if [[ $cur != "$s" ]] || ! run_active; then
-            skipped+=("$s"); abort_run; continue
-        fi
-        sleep 2
-        cur=$(running_step)
-        abort_run
-        interrupted+=("${cur:-$s}")
-        printf '     abgebrochen während: %s (Zustand danach: %s)\n' "${cur:-$s}" "$(step_state "${cur:-$s}")"
+        res=$(vm "sudo /home/install/abort-at.sh $s env NO_COLOR=1 ${LOW[*]} bash /home/install/siem/host/install.sh ${mode[*]}" || true)
+        mode=(--resume)
+        case $res in
+            "ABORTED "*)
+                interrupted+=("${res#ABORTED }")
+                printf '     abgebrochen während: %s (Zustand danach: %s)\n' "${res#ABORTED }" "$(step_state "${res#ABORTED }")" ;;
+            *)  skipped+=("$s ($res)") ;;
+        esac
     done
     vmr 'cat /root/run.log' | grep -E '^(==|✘)' | tail -40 || true
     uniq=$(printf '%s\n' "${interrupted[@]}" | sort -u | grep -c . || true)
-    printf '     abgebrochen: %s\n     nicht unterbrochen (zu kurz/erledigt): %s\n' "${interrupted[*]:-–}" "${skipped[*]:-–}"
-    if (( uniq >= 6 )); then pass "Abbruch in $uniq von ${#steps[@]} Schritten"
-    else fail "nur $uniq Schritte unterbrochen"; fi
+    printf '     abgebrochen: %s\n     nicht unterbrochen: %s\n' "${interrupted[*]:-–}" "${skipped[*]:-–}"
+    if (( uniq == ${#steps[@]} )); then pass "Abbruch in allen ${#steps[@]} Schritten"
+    else fail "nur $uniq von ${#steps[@]} Schritten unterbrochen"; fi
 
     set +e
     OUT=$(vmr "env NO_COLOR=1 ${LOW[*]} bash /home/install/siem/host/install.sh --resume </dev/null" 2>&1)
