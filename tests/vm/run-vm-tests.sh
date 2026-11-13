@@ -127,7 +127,7 @@ for s in questions base datadisk hardening docker firewall hostd app selftest; d
 done
 check "Zustand: keine offenen Schritte" "! grep -qvE ' done ' /var/lib/siem/install.state"
 check "Geheimnis siemadmin verbraucht und gelöscht" 'test ! -e /var/lib/siem/secrets/admin_password'
-check "Geheimnis Web-Admin bleibt bis zur Web-UI (Phase 2)" '[ "$(cat /var/lib/siem/secrets/web_admin_password)" = "Kennwort-fuer-webadmin-1" ]'
+check "Geheimnis Web-Admin verbraucht und gelöscht" 'test ! -e /var/lib/siem/secrets/web_admin_password'
 
 # Basis
 check "Pakete installiert" 'dpkg-query -W nftables chrony auditd aide lvm2 unattended-upgrades lynis jq >/dev/null'
@@ -259,7 +259,7 @@ vmr 'pkill -f "http.server" || true' || true
 # --- Test 9 ------------------------------------------------------------------
 log "Test 9: Anwendung – Ingest Ende-zu-Ende, OpenSearch, Proxy, Disk-Puffer"
 OSI='python3 /opt/siem/app/current/opensearch/init.py --ca /opt/siem/data/secrets/pki/ca.crt --password-file /opt/siem/data/secrets/opensearch-admin.pw'
-check "Container laufen (opensearch, vector, proxy)" 'for c in siem-opensearch siem-vector siem-proxy; do [ "$(docker inspect -f "{{.State.Status}}" $c)" = running ] || exit 1; done'
+check "Container laufen (opensearch, vector, proxy, api)" 'for c in siem-opensearch siem-vector siem-proxy siem-api; do [ "$(docker inspect -f "{{.State.Status}}" $c)" = running ] || exit 1; done'
 check "Images per Digest festgeschrieben" 'for c in siem-opensearch siem-vector siem-proxy; do docker inspect -f "{{.Config.Image}}" $c | grep -q "@sha256:" || exit 1; done'
 check "OpenSearch nur auf 127.0.0.1" '! ss -Hltn | awk "{print \$4}" | grep -E ":(9200|9300)$" | grep -vqE "^(\[::ffff:)?127\.0\.0\.1\]?:"'
 check "OpenSearch ohne Anmeldung abgewiesen (401)" '[ "$(curl -s -o /dev/null -w "%{http_code}" --cacert /opt/siem/data/secrets/pki/ca.crt https://127.0.0.1:9200/)" = 401 ]'
@@ -304,6 +304,15 @@ if found "${TAG}-again"; then pass "nach erneuter Freigabe wieder angenommen"; e
 
 # Proxy
 if curl -sk --max-time 5 https://127.0.0.1:8443/health | grep -q '"status":"ok"'; then pass "/health über 443"; else fail "/health über 443"; fi
+# Control-Plane: Web-Admin aus der Installation, MFA-Einrichtung beim ersten Login verpflichtend
+if curl -sk --max-time 5 https://127.0.0.1:8443/api/health | grep -q '"status":"ok"'; then pass "/api/health über 443"; else fail "/api/health über 443"; fi
+LOGIN=$(curl -sk --max-time 10 -H 'Content-Type: application/json' -d '{"username":"admin","password":"Kennwort-fuer-webadmin-1"}' https://127.0.0.1:8443/api/auth/login || true)
+if grep -q '"stage":"mfa_enroll"' <<<"$LOGIN"; then pass "Web-Admin meldet sich an, TOTP-Einrichtung verlangt"; else fail "Web-Admin-Anmeldung: $LOGIN"; fi
+CODE=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 -H 'Content-Type: application/json' -d '{"username":"admin","password":"falsch-falsch-falsch"}' https://127.0.0.1:8443/api/auth/login)
+if [[ $CODE == 401 ]]; then pass "falsches Kennwort: 401"; else fail "falsches Kennwort: HTTP $CODE"; fi
+check "Audit-Kette der Control-Plane intakt" 'docker exec siem-api python -m siem_api.cli verify-audit | grep -q "\"ok\": true"'
+check "Control-Plane: Schlüssel 0600, Verzeichnis 0700" '[ "$(stat -c %a /opt/siem/data/secrets/control-plane)" = 700 ] && [ "$(stat -c %a /opt/siem/data/secrets/control-plane/master.key)" = 600 ]'
+check "Control-Plane läuft als uid 2100, read-only" '[ "$(docker inspect -f "{{.Config.User}} {{.HostConfig.ReadonlyRootfs}}" siem-api)" = "2100:2100 true" ]'
 if curl -s --max-time 5 --cacert ca.crt --resolve siem.test.local:8443:127.0.0.1 https://siem.test.local:8443/health >/dev/null; then
     pass "Web-Zertifikat der Appliance-CA gültig für den FQDN"; else fail "Web-Zertifikat nicht gültig"; fi
 H=$(curl -sk -D - -o /dev/null --max-time 5 https://127.0.0.1:8443/)

@@ -11,6 +11,7 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 ## [Unreleased]
 
 ### Added
+- **Phase 2.2:** Control-Plane als Container `siem-api` (uid 2100, read-only, 127.0.0.1:8000) hinter dem Proxy unter `/api/`; Installer legt den Web-Administrator `admin` aus dem Installationskennwort an und löscht das Geheimnis danach (TOTP-Einrichtung beim ersten Login). CLI `reset-mfa` als Notfallzugang per SSH, `create-admin --password-stdin`. Selbsttest prüft `/api/health` über den Proxy. Images aus dem Bundle werden geladen, `pull --policy missing`.
 - **Phase 2.1:** Control-Plane-Backend `siem_api` (FastAPI, SQLite/Alembic): lokale Benutzer mit Argon2id und Kennwortrichtlinie, progressive Kontosperre, TOTP-MFA (für System-Admins verpflichtend, Schutz gegen Code-Wiederverwendung), serverseitige Sitzungen mit CSRF-Schutz und Timeouts (30 min Leerlauf, 12 h absolut), Rollen mit granularen Berechtigungen (5 vordefinierte, eigene Rollen mit Datenbereichen), Audit-Log als HMAC-Hash-Kette mit Manipulationserkennung, AES-256-GCM für Geheimnisse, CLI `create-admin`/`verify-audit`. Tests: Rollen-Matrix je Route und Rolle, Manipulation des Audit-Logs (Ändern, Löschen, Abschneiden, Neuberechnen ohne Schlüssel).
 - **Phase 1.5:** VM-Test-Varianten für die Abnahme von Phase 1: interaktive Installation ohne zweite Disk, mit Proxy (Nachweis über das Proxy-Protokoll) und ohne SSH-Schlüssel (Kennwort-Anmeldung bleibt aktiv) sowie Abbruch in jedem Installationsschritt mit anschließendem `--resume`. Gemeinsame VM-Testbibliothek `tests/vm/lib.sh`.
 - **Phase 1.4:** `install.sh --repair` stellt den Sollzustand mit den gespeicherten Angaben wieder her (alle Schritte idempotent, ohne Fragen, ohne Datenänderung). Selbsttest ergänzt um Integritätsüberwachung (AIDE-Datenbank mit Ausnahmen für veränderliche Daten, tägliche Prüfung, rkhunter) und Lynis-Härtungsindex (Zielwert ≥ 80, Warnung bei Unterschreitung). Ergänzende Härtung: Core-Dumps aus, Anmelde-Banner, `UMASK 027` und Kennwort-Alterung für neue Konten, restriktive cron-/SSH-Rechte, zusätzliche sysctl-Werte, SSH `MaxSessions 2`/`Compression no`, Prozess-Accounting, sysstat, libpam-tmpdir.
@@ -38,6 +39,7 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 - Installer: nach einem Abbruch während apt werden unterbrochene dpkg-Vorgänge vor dem nächsten apt-Aufruf automatisch abgeschlossen.
 
 ### Changed
+- CI: VM-Test-Varianten laufen nur noch auf `main` und manuell (CI-Minuten); neuer Image-Rauchtest der Control-Plane.
 - Firewall: 443→8443, 514→10514, 162→10162 per nftables-Umleitung; interne Ports nur für umgeleiteten Verkehr. Preflight prüft zusätzlich die internen Ports.
 - Firewall-Regeln werden nur noch von `siem-hostd` erzeugt (Freigaben in `/opt/siem/data/hostd/firewall.json`); der Installer ruft `siem-hostd firewall init` auf.
 - Bei jedem Lauf nach der Basis-Installation wird die aktuelle Installer-Version nach `/opt/siem/host` übernommen.

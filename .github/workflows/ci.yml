@@ -61,6 +61,17 @@ jobs:
         run: pip install --quiet "./app/control-plane/backend[test]"
       - name: pytest
         run: python -m pytest tests/control_plane -q
+      - name: Image bauen und im Container testen (read-only, uid 2100)
+        run: |
+          docker build -q -t siem-api:ci app/control-plane/backend
+          mkdir -p /tmp/cp/config-db /tmp/cp/secrets && sudo chown -R 2100:2100 /tmp/cp
+          docker run -d --name api --network host --read-only --tmpfs /tmp --user 2100:2100             --security-opt no-new-privileges:true --cap-drop ALL             -v /tmp/cp/config-db:/data/config-db -v /tmp/cp/secrets:/data/secrets siem-api:ci
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/api/health && break; sleep 1; done
+          echo 'Gruene-Wiese-am-Fluss-2026!' | docker exec -i api python -m siem_api.cli create-admin --password-stdin
+          curl -fsS -H 'Content-Type: application/json'             -d '{"username":"admin","password":"Gruene-Wiese-am-Fluss-2026!"}'             http://127.0.0.1:8000/api/auth/login | grep -q '"stage":"mfa_enroll"'
+          docker exec api python -m siem_api.cli verify-audit
+          [ "$(docker inspect -f '{{.State.Health.Status}}' api)" != unhealthy ]
+          docker logs api 2>&1 | tail -5
 
   integration:
     name: Preflight im Debian-13-Container

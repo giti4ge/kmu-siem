@@ -72,7 +72,7 @@ _st_lynis() {
 
 _st_containers() {
     local c state
-    for c in siem-opensearch siem-vector siem-proxy; do
+    for c in siem-opensearch siem-vector siem-proxy siem-api; do
         state=$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null)
         if [[ $state != running ]]; then
             err "$(msg selftest_container "$c" "${state:-fehlt}")"
@@ -124,6 +124,12 @@ _st_proxy() {
     fi
     if ! grep -qi '^strict-transport-security:' <<<"$headers" || ! grep -qi '^content-security-policy:' <<<"$headers"; then
         err "$(msg selftest_headers_fail)"; return 1
+    fi
+    # Control-Plane über den Proxy
+    body=$(curl -s --max-time 5 --cacert "$SECRETS_DIR/pki/ca.crt" --resolve "$fqdn:8443:127.0.0.1" \
+        "https://$fqdn:8443/api/health" 2>/dev/null)
+    if [[ $body != *'"status":"ok"'* ]]; then
+        err "$(msg selftest_api_fail)"; return 1
     fi
     ok "$(msg selftest_proxy)"
 }
