@@ -107,3 +107,16 @@ class Secret(Base):
     name: Mapped[str] = mapped_column(String(128), primary_key=True)
     value_enc: Mapped[bytes] = mapped_column(LargeBinary)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Device(Base):
+    """Logquelle (Netzwerkgerät/Server): Absender-IP → Gerätetyp für die Vector-Pipeline."""
+
+    __tablename__ = "devices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ip: Mapped[str] = mapped_column(String(45), unique=True)
+    name: Mapped[str] = mapped_column(String(64))
+    type: Mapped[str] = mapped_column(String(32))
+    note: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

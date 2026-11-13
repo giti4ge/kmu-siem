@@ -111,6 +111,12 @@ _app_dirs() {
     # OpenWEC: Konfiguration/Keytab/Subscriptions schreibt die Control-Plane (uid 2100), openwecd liest (gid 2100)
     install -d -m 0750 -o "$UID_API" -g "$UID_API" "$SIEM_ROOT/data/openwec/conf" || return 1
     install -d -m 0750 -o "$UID_OPENWEC" -g "$UID_OPENWEC" "$SIEM_ROOT/data/openwec/db" || return 1
+    # Geräteliste: schreibt die Control-Plane (uid 2100), Vector (gid 2000) liest
+    install -d -m 2750 -o "$UID_API" -g "$UID_VECTOR" "$SIEM_ROOT/data/vector-config" || return 1
+    if [[ ! -f $SIEM_ROOT/data/vector-config/devices.csv ]]; then
+        install -m 0640 -o "$UID_API" -g "$UID_VECTOR" "$APP_DIR/current/vector/devices.csv" \
+            "$SIEM_ROOT/data/vector-config/devices.csv" || return 1
+    fi
     install -d -m 0750 "$APP_DATA" || return 1
     install -d -m 0750 -o root -g "$UID_OPENSEARCH" "$APP_DATA/opensearch-security" || return 1
 }

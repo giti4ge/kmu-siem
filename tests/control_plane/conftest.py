@@ -25,7 +25,7 @@ PASSWORD = "Gruene-Wiese-am-Fluss-2026!"  # noqa: S105 – Testkennwort
 def settings(tmp_path: Path) -> Settings:
     return Settings(db_url=f"sqlite:///{tmp_path / 'siem.db'}", secrets_dir=tmp_path / "secrets",
                     cookie_secure=False, session_idle_minutes=30, session_max_hours=12,
-                    lockout_threshold=5, lockout_max_minutes=60, totp_issuer="Test", wec_dir=tmp_path / "wec")
+                    lockout_threshold=5, lockout_max_minutes=60, totp_issuer="Test", wec_dir=tmp_path / "wec", vector_dir=tmp_path / "vector")
 
 
 @pytest.fixture

@@ -39,6 +39,8 @@ class Settings:
     hostd_socket: str = field(default_factory=lambda: os.environ.get("SIEM_HOSTD_SOCKET", "/run/siem/hostd.sock"))
     # Gemeinsames Verzeichnis mit dem Container siem-openwec (Konfiguration, Subscriptions, Keytab)
     wec_dir: Path = field(default_factory=lambda: Path(os.environ.get("SIEM_WEC_DIR", "/data/openwec")))
+    # Verzeichnis mit devices.csv (gemeinsam mit Vector)
+    vector_dir: Path = field(default_factory=lambda: Path(os.environ.get("SIEM_VECTOR_DIR", "/data/vector-config")))
     # Anzeigename des TOTP-Ausstellers in Authenticator-Apps
     totp_issuer: str = field(default_factory=lambda: os.environ.get("SIEM_TOTP_ISSUER", "KMU-SIEM"))
 

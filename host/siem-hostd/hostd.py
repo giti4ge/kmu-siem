@@ -569,6 +569,19 @@ def system_logs(params: dict[str, Any], reader: Callable[[list[str]], list[str]]
 # --------------------------------------------------------------------------- #
 # Aktionen (Allowlist)
 # --------------------------------------------------------------------------- #
+def vector_reload() -> dict[str, Any]:
+    """Vector per SIGHUP neu laden (Geräteliste/Parser), ohne Neustart und ohne Ereignisverlust."""
+    try:
+        proc = subprocess.run(  # noqa: S603
+            ["/usr/bin/docker", "kill", "--signal", "HUP", "siem-vector"],
+            capture_output=True, text=True, timeout=20, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise HostdError(f"Vector nicht erreichbar: {exc}") from exc
+    if proc.returncode != 0:
+        raise HostdError("Vector konnte nicht neu geladen werden")
+    return {"reloaded": True}
+
+
 class Dispatcher:
     def __init__(self, fw: FirewallManager, status: Callable[[], dict[str, Any]] | None = None) -> None:
         self.fw = fw
@@ -576,6 +589,7 @@ class Dispatcher:
         self.actions: dict[str, Callable[[dict[str, Any], str], Any]] = {
             "system.status": lambda p, a: self.status(),
             "system.logs": lambda p, a: system_logs(p),
+            "vector.reload": lambda p, a: vector_reload(),
             "firewall.show": lambda p, a: self.fw.show(),
             "firewall.apply": lambda p, a: self.fw.apply(p.get("config"), a, p.get("timeout")),
             "firewall.confirm": lambda p, a: self.fw.confirm(p.get("token"), a),

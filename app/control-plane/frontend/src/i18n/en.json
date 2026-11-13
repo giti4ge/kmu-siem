@@ -15,7 +15,8 @@
     "account": "My account",
     "dashboards": "Deep analysis (Dashboards)",
     "syslog": "System log",
-    "windows": "Windows integration"
+    "windows": "Windows integration",
+    "devices": "Devices"
   },
   "common": {
     "save": "Save",
@@ -91,7 +92,12 @@
     "wec_keytab_invalid": "The file is not a valid keytab.",
     "wec_keytab_principal": "The keytab does not contain the expected principal HTTP/<FQDN>@<REALM>.",
     "wec_not_configured": "Please save domain and FQDN first.",
-    "wec_storage_unavailable": "The configuration could not be saved."
+    "wec_storage_unavailable": "The configuration could not be saved.",
+    "device_invalid_ip": "Invalid IP address.",
+    "device_invalid_name": "Invalid name (letters, digits, spaces, . _ -; at most 64 characters).",
+    "device_invalid_type": "Unknown device type.",
+    "device_exists": "A device with this IP address already exists.",
+    "device_not_found": "Device not found."
   },
   "dashboard": {
     "welcome": "Welcome, {{name}}.",
@@ -247,5 +253,26 @@
     "ph_domain": "company.local",
     "ph_fqdn": "siem.company.local",
     "ph_ou": "OU=Servers,DC=company,DC=local"
+  },
+  "devices": {
+    "title": "Devices (log sources)",
+    "intro": "Assign a device type to the sender IP. The pipeline picks the matching parser from it; for well-known formats it also detects the type itself.",
+    "ip": "IP address",
+    "name": "Name",
+    "type": "Type",
+    "note": "Note",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "empty": "No devices yet.",
+    "applied": "Saved and active in the pipeline.",
+    "not_applied": "Saved. The pipeline could not be reloaded automatically – please restart Vector.",
+    "types": {
+      "fortigate": "FortiGate",
+      "arubaos": "ArubaOS-Switch",
+      "instant_on": "Aruba Instant On",
+      "fs_s3900": "FS S3900",
+      "linux": "Linux server"
+    }
   }
 }

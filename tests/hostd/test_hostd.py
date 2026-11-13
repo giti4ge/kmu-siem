@@ -316,6 +316,23 @@ class TestSocketServer(TmpEnv):
         self.assertEqual(self.raw(b"x" * (hostd.MAX_MESSAGE + 10) + b"\n")["error"], "Anfrage zu groß")
 
 
+class TestVectorReload(unittest.TestCase):
+    def test_sends_hup_and_reports_failure(self):
+        calls = []
+
+        def fake(rc):
+            def run(cmd, **kw):
+                calls.append(cmd)
+                return mock.Mock(returncode=rc)
+            return run
+
+        with mock.patch.object(hostd.subprocess, "run", fake(0)):
+            self.assertEqual(hostd.vector_reload(), {"reloaded": True})
+        self.assertEqual(calls, [["/usr/bin/docker", "kill", "--signal", "HUP", "siem-vector"]])
+        with mock.patch.object(hostd.subprocess, "run", fake(1)), self.assertRaises(hostd.HostdError):
+            hostd.vector_reload()
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -347,3 +364,4 @@ class TestSystemLogs(unittest.TestCase):
                 self.assertEqual(hostd.system_logs({"source": "install", "lines": 2})["lines"], ["zwei", "drei"])
             with mock.patch.dict(hostd.LOG_SOURCES, {"install": ("file", str(Path(d) / "fehlt"))}):
                 self.assertEqual(hostd.system_logs({"source": "install"})["lines"], [])
+
