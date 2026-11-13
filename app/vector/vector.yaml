@@ -40,9 +40,27 @@ sources:
       key_file: /etc/vector/certs/syslog.key
 
 transforms:
+  # Auto-Detect je Gerätetyp (Phase 3). Routing nach Quell-IP aus der Config-DB folgt mit
+  # dem Config-Generator; bis dahin erkennt die Route das Format am Inhalt.
+  route_device:
+    type: route
+    inputs: ["syslog_*"]
+    route:
+      fortigate: >-
+        contains(string(.message) ?? "", "devid=") ||
+        contains(string(.appname) ?? "", "devid=") ||
+        contains(string(.hostname) ?? "", "devid=")
+
+  fortigate:
+    type: remap
+    inputs: ["route_device.fortigate"]
+    file: /etc/vector/parsers/fortigate.vrl
+    drop_on_error: false
+    reroute_dropped: false
+
   normalize:
     type: remap
-    inputs: ["syslog_*"]
+    inputs: ["route_device._unmatched"]
     source: |
       # --- Herkunft --------------------------------------------------------
       .observer.ip = del(.source_ip)
@@ -76,7 +94,7 @@ transforms:
 sinks:
   opensearch:
     type: elasticsearch
-    inputs: ["normalize"]
+    inputs: ["normalize", "fortigate"]
     endpoints: ["https://127.0.0.1:9200"]
     api_version: v8
     mode: bulk

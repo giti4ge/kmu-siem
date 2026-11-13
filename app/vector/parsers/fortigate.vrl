@@ -1,0 +1,180 @@
+# KMU-SIEM – FortiGate-Parser (Key-Value-Syslog) → ECS
+# Eingabe: Syslog-Event aus der Vector-Syslog-Quelle (Routing in vector.yaml: "devid=" im Text).
+# Typen: traffic (inkl. Inter-VLAN), utm (IPS/AV/Web/App/DNS), event (system/user/vpn/…).
+# Unparsbare Zeilen landen mit siem.category = "unparsed" (SPEC 3.2), nie verworfen.
+
+# --- Rohtext rekonstruieren ---------------------------------------------------
+# FortiGate sendet oft ohne Syslog-Header ("<189>date=… time=…"); der Syslog-Parser
+# ordnet dann erste Tokens fälschlich Hostname/Appname zu. Diese setzen wir zurück.
+raw = ""
+hn = string(.hostname) ?? ""
+an = string(.appname) ?? ""
+if contains(hn, "=") { raw = hn + " " }
+if contains(an, "=") { raw = raw + an + " " }
+raw = raw + (string(.message) ?? "")
+
+peer_hostname = if contains(hn, "=") { null } else { string(.hostname) ?? null }
+syslog_severity = del(.severity)
+syslog_facility = del(.facility)
+del(.hostname)
+del(.appname)
+del(.procid)
+del(.msgid)
+del(.version)
+
+.observer.ip = del(.source_ip)
+.observer.vendor = "Fortinet"
+.observer.product = "FortiGate"
+.observer.type = "firewall"
+.siem.collector = "vector"
+.siem.pipeline = "fortigate"
+.event.kind = "event"
+.event.ingested = now()
+.event.original = raw
+.message = raw
+.log.syslog.facility.name = syslog_facility
+.log.syslog.severity.name = syslog_severity
+
+kv, err = parse_key_value(raw, key_value_delimiter: "=", field_delimiter: " ", whitespace: "lenient")
+if err != null || !is_object(kv) || kv.logid == null || kv.type == null {
+    .event.dataset = "fortigate.unparsed"
+    .siem.category = "unparsed"
+    .error.message = "FortiGate-Zeile nicht als Key-Value parsbar"
+} else {
+    .siem.category = "firewall"
+    typ = string(kv.type) ?? "unknown"
+    sub = string(kv.subtype) ?? "unknown"
+    .event.dataset = "fortigate." + typ
+    .event.module = "fortigate"
+    .event.code = string(kv.logid) ?? null
+    .observer.name = string(kv.devname) ?? null
+    .observer.serial_number = string(kv.devid) ?? null
+    .observer.hostname = .observer.name
+    if peer_hostname != null && .observer.name == null { .observer.name = peer_hostname }
+    .fortinet.vdom = string(kv.vd) ?? null
+    .fortinet.type = typ
+    .fortinet.subtype = sub
+
+    # --- Zeitstempel: eventtime (ns, FortiOS ≥ 6.2) vor date/time/tz -------------
+    et = to_int(kv.eventtime) ?? 0
+    if et > 1000000000000000000 {
+        .@timestamp = from_unix_timestamp(et, unit: "nanoseconds") ?? now()
+    } else if kv.date != null && kv.time != null {
+        tz = string(kv.tz) ?? "+0000"
+        ts = parse_timestamp((string(kv.date) ?? "") + " " + (string(kv.time) ?? "") + " " + tz, "%Y-%m-%d %H:%M:%S %z") ?? null
+        if ts != null { .@timestamp = ts }
+    }
+
+    # --- Schweregrad ------------------------------------------------------------
+    lvl = string(kv.level) ?? "information"
+    .log.level = lvl
+    .event.severity = if lvl == "emergency" { 0 } else if lvl == "alert" { 1 } else if lvl == "critical" { 2 } else if lvl == "error" { 3 } else if lvl == "warning" { 4 } else if lvl == "notice" { 5 } else if lvl == "information" { 6 } else { 7 }
+
+    # --- Netzwerk (traffic, utm) ------------------------------------------------
+    if kv.srcip != null { .source.ip = string(kv.srcip) ?? null }
+    if kv.dstip != null { .destination.ip = string(kv.dstip) ?? null }
+    if kv.srcport != null { .source.port = to_int(kv.srcport) ?? null }
+    if kv.dstport != null { .destination.port = to_int(kv.dstport) ?? null }
+    if kv.srcmac != null { .source.mac = string(kv.srcmac) ?? null }
+    if kv.dstmac != null { .destination.mac = string(kv.dstmac) ?? null }
+    if kv.srcintf != null { .observer.ingress.interface.name = string(kv.srcintf) ?? null }
+    if kv.dstintf != null { .observer.egress.interface.name = string(kv.dstintf) ?? null }
+    if kv.srcname != null { .source.domain = string(kv.srcname) ?? null }
+    if kv.srcintfrole != null { .fortinet.srcintfrole = string(kv.srcintfrole) ?? null }
+    if kv.dstintfrole != null { .fortinet.dstintfrole = string(kv.dstintfrole) ?? null }
+    if kv.sentbyte != null { .source.bytes = to_int(kv.sentbyte) ?? null }
+    if kv.rcvdbyte != null { .destination.bytes = to_int(kv.rcvdbyte) ?? null }
+    if kv.sentpkt != null { .source.packets = to_int(kv.sentpkt) ?? null }
+    if kv.rcvdpkt != null { .destination.packets = to_int(kv.rcvdpkt) ?? null }
+    if kv.policyid != null { .rule.id = string(kv.policyid) ?? null }
+    if kv.policyname != null { .rule.name = string(kv.policyname) ?? null }
+    if kv.service != null { .network.protocol = downcase(string(kv.service) ?? "") }
+    if kv.proto != null {
+        p = to_int(kv.proto) ?? null
+        .network.iana_number = to_string(kv.proto) ?? null
+        .network.transport = if p == 6 { "tcp" } else if p == 17 { "udp" } else if p == 1 { "icmp" } else if p == 47 { "gre" } else if p == 50 { "esp" } else { null }
+    }
+    if kv.app != null { .network.application = string(kv.app) ?? null }
+    if kv.url != null { .url.original = string(kv.url) ?? null }
+    if kv.hostname != null { .url.domain = string(kv.hostname) ?? null }
+    if kv.user != null { .user.name = string(kv.user) ?? null }
+    if kv.group != null { .user.group.name = string(kv.group) ?? null }
+    if kv.srcuser != null && .user.name == null { .user.name = string(kv.srcuser) ?? null }
+
+    act = downcase(string(kv.action) ?? "")
+    if act != "" { .event.action = act }
+
+    # --- Kategorisierung nach ECS ------------------------------------------------
+    if typ == "traffic" {
+        .event.category = ["network"]
+        .event.type = if act == "deny" || act == "blocked" || act == "dropped" || act == "ip-conn" { ["connection", "denied"] } else if act == "start" { ["connection", "start"] } else if act == "close" || act == "timeout" { ["connection", "end"] } else { ["connection", "allowed"] }
+        .event.outcome = if includes(["deny", "blocked", "dropped"], act) { "failure" } else { "success" }
+        # Inter-VLAN: Quell- und Zielschnittstelle sind VLAN-Interfaces, Ziel nicht WAN
+        sif = downcase(string(kv.srcintf) ?? "")
+        dif = downcase(string(kv.dstintf) ?? "")
+        srole = string(kv.srcintfrole) ?? ""
+        drole = string(kv.dstintfrole) ?? ""
+        if sif != "" && dif != "" && sif != dif && (contains(sif, "vlan") || srole == "lan") && (contains(dif, "vlan") || drole == "lan") {
+            .siem.inter_vlan = true
+        }
+    } else if typ == "utm" {
+        .event.category = ["intrusion_detection"]
+        if sub == "virus" { .event.category = ["malware"] }
+        if sub == "webfilter" || sub == "dns" || sub == "app-ctrl" { .event.category = ["network", "web"] }
+        .event.type = if act == "blocked" || act == "dropped" || act == "reset" || act == "deny" { ["denied"] } else { ["info"] }
+        .event.outcome = if includes(["blocked", "dropped", "reset", "deny"], act) { "failure" } else { "success" }
+        if kv.attack != null { .rule.name = string(kv.attack) ?? null }
+        if kv.attackid != null { .rule.id = string(kv.attackid) ?? null }
+        if kv.virus != null { .rule.name = string(kv.virus) ?? null }
+        if kv.severity != null { .fortinet.severity = string(kv.severity) ?? null }
+        if kv.cve != null { .vulnerability.id = string(kv.cve) ?? null }
+        if kv.catdesc != null { .fortinet.category = string(kv.catdesc) ?? null }
+        if kv.filename != null { .file.name = string(kv.filename) ?? null }
+    } else if typ == "event" {
+        .event.category = ["configuration"]
+        .event.type = ["info"]
+        status = downcase(string(kv.status) ?? "")
+        if status == "success" || status == "succeeded" { .event.outcome = "success" } else if status == "failed" || status == "failure" { .event.outcome = "failure" }
+        if kv.msg != null { .message = string(kv.msg) ?? raw }
+        if kv.logdesc != null { .event.reason = string(kv.logdesc) ?? null }
+        if kv.ui != null {
+            ui = string(kv.ui) ?? ""
+            m = parse_regex(ui, r'^(?P<iface>[A-Za-z0-9_-]+)\((?P<ip>[0-9a-fA-F:.]+)\)$') ?? null
+            if m != null {
+                .fortinet.ui = m.iface
+                .source.ip = m.ip
+            } else {
+                .fortinet.ui = ui
+            }
+        }
+        if sub == "system" && includes(["login", "logout"], act) {
+            .event.category = ["authentication"]
+            .event.type = if act == "login" { ["start"] } else { ["end"] }
+            .event.action = "admin-" + act
+        }
+        if sub == "system" && kv.cfgpath != null {
+            .event.category = ["configuration"]
+            .event.type = ["change"]
+            .event.action = "config-change"
+            .fortinet.cfgpath = string(kv.cfgpath) ?? null
+            .fortinet.cfgobj = string(kv.cfgobj) ?? null
+            .fortinet.cfgattr = string(kv.cfgattr) ?? null
+        }
+        if sub == "vpn" {
+            .event.category = ["network", "authentication"]
+            .event.dataset = "fortigate.vpn"
+            .event.type = if act == "tunnel-up" || act == "ssl-login" { ["start"] } else if act == "tunnel-down" || act == "ssl-logout" { ["end"] } else { ["info"] }
+            if kv.remip != null { .source.ip = string(kv.remip) ?? null }
+            if kv.tunnelip != null { .client.ip = string(kv.tunnelip) ?? null }
+            if kv.tunneltype != null { .fortinet.tunneltype = string(kv.tunneltype) ?? null }
+            if kv.vpntunnel != null { .fortinet.vpntunnel = string(kv.vpntunnel) ?? null }
+        }
+        if sub == "user" {
+            .event.category = ["authentication"]
+            .event.type = ["info"]
+        }
+    } else {
+        .event.category = ["network"]
+        .event.type = ["info"]
+    }
+}

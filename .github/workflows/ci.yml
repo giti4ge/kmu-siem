@@ -166,11 +166,25 @@ jobs:
           IMG=$(grep -oE 'timberio/vector:[^ ]+' app/docker-compose.yml)
           docker run --rm \
             -v "$PWD/app/vector/vector.yaml:/etc/vector/vector.yaml:ro" \
+            -v "$PWD/app/vector/parsers:/etc/vector/parsers:ro" \
             -v /tmp/siem/data/secrets/vector/secrets.json:/etc/vector/secrets/secrets.json:ro \
             -v /tmp/siem/certs/cert.pem:/etc/vector/certs/syslog.crt:ro \
             -v /tmp/siem/certs/key.pem:/etc/vector/certs/syslog.key:ro \
             -v /tmp/siem/certs/cert.pem:/etc/vector/certs/ca.crt:ro \
             "$IMG" validate --no-environment /etc/vector/vector.yaml
+      - name: Parser-Tests (vector test, VRL-Fixtures je Hersteller)
+        run: |
+          IMG=$(grep -oE 'timberio/vector:[^ ]+' app/docker-compose.yml)
+          TESTS=$(cd app/vector/tests && printf '/etc/vector/tests/%s ' *.yaml)
+          docker run --rm \
+            -v "$PWD/app/vector/vector.yaml:/etc/vector/vector.yaml:ro" \
+            -v "$PWD/app/vector/parsers:/etc/vector/parsers:ro" \
+            -v "$PWD/app/vector/tests:/etc/vector/tests:ro" \
+            -v /tmp/siem/data/secrets/vector/secrets.json:/etc/vector/secrets/secrets.json:ro \
+            -v /tmp/siem/certs/cert.pem:/etc/vector/certs/syslog.crt:ro \
+            -v /tmp/siem/certs/key.pem:/etc/vector/certs/syslog.key:ro \
+            -v /tmp/siem/certs/cert.pem:/etc/vector/certs/ca.crt:ro \
+            "$IMG" test --no-environment /etc/vector/vector.yaml $TESTS
       - name: nginx-Konfiguration prüfen (inkl. ModSecurity/CRS)
         run: |
           IMG=$(grep -oE 'owasp/modsecurity-crs:[^ ]+' app/docker-compose.yml)
