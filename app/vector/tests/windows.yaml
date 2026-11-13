@@ -1,0 +1,155 @@
+# Parser-Tests Windows (OpenWEC-JSON). Fixtures nach Microsoft-Ereignisschema nachgebildet (SPEC R-02).
+
+tests:
+  - name: 4625 Anmeldefehler (EventData als Objekt)
+    inputs:
+      - insert_at: windows
+        type: vrl
+        source: |
+          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Microsoft-Windows-Security-Auditing"}},"EventID":4625,"Channel":"Security","Computer":"dc01.firma.local","TimeCreated":{"#attributes":{"SystemTime":"2026-11-13T08:15:30.1234567Z"}}},"EventData":{"TargetUserName":"mueller","TargetDomainName":"FIRMA","LogonType":"3","Status":"0xc000006d","SubStatus":"0xc000006a","IpAddress":"10.0.10.77","IpPort":"50122","WorkstationName":"PC-07","SubjectUserName":"-"}},"OpenWEC":{"IpAddress":"10.0.20.5","Subscription":{"Name":"dc"}}}')
+    outputs:
+      - extract_from: windows
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "windows")
+              assert_eq!(.event.dataset, "windows.security")
+              assert_eq!(.event.action, "logon-failed")
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.event.reason, "falsches Passwort")
+              assert_eq!(.event.code, "4625")
+              assert_eq!(.user.name, "mueller")
+              assert_eq!(.source.ip, "10.0.10.77")
+              assert_eq!(.source.port, 50122)
+              assert_eq!(.winlog.logon.type, 3)
+              assert_eq!(.winlog.logon.type_name, "Network")
+              assert_eq!(.host.name, "dc01.firma.local")
+
+  - name: 4624 Anmeldung (EventData als Data-Array, EventID als Objekt)
+    inputs:
+      - insert_at: windows
+        type: vrl
+        source: |
+          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Microsoft-Windows-Security-Auditing"}},"EventID":{"#text":"4624"},"Channel":"Security","Computer":"srv01"},"EventData":{"Data":[{"#attributes":{"Name":"TargetUserName"},"#text":"admin"},{"#attributes":{"Name":"LogonType"},"#text":"10"},{"#attributes":{"Name":"IpAddress"},"#text":"::ffff:10.0.10.9"}]}},"OpenWEC":{}}')
+    outputs:
+      - extract_from: windows
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "logon")
+              assert_eq!(.event.outcome, "success")
+              assert_eq!(.user.name, "admin")
+              assert_eq!(.source.ip, "10.0.10.9")
+              assert_eq!(.winlog.logon.type_name, "RemoteInteractive")
+
+  - name: 4732 privilegierte Gruppe
+    inputs:
+      - insert_at: windows
+        type: vrl
+        source: |
+          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Microsoft-Windows-Security-Auditing"}},"EventID":4728,"Channel":"Security","Computer":"dc01"},"EventData":{"MemberName":"CN=Max,OU=Users,DC=firma,DC=local","TargetUserName":"Domain Admins","SubjectUserName":"hadmin","SubjectDomainName":"FIRMA"}},"OpenWEC":{}}')
+    outputs:
+      - extract_from: windows
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "group-member-added")
+              assert_eq!(.user.name, "hadmin")
+              assert_eq!(.siem.change.actor, "hadmin")
+              assert_eq!(.siem.change.object, "Domain Admins")
+              assert_eq!(.siem.change.privileged, true)
+              assert_eq!(.siem.change.member, "CN=Max,OU=Users,DC=firma,DC=local")
+
+  - name: 5136 GPO-Änderung
+    inputs:
+      - insert_at: windows
+        type: vrl
+        source: |
+          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Microsoft-Windows-Security-Auditing"}},"EventID":5136,"Channel":"Security","Computer":"dc01"},"EventData":{"SubjectUserName":"hadmin","ObjectDN":"CN={31B2F340-016D-11D2-945F-00C04FB984F9},CN=Policies,CN=System,DC=firma,DC=local","ObjectClass":"groupPolicyContainer","AttributeLDAPDisplayName":"versionNumber","AttributeValue":"12","OperationType":"%%14674"}},"OpenWEC":{}}')
+    outputs:
+      - extract_from: windows
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "gpo-changed")
+              assert_eq!(.siem.change.gpo, true)
+              assert_eq!(.siem.change.attribute, "versionNumber")
+              assert_eq!(.siem.change.new_value, "12")
+              assert_eq!(.siem.change.operation, "value-added")
+
+  - name: 4688 Prozess mit Kommandozeile
+    inputs:
+      - insert_at: windows
+        type: vrl
+        source: |
+          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Microsoft-Windows-Security-Auditing"}},"EventID":4688,"Channel":"Security","Computer":"srv01"},"EventData":{"SubjectUserName":"svc","NewProcessName":"C:\\Windows\\System32\\cmd.exe","CommandLine":"cmd.exe /c whoami","ParentProcessName":"C:\\Windows\\explorer.exe","NewProcessId":"0x1a4"}},"OpenWEC":{}}')
+    outputs:
+      - extract_from: windows
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "process-created")
+              assert_eq!(.process.name, "cmd.exe")
+              assert_eq!(.process.command_line, "cmd.exe /c whoami")
+
+  - name: 7045 Dienstinstallation
+    inputs:
+      - insert_at: windows
+        type: vrl
+        source: |
+          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Service Control Manager"}},"EventID":7045,"Channel":"System","Computer":"srv01"},"EventData":{"ServiceName":"EvilSvc","ImagePath":"C:\\temp\\e.exe","ServiceType":"user mode service"}},"OpenWEC":{}}')
+    outputs:
+      - extract_from: windows
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "windows.system")
+              assert_eq!(.event.action, "service-installed")
+              assert_eq!(.siem.change.object, "EvilSvc")
+              assert_eq!(.service.name, "EvilSvc")
+
+  - name: 4663 FIM Schreibzugriff
+    inputs:
+      - insert_at: windows
+        type: vrl
+        source: |
+          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Microsoft-Windows-Security-Auditing"}},"EventID":4663,"Channel":"Security","Computer":"fs01"},"EventData":{"SubjectUserName":"mueller","ObjectName":"D:\\Freigaben\\Buchhaltung\\lohn.xlsx","AccessMask":"0x2","ProcessName":"C:\\Program Files\\Microsoft Office\\excel.exe"}},"OpenWEC":{}}')
+    outputs:
+      - extract_from: windows
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.fim.operation, "write")
+              assert_eq!(.event.type, ["change"])
+              assert_eq!(.file.path, "D:\\Freigaben\\Buchhaltung\\lohn.xlsx")
+
+  - name: 1102 Log gelöscht
+    inputs:
+      - insert_at: windows
+        type: vrl
+        source: |
+          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Microsoft-Windows-Eventlog"}},"EventID":1102,"Channel":"Security","Computer":"dc01"},"EventData":{"SubjectUserName":"hadmin"}},"OpenWEC":{}}')
+    outputs:
+      - extract_from: windows
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "audit-log-cleared")
+              assert_eq!(.siem.change.operation, "log-cleared")
+              assert_eq!(.user.name, "hadmin")
+
+  - name: Unbekannte ID bleibt erhalten
+    inputs:
+      - insert_at: windows
+        type: vrl
+        source: |
+          . = parse_json!(s'{"Event":{"System":{"Provider":{"#attributes":{"Name":"Irgendwas"}},"EventID":9999,"Channel":"Application","Computer":"srv01"},"EventData":{"Foo":"bar"}},"OpenWEC":{}}')
+    outputs:
+      - extract_from: windows
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "windows")
+              assert_eq!(.event.dataset, "windows.other")
+              assert_eq!(.winlog.event_data.Foo, "bar")
+              assert!(is_string(.event.original))
