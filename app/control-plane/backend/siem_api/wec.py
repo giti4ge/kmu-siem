@@ -194,7 +194,7 @@ content_format = "Raw"
 [[outputs]]
 driver = "Tcp"
 format = "Json"
-config = {{ host = "127.0.0.1", port = {VECTOR_PORT} }}
+config = {{ addr = "127.0.0.1", port = {VECTOR_PORT} }}
 '''
 
 
