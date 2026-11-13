@@ -1,0 +1,97 @@
+{
+  "app": { "name": "KMU-SIEM", "language": "Sprache" },
+  "lang": { "de": "Deutsch", "en": "English" },
+  "nav": { "dashboard": "Dashboard", "users": "Benutzer", "roles": "Rollen", "audit": "Audit-Log", "account": "Mein Konto" },
+  "common": {
+    "save": "Speichern", "yes": "ja", "no": "nein", "edit": "Bearbeiten", "create": "Anlegen", "cancel": "Abbrechen",
+    "delete": "Löschen", "show": "Anzeigen", "close": "Schließen", "more": "Weitere laden"
+  },
+  "auth": {
+    "login_title": "Anmelden", "username": "Benutzername", "password": "Kennwort", "login": "Anmelden", "logout": "Abmelden",
+    "confirm": "Bestätigen", "code": "Sechsstelliger Code",
+    "mfa_title": "Zweiter Faktor", "mfa_hint": "Bitte den aktuellen Code aus der Authenticator-App eingeben.",
+    "enroll_title": "Zwei-Faktor-Anmeldung einrichten",
+    "enroll_hint": "Für Ihre Rolle ist die Zwei-Faktor-Anmeldung verpflichtend. QR-Code mit einer Authenticator-App scannen (oder den Schlüssel eingeben) und den angezeigten Code bestätigen.",
+    "password_forced": "Kennwort ändern", "password_changed": "Kennwort wurde geändert.",
+    "current_password": "Aktuelles Kennwort", "new_password": "Neues Kennwort", "repeat_password": "Neues Kennwort wiederholen",
+    "password_rules": "Mindestens 12 Zeichen, nicht leicht zu erraten, ohne Benutzername."
+  },
+  "errors": {
+    "unknown": "Unerwarteter Fehler.",
+    "invalid_credentials": "Benutzername oder Kennwort falsch – oder das Konto ist vorübergehend gesperrt.",
+    "invalid_code": "Code ungültig oder bereits verwendet.",
+    "not_authenticated": "Sitzung abgelaufen – bitte erneut anmelden.",
+    "csrf_failed": "Sicherheitsprüfung fehlgeschlagen – bitte Seite neu laden.",
+    "forbidden": "Keine Berechtigung.",
+    "stage_mfa_verify": "Bitte zuerst den zweiten Faktor bestätigen.",
+    "stage_password_change": "Bitte zuerst das Kennwort ändern.",
+    "stage_mfa_enroll": "Bitte zuerst die Zwei-Faktor-Anmeldung einrichten.",
+    "password_too_short": "Das Kennwort muss mindestens 12 Zeichen lang sein.",
+    "password_too_long": "Das Kennwort ist zu lang (höchstens 256 Zeichen).",
+    "password_too_weak": "Das Kennwort ist zu leicht zu erraten oder aus Datenlecks bekannt.",
+    "password_contains_username": "Das Kennwort darf den Benutzernamen nicht enthalten.",
+    "password_unchanged": "Das neue Kennwort muss sich vom bisherigen unterscheiden.",
+    "password_mismatch": "Die Kennwörter stimmen nicht überein.",
+    "invalid_current_password": "Das aktuelle Kennwort ist falsch.",
+    "username_taken": "Der Benutzername ist bereits vergeben.",
+    "unknown_role": "Unbekannte Rolle.",
+    "unknown_permission": "Unbekannte Berechtigung.",
+    "role_exists": "Eine Rolle mit diesem Namen existiert bereits.",
+    "role_in_use": "Die Rolle ist noch Benutzern zugewiesen.",
+    "builtin_role": "Vordefinierte Rollen können nicht geändert werden.",
+    "last_admin": "Der letzte aktive System-Administrator kann nicht entfernt werden.",
+    "cannot_demote_self": "Sie können sich nicht selbst deaktivieren oder die Administratorrolle entziehen.",
+    "cannot_delete_self": "Sie können sich nicht selbst löschen.",
+    "cannot_reset_own_mfa": "Die eigene Zwei-Faktor-Anmeldung kann nur ein anderer Administrator zurücksetzen.",
+    "not_found": "Nicht gefunden.",
+    "validation_failed": "Eingabe ungültig.",
+    "totp_already_enabled": "Die Zwei-Faktor-Anmeldung ist bereits eingerichtet.",
+    "totp_not_set_up": "Bitte die Einrichtung neu starten."
+  },
+  "dashboard": {
+    "welcome": "Willkommen, {{name}}.",
+    "coming": "Übersicht über Quellen, Alarme und Systemzustand folgt mit den nächsten Ausbaustufen.",
+    "version": "Version {{version}}"
+  },
+  "users": {
+    "new": "Neuer Benutzer", "username": "Benutzername", "display_name": "Anzeigename", "email": "E-Mail",
+    "password": "Erstkennwort", "language": "Sprache", "roles": "Rollen", "mfa": "2FA", "status": "Status",
+    "last_login": "Letzte Anmeldung", "enabled": "aktiv", "disabled": "deaktiviert",
+    "initial_password_hint": "Der Benutzer muss das Erstkennwort bei der ersten Anmeldung ändern.",
+    "edit_title": "Benutzer {{name}} bearbeiten", "reset_password": "Neues Erstkennwort",
+    "reset_password_do": "Kennwort zurücksetzen", "reset_mfa": "2FA zurücksetzen",
+    "delete_confirm": "Benutzer {{name}} wirklich löschen?"
+  },
+  "roles": {
+    "new": "Neue Rolle", "name": "Name", "description": "Beschreibung", "mfa": "2FA verpflichtend", "module": "Modul",
+    "action": { "read": "Lesen", "write": "Schreiben", "approve": "Freigeben" },
+    "builtin_hint": "Vordefinierte Rolle – nur Anzeige. Für abweichende Rechte eine eigene Rolle anlegen.",
+    "categories": "Erlaubte Log-Kategorien", "categories_hint": "Kommagetrennt, leer = alle Kategorien.",
+    "builtin": {
+      "system-admin": "System-Administrator", "security-analyst": "Security-Analyst", "auditor": "Auditor",
+      "privacy-officer": "Datenschutz / Betriebsrat", "report-recipient": "Report-Empfänger"
+    },
+    "builtin_desc": {
+      "system-admin": "Vollzugriff auf Konfiguration, Benutzer und Daten (2FA verpflichtend)",
+      "security-analyst": "Analyse von Alarmen und Ereignissen, Regeln und Assets pflegen",
+      "auditor": "Nur lesen, einschließlich Audit-Log",
+      "privacy-officer": "Freigaben, Zugriffsprotokoll und Reports",
+      "report-recipient": "Nur Reports lesen"
+    }
+  },
+  "modules": {
+    "dashboard": "Dashboard", "alerts": "Alarme", "logs": "Log-Explorer", "switches": "Switch-Ports", "assets": "Assets",
+    "sources": "Quellen", "rules": "Regeln & Benachrichtigung", "changes": "Change-Audit & FIM", "reports": "Reports",
+    "archive": "Archiv", "privacy": "Datenschutz", "system": "System", "users": "Benutzer & Rollen", "audit": "Audit-Log"
+  },
+  "audit": {
+    "verify": "Integrität prüfen", "verify_ok": "Audit-Log intakt ({{count}} Einträge geprüft).",
+    "verify_fail": "Manipulation erkannt bei Eintrag {{seq}}: {{reason}}",
+    "reason": {
+      "sequence_gap": "Eintrag fehlt", "chain_broken": "Kette unterbrochen", "entry_modified": "Eintrag verändert",
+      "truncated": "Einträge am Ende entfernt", "head_missing": "Prüfdatei fehlt"
+    },
+    "time": "Zeit", "actor": "Benutzer", "action": "Aktion", "target": "Ziel", "outcome": "Ergebnis", "ip": "IP",
+    "details": "Details", "outcome_success": "erfolgreich", "outcome_failure": "fehlgeschlagen"
+  }
+}
