@@ -30,7 +30,7 @@ jobs:
       - name: Ruff
         run: |
           pip install --quiet ruff
-          ruff check host/siem-hostd app/opensearch tests/hostd tests/generators tools
+          ruff check host/siem-hostd app/opensearch app/control-plane/backend tests/hostd tests/control_plane tests/generators tools
       - name: Doku-Links prüfen
         run: python tools/check_links.py
 
@@ -48,6 +48,19 @@ jobs:
         run: bats --print-output-on-failure tests/installer
       - name: siem-hostd (unittest)
         run: python3 -m unittest discover -s tests/hostd -v
+
+  control-plane:
+    name: Control-Plane (pytest, Rollen-Matrix, Audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Abhängigkeiten
+        run: pip install --quiet "./app/control-plane/backend[test]"
+      - name: pytest
+        run: python -m pytest tests/control_plane -q
 
   integration:
     name: Preflight im Debian-13-Container

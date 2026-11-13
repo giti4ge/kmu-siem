@@ -43,6 +43,27 @@ VERSION               Produktversion (SemVer)
 - Antwortdateien und Benutzereingaben werden nie ausgewertet (`eval`, `source`, unquotierte Expansion).
 - Exit-Codes: 0 OK, 1 Warnungen, 2 Fehler, 3 Schritt nicht implementiert, 64 Aufruffehler.
 
+## 2a. Control-Plane (`app/control-plane/backend`)
+
+FastAPI-Anwendung `siem_api` mit SQLite (WAL) und Alembic-Migrationen.
+
+| Modul | Aufgabe |
+|---|---|
+| `models.py`, `migrations/` | Datenmodell; jede Änderung braucht eine Migration (Test `test_migrations_match_models`) |
+| `security/passwords.py` | Argon2id, Kennwortrichtlinie (≥ 12 Zeichen, zxcvbn-Score ≥ 3, kein Benutzername) |
+| `security/totp.py` | TOTP (RFC 6238) mit Schutz gegen Wiederverwendung eines Codes |
+| `security/sessions.py` | Serverseitige Sitzungen (Cookie HttpOnly/Secure/SameSite=Strict), CSRF-Token, Anmeldestufen |
+| `security/rbac.py` | Berechtigungen `modul:aktion`, vordefinierte Rollen (werden bei jedem Start abgeglichen) |
+| `security/crypto.py`, `keys.py` | AES-256-GCM für Geheimnisse; Master- und Audit-Schlüssel in `data/secrets/control-plane` |
+| `audit.py` | Audit-Log als HMAC-SHA256-Hash-Kette, Kopf-Datei gegen Abschneiden |
+| `deps.py` | `require("modul:aktion")` – jede API-Route außer Anmeldung/Health muss es verwenden |
+| `cli.py` | `create-admin` (aus install.sh), `verify-audit` |
+
+**Regeln:**
+- Jede neue Route unter `/api/` braucht `Depends(require("modul:aktion"))`. Der Test `test_every_api_route_is_protected` erzwingt das, die Rollen-Matrix wird je Route und Rolle automatisch geprüft.
+- Fehler als `{"detail": {"error": "<schlüssel>"}}` – die Übersetzung erfolgt im Frontend. Keine Eingabewerte in Fehlermeldungen.
+- Alle zustandsändernden Aktionen schreiben einen Audit-Eintrag (nie Kennwörter oder Geheimnisse).
+
 ## 3. Tests
 
 | Ebene | Wo | Läuft auf | Aufruf |
@@ -50,6 +71,7 @@ VERSION               Produktversion (SemVer)
 | Lint | ShellCheck, Ruff, Doku-Links | CI, lokal | siehe unten |
 | Unit | `tests/installer/*.bats` | Debian-13-Container (CI), lokal Linux/WSL | `bats tests/installer` |
 | Unit | `tests/hostd/test_hostd.py` | überall (Socket-Tests nur Linux) | `python -m unittest discover -s tests/hostd` |
+| Unit | `tests/control_plane/` (pytest) | überall (Python ≥ 3.11) | `pip install "./app/control-plane/backend[test]"`, dann `python -m pytest tests/control_plane` |
 | Integration | `tests/integration/preflight-container.sh` | Debian-13-Container als root | `bash tests/integration/preflight-container.sh` |
 | VM | `tests/vm/run-vm-tests.sh` | Linux mit QEMU (CI: GitHub Actions mit KVM) | `bash tests/vm/run-vm-tests.sh` |
 | VM-Varianten | `tests/vm/run-vm-variants.sh` | wie VM, zusätzlich `sshpass` und für `interactive` squid auf Port 3128 | `bash tests/vm/run-vm-variants.sh interactive` bzw. `resume` |
