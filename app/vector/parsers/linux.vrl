@@ -1,0 +1,224 @@
+# KMU-SIEM – Linux-Server (rsyslog/journald, agentlos) → ECS
+# Quellen: sshd, sudo/su, PAM, systemd(-logind), auditd (über audisp-syslog), Paketmanager.
+# Der Absender ist hier der *Host selbst* (host.*), nicht ein Beobachter wie bei Netzwerkgeräten.
+# Unbekannte Meldungen bleiben als generisches Host-Ereignis (linux.syslog) erhalten.
+
+raw = string(.message) ?? ""
+app = string(.appname) ?? ""
+peer_hostname = string(.hostname) ?? null
+pid = del(.procid)
+syslog_severity = del(.severity)
+syslog_facility = del(.facility)
+del(.hostname)
+del(.appname)
+del(.msgid)
+del(.version)
+
+.observer.ip = del(.source_ip)
+.host.hostname = peer_hostname
+.host.name = peer_hostname
+.siem.collector = "vector"
+.siem.pipeline = "linux"
+.siem.category = "linux"
+.event.kind = "event"
+.event.module = "linux"
+.event.dataset = "linux.syslog"
+.event.category = ["host"]
+.event.type = ["info"]
+.event.ingested = now()
+.event.original = raw
+.log.syslog.facility.name = syslog_facility
+.log.syslog.severity.name = syslog_severity
+.log.level = syslog_severity
+.process.name = app
+if pid != null { .process.pid = to_int(pid) ?? null }
+
+if app == "sshd" {
+    failed = parse_regex(raw, r'^Failed (?P<method>\S+) for (invalid user )?(?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+) port (?P<port>\d+)') ?? null
+    accepted = parse_regex(raw, r'^Accepted (?P<method>\S+) for (?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+) port (?P<port>\d+)') ?? null
+    invalid = parse_regex(raw, r'^Invalid user (?P<user>\S*) from (?P<ip>[0-9a-fA-F:.]+)( port (?P<port>\d+))?') ?? null
+    if failed != null || invalid != null {
+        m = if failed != null { failed } else { invalid }
+        .event.dataset = "linux.sshd"
+        .event.category = ["authentication"]
+        .event.type = ["start", "denied"]
+        .event.action = "ssh-login-failed"
+        .event.outcome = "failure"
+        .user.name = m.user
+        .source.ip = m.ip
+        if m.port != null { .source.port = to_int(m.port) ?? null }
+        if failed != null { .event.reason = failed.method }
+    } else if accepted != null {
+        .event.dataset = "linux.sshd"
+        .event.category = ["authentication"]
+        .event.type = ["start", "allowed"]
+        .event.action = "ssh-login"
+        .event.outcome = "success"
+        .user.name = accepted.user
+        .source.ip = accepted.ip
+        .source.port = to_int(accepted.port) ?? null
+        .event.reason = accepted.method
+    }
+} else if app == "sudo" {
+    cmd = parse_regex(raw, r'^\s*(?P<user>\S+) : (.*?TTY=(?P<tty>\S+) ; )?(PWD=(?P<pwd>\S+) ; )?USER=(?P<target>\S+) ; COMMAND=(?P<command>.*)$') ?? null
+    sfail = parse_regex(raw, r'^\s*(?P<user>\S+) : (?P<n>\d+) incorrect password attempts?') ?? null
+    if sfail != null {
+        .event.dataset = "linux.sudo"
+        .event.category = ["authentication", "iam"]
+        .event.type = ["denied"]
+        .event.action = "sudo-failed"
+        .event.outcome = "failure"
+        .user.name = sfail.user
+    } else if cmd != null {
+        .event.dataset = "linux.sudo"
+        .event.category = ["process", "iam"]
+        .event.type = ["start"]
+        .event.action = "sudo"
+        .event.outcome = "success"
+        .user.name = cmd.user
+        .user.effective.name = cmd.target
+        .process.command_line = cmd.command
+        if cmd.pwd != null { .process.working_directory = cmd.pwd }
+    }
+} else if app == "su" || app == "su-l" {
+    su = parse_regex(raw, r'^(?P<res>FAILED SU|Successful su) .*?for (?P<target>\S+) by (?P<user>\S+)') ?? null
+    if su != null {
+        .event.dataset = "linux.su"
+        .event.category = ["authentication", "iam"]
+        .user.name = su.user
+        .user.effective.name = su.target
+        .event.action = "su"
+        if su.res == "Successful su" {
+            .event.outcome = "success"
+            .event.type = ["start", "allowed"]
+        } else {
+            .event.outcome = "failure"
+            .event.type = ["start", "denied"]
+        }
+    }
+} else if app == "systemd-logind" {
+    sess = parse_regex(raw, r'^New session (?P<id>\S+) of user (?P<user>\S+?)\.?\s*$') ?? null
+    gone = parse_regex(raw, r'^Removed session (?P<id>\S+)\.') ?? null
+    if sess != null {
+        .event.dataset = "linux.logind"
+        .event.category = ["authentication", "session"]
+        .event.type = ["start"]
+        .event.action = "session-start"
+        .event.outcome = "success"
+        .user.name = sess.user
+        .session.id = sess.id
+    } else if gone != null {
+        .event.dataset = "linux.logind"
+        .event.category = ["session"]
+        .event.type = ["end"]
+        .event.action = "session-end"
+        .session.id = gone.id
+    }
+} else if app == "systemd" {
+    unit = parse_regex(raw, r'^(?P<what>Started|Starting|Stopped|Stopping|Failed to start) (?P<unit>.+?)\.?$') ?? null
+    failed_unit = parse_regex(raw, r'^(?P<unit>\S+) (failed|entered failed state)') ?? null
+    if unit != null {
+        .event.dataset = "linux.systemd"
+        .event.category = ["process"]
+        .service.name = unit.unit
+        what = string(unit.what) ?? ""
+        if what == "Started" || what == "Starting" {
+            .event.type = ["start"]
+            .event.action = "service-start"
+        } else if what == "Failed to start" {
+            .event.type = ["error"]
+            .event.action = "service-failed"
+            .event.outcome = "failure"
+        } else {
+            .event.type = ["end"]
+            .event.action = "service-stop"
+        }
+    } else if failed_unit != null {
+        .event.dataset = "linux.systemd"
+        .event.category = ["process"]
+        .event.type = ["error"]
+        .event.action = "service-failed"
+        .event.outcome = "failure"
+        .service.name = failed_unit.unit
+    }
+} else if includes(["audit", "auditd", "audispd", "audisp-syslog"], app) {
+    at = parse_regex(raw, r'^(node=\S+ )?type=(?P<type>\S+) msg=audit\((?P<ts>[0-9.]+):(?P<serial>\d+)\): ?(?P<rest>.*)$') ?? null
+    if at != null {
+        .event.dataset = "linux.auditd"
+        .auditd.type = at.type
+        .auditd.serial = at.serial
+        rest = replace(string(at.rest) ?? "", "msg='", "")
+        rest = replace(rest, "'", "")
+        kv, err = parse_key_value(rest, key_value_delimiter: "=", field_delimiter: " ", whitespace: "lenient")
+        if err == null && is_object(kv) {
+            if kv.acct != null { .user.name = string(kv.acct) ?? null }
+            if kv.auid != null && .user.name == null && kv.auid != "4294967295" { .user.id = string(kv.auid) ?? null }
+            if kv.uid != null { .user.id = string(kv.uid) ?? null }
+            if kv.exe != null { .process.executable = string(kv.exe) ?? null }
+            if kv.comm != null { .process.name = string(kv.comm) ?? null }
+            if kv.addr != null && kv.addr != "?" { .source.ip = string(kv.addr) ?? null }
+            if kv.hostname != null && kv.hostname != "?" { .source.domain = string(kv.hostname) ?? null }
+            if kv.key != null { .auditd.key = string(kv.key) ?? null }
+            if kv.name != null { .file.path = string(kv.name) ?? null }
+            if kv.res != null {
+                res = downcase(string(kv.res) ?? "")
+                if res == "success" || res == "yes" { .event.outcome = "success" } else if res == "failed" || res == "no" { .event.outcome = "failure" }
+            }
+        }
+        t = string(at.type) ?? ""
+        if includes(["USER_AUTH", "USER_LOGIN", "USER_START", "USER_END", "USER_ACCT", "CRED_ACQ", "CRED_DISP", "CRED_REFR", "LOGIN"], t) {
+            .event.category = ["authentication"]
+            .event.type = if t == "USER_END" || t == "CRED_DISP" { ["end"] } else { ["start"] }
+            .event.action = downcase(t)
+        } else if includes(["ADD_USER", "DEL_USER", "ADD_GROUP", "DEL_GROUP", "USER_CHAUTHTOK", "USER_MGMT", "GRP_MGMT", "ROLE_ASSIGN"], t) {
+            .event.category = ["iam"]
+            .event.type = if t == "DEL_USER" || t == "DEL_GROUP" { ["deletion"] } else if t == "ADD_USER" || t == "ADD_GROUP" { ["creation"] } else { ["change"] }
+            .event.action = downcase(t)
+        } else if includes(["PATH", "SYSCALL", "OPEN", "OPENAT"], t) {
+            .event.category = ["file"]
+            .event.type = ["change"]
+            .event.action = downcase(t)
+        } else if t == "EXECVE" || t == "BPRM_FCAPS" {
+            .event.category = ["process"]
+            .event.type = ["start"]
+            .event.action = downcase(t)
+        } else if t == "CONFIG_CHANGE" {
+            .event.category = ["configuration"]
+            .event.type = ["change"]
+            .event.action = "config-change"
+        }
+    }
+} else if includes(["yum", "dnf", "apt", "apt-get", "dpkg", "packagekitd", "zypper"], app) {
+    pkg = parse_regex(raw, r'(?i)^(?P<what>installed|erased|updated|upgraded|removed|install|upgrade|remove|purge):? (?P<pkg>\S+)') ?? null
+    if pkg != null {
+        .event.dataset = "linux.package"
+        .event.category = ["package"]
+        .package.name = pkg.pkg
+        what = downcase(string(pkg.what) ?? "")
+        if includes(["installed", "install"], what) {
+            .event.type = ["installation"]
+        } else if includes(["erased", "removed", "remove", "purge"], what) {
+            .event.type = ["deletion"]
+        } else {
+            .event.type = ["change"]
+        }
+        .event.action = "package-" + what
+    }
+} else {
+    pam = parse_regex(raw, r'^pam_(?P<mod>\w+)\((?P<svc>[^:)]+):(?P<kind>\w+)\): (?P<what>authentication failure|session opened|session closed)(.*?(user=|for user )(?P<user>[^\s;]+))?') ?? null
+    if pam != null {
+        .event.dataset = "linux.pam"
+        .event.category = ["authentication"]
+        .event.action = "pam-" + replace(string(pam.what) ?? "", " ", "-")
+        if pam.user != null { .user.name = pam.user }
+        if pam.what == "authentication failure" {
+            .event.type = ["start", "denied"]
+            .event.outcome = "failure"
+        } else if pam.what == "session opened" {
+            .event.type = ["start"]
+            .event.outcome = "success"
+        } else {
+            .event.type = ["end"]
+        }
+    }
+}

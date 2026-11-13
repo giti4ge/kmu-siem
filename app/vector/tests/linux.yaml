@@ -1,0 +1,228 @@
+# Parser-Tests Linux (sshd, sudo, su, PAM, systemd, auditd, Paketmanager).
+# Fixtures aus typischen Debian-/RHEL-Meldungen nachgebildet (SPEC R-02: keine echten Proben).
+
+tests:
+  - name: sshd Fehlversuch
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: sshd, procid: "812", source_ip: 10.0.20.5, message: "Failed password for invalid user admin from 45.155.205.233 port 51022 ssh2"}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "linux")
+              assert_eq!(.event.dataset, "linux.sshd")
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.event.category, ["authentication"])
+              assert_eq!(.user.name, "admin")
+              assert_eq!(.source.ip, "45.155.205.233")
+              assert_eq!(.source.port, 51022)
+              assert_eq!(.host.hostname, "srv-linux-01")
+              assert_eq!(.process.pid, 812)
+
+  - name: sshd Anmeldung per Schlüssel
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: sshd, source_ip: 10.0.20.5, message: "Accepted publickey for mueller from 10.0.10.21 port 40022 ssh2: RSA SHA256:abc"}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "ssh-login")
+              assert_eq!(.event.outcome, "success")
+              assert_eq!(.event.reason, "publickey")
+              assert_eq!(.user.name, "mueller")
+              assert_eq!(.source.ip, "10.0.10.21")
+
+  - name: sshd ungültiger Benutzer
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: sshd, source_ip: 10.0.20.5, message: "Invalid user oracle from 91.240.118.172 port 33456"}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.user.name, "oracle")
+              assert_eq!(.source.port, 33456)
+
+  - name: sudo Kommando
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: sudo, source_ip: 10.0.20.5, message: "mueller : TTY=pts/0 ; PWD=/home/mueller ; USER=root ; COMMAND=/usr/bin/systemctl restart nginx"}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "linux.sudo")
+              assert_eq!(.event.action, "sudo")
+              assert_eq!(.user.name, "mueller")
+              assert_eq!(.user.effective.name, "root")
+              assert_eq!(.process.command_line, "/usr/bin/systemctl restart nginx")
+              assert_eq!(.process.working_directory, "/home/mueller")
+
+  - name: sudo falsches Kennwort
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: sudo, source_ip: 10.0.20.5, message: "huber : 3 incorrect password attempts ; TTY=pts/1 ; PWD=/home/huber ; USER=root ; COMMAND=/bin/bash"}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "sudo-failed")
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.user.name, "huber")
+
+  - name: su erfolgreich
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: su, source_ip: 10.0.20.5, message: "Successful su for root by mueller"}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "linux.su")
+              assert_eq!(.user.name, "mueller")
+              assert_eq!(.user.effective.name, "root")
+
+  - name: PAM Authentifizierungsfehler
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: login, source_ip: 10.0.20.5, message: "pam_unix(login:auth): authentication failure; logname=LOGIN uid=0 euid=0 tty=/dev/tty1 ruser= rhost=  user=huber"}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "linux.pam")
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.user.name, "huber")
+
+  - name: systemd Dienst gestartet und fehlgeschlagen
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: systemd, procid: "1", source_ip: 10.0.20.5, message: "Started nginx.service - A high performance web server."}
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: systemd, procid: "1", source_ip: 10.0.20.5, message: "Failed to start postgresql.service - PostgreSQL."}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert!(includes(["service-start", "service-failed"], .event.action))
+              assert_eq!(.event.dataset, "linux.systemd")
+
+  - name: systemd-logind Sitzung
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: systemd-logind, source_ip: 10.0.20.5, message: "New session 42 of user mueller."}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "session-start")
+              assert_eq!(.user.name, "mueller")
+              assert_eq!(.session.id, "42")
+
+  - name: auditd Anmeldefehler
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields:
+          hostname: srv-linux-01
+          appname: audit
+          source_ip: 10.0.20.5
+          message: >-
+            type=USER_AUTH msg=audit(1794561330.123:456): pid=812 uid=0 auid=4294967295 ses=4294967295
+            msg='op=PAM:authentication acct="root" exe="/usr/sbin/sshd" hostname=? addr=45.155.205.233
+            terminal=ssh res=failed'
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "linux.auditd")
+              assert_eq!(.auditd.type, "USER_AUTH")
+              assert_eq!(.event.category, ["authentication"])
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.user.name, "root")
+              assert_eq!(.source.ip, "45.155.205.233")
+              assert_eq!(.process.executable, "/usr/sbin/sshd")
+
+  - name: auditd Benutzer angelegt
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields:
+          hostname: srv-linux-01
+          appname: audit
+          source_ip: 10.0.20.5
+          message: >-
+            type=ADD_USER msg=audit(1794561330.200:457): pid=900 uid=0 auid=1000 ses=3
+            msg='op=adding user acct="backdoor" exe="/usr/sbin/useradd" hostname=? addr=? terminal=pts/0 res=success'
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.category, ["iam"])
+              assert_eq!(.event.type, ["creation"])
+              assert_eq!(.user.name, "backdoor")
+              assert_eq!(.event.outcome, "success")
+
+  - name: Paketmanager
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-rhel-01, appname: dnf, source_ip: 10.0.20.6, message: "Installed: nginx-1.24.0-1.el9.x86_64"}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "linux.package")
+              assert_eq!(.event.type, ["installation"])
+              assert_eq!(.package.name, "nginx-1.24.0-1.el9.x86_64")
+
+  - name: Unbekannte Linux-Meldung bleibt erhalten
+    inputs:
+      - insert_at: linux
+        type: log
+        log_fields: {hostname: srv-linux-01, appname: sshd, source_ip: 10.0.20.5, message: "Connection closed by 10.0.10.21 port 5555"}
+    outputs:
+      - extract_from: linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "linux")
+              assert_eq!(.event.dataset, "linux.syslog")
+              assert_eq!(.event.original, "Connection closed by 10.0.10.21 port 5555")
+
+  - name: Auto-Detect Linux
+    inputs:
+      - insert_at: detect
+        type: log
+        log_fields: {hostname: srv, appname: sshd, source_ip: 10.0.20.5, message: "Failed password for root from 1.2.3.4 port 1 ssh2"}
+    outputs:
+      - extract_from: route_device.linux
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.device_type, "linux")
