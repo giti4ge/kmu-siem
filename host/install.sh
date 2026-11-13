@@ -19,7 +19,7 @@ set -o pipefail
 SIEM_HOST_DIR=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)
 SIEM_LIB_DIR="$SIEM_HOST_DIR/lib"
 SIEM_VERSION=$(cat "$SIEM_HOST_DIR/../VERSION" 2>/dev/null || cat "$SIEM_HOST_DIR/VERSION" 2>/dev/null || echo unknown)
-readonly SIEM_DEV_PHASE="Phase 1.3"
+readonly SIEM_DEV_PHASE="Phase 1.4"
 
 # shellcheck source=lib/common.sh
 . "$SIEM_LIB_DIR/common.sh"
@@ -73,6 +73,14 @@ print_final() {
     printf '  %-22s %s\n' "$(msg install_done_ca)" "$PKI_DIR/ca.crt"
     printf '  %-22s %s@%s\n' "$(msg install_done_ssh)" "$SIEM_ADMIN_USER" "$fqdn"
     printf '  %-22s %s\n' "$(msg install_done_log)" "$SIEM_LOG_FILE"
+}
+
+# --repair: alle Installationsschritte erneut ausführen lassen (Abfragen bleiben erledigt)
+repair_reset_states() {
+    local i
+    for i in "${!STEPS[@]}"; do
+        state_set "$(step_name "$i")" pending
+    done
 }
 
 # Schritte ausführen; nach vollständiger Installation Zusammenfassung
@@ -163,10 +171,20 @@ main() {
             exit $?
             ;;
         repair)
+            # Sollzustand wiederherstellen: alle Schritte erneut (idempotent), mit den
+            # gespeicherten Antworten, ohne Fragen und ohne Datenänderung.
             is_root || die "$(msg need_root)"
             state_install_complete || die "$(msg repair_needs_install)"
             acquire_lock
-            step_not_implemented repair "Phase 1"
+            load_answers || die "$(msg repair_needs_install)"
+            SIEM_LANG=${ANSWERS[SIEM_LANG]:-$SIEM_LANG}
+            SIEM_PROXY=${ANSWERS[SIEM_PROXY]:-${SIEM_PROXY:-}}
+            SIEM_PROXY_CA_FILE=${ANSWERS[SIEM_PROXY_CA_FILE]:-${SIEM_PROXY_CA_FILE:-}}
+            SIEM_FQDN=${ANSWERS[SIEM_FQDN]:-}
+            info "$(msg repair_start)"
+            preflight_gate
+            repair_reset_states
+            finish_steps
             exit $?
             ;;
     esac
