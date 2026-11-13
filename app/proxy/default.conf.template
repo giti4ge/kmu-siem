@@ -41,6 +41,11 @@ server {
         return 200 '{"status":"ok"}';
     }
 
+    # SSO-Token nur intern über auth_request, nie direkt an den Browser
+    location = /api/auth/sso/dashboards {
+        return 404;
+    }
+
     # REST-API der Control-Plane
     location /api/ {
         proxy_pass ${BACKEND};

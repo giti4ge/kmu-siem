@@ -323,8 +323,7 @@ if [[ -n $ASSET ]] && curl -sk -D - -o /dev/null --max-time 5 "https://127.0.0.1
 # SSO zu OpenSearch Dashboards (JWT aus der Control-Plane)
 vmr 'for i in $(seq 1 90); do c=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5601/dashboards/api/status); case $c in 200|401) exit 0;; esac; sleep 2; done; exit 1'     && pass "Dashboards gestartet" || fail "Dashboards nicht bereit"
 if python3 "$REPO/tests/vm/sso_check.py" https://127.0.0.1:8443 admin Kennwort-fuer-webadmin-1; then pass "SSO zu Dashboards Ende-zu-Ende"
-else fail "SSO zu Dashboards"; vmr 'docker logs --tail 30 siem-dashboards 2>&1 | cut -c1-300
-    echo "--- OpenSearch (Auth)"; docker logs siem-opensearch 2>&1 | grep -iE "jwt|authenticat|bearer" | tail -20 | cut -c1-400' || true; fi
+else fail "SSO zu Dashboards"; vmr "$(cat "$REPO/tests/vm/sso_diag.sh")" 2>&1 | sed 's/^/       │ /' || true; fi
 check "Dashboards nur auf 127.0.0.1" '! ss -Hltn | awk "{print \$4}" | grep -E ":5601$" | grep -vqE "^(\[::ffff:)?127\.0\.0\.1\]?:"'
 LOGIN=$(curl -sk --max-time 10 -H 'Content-Type: application/json' -d '{"username":"admin","password":"Kennwort-fuer-webadmin-1"}' https://127.0.0.1:8443/api/auth/login || true)
 if grep -q '"stage":"mfa_enroll"' <<<"$LOGIN"; then pass "Web-Admin meldet sich an, TOTP-Einrichtung verlangt"; else fail "Web-Admin-Anmeldung: $LOGIN"; fi

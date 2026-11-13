@@ -93,6 +93,8 @@ check(st == 200 and info.get("user_name") == USER and "siem_reader" in info.get(
 st, _, _ = call(op, "GET", "/dashboards/app/home")
 check(st == 200, "Dashboards-Oberfläche erreichbar", f"{st}")
 
+st, _, _ = call(op, "GET", "/api/auth/sso/dashboards")
+check(st == 404, "SSO-Token nicht direkt über /api abrufbar", f"{st}")
 st, _, _ = call(op, "POST", "/api/auth/logout", headers=csrf)
 st, _, _ = call(op, "GET", "/dashboards/app/home")
 check(st == 302, "nach Abmeldung kein Zugriff mehr auf Dashboards", f"{st}")
