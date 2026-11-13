@@ -1,0 +1,344 @@
+# KMU-SIEM – Windows-Ereignisse (OpenWEC, JSON-Zeilen über TCP) → ECS
+# Eingang: {"Event": {"System": {...}, "EventData": {...}}, "OpenWEC": {"IpAddress": ..., ...}}
+# EventData kommt entweder als Objekt (Name → Wert) oder als Data-Array mit #attributes.Name.
+# Enthält Change-Auditing (AD, Gruppen, GPO, Dienste, Tasks, Audit-Policy, Log gelöscht) und FIM (4663/5145).
+# Unbekannte Ereignis-IDs bleiben als windows.other erhalten (event.original + winlog.event_data).
+
+raw = encode_json({"Event": .Event, "OpenWEC": .OpenWEC})
+wec = object(.OpenWEC) ?? {}
+ev = object(.Event) ?? {}
+sys = object(ev.System) ?? {}
+
+# --- EventData normalisieren -------------------------------------------------
+ed = ev.EventData
+if is_object(ed) && is_array(ed.Data) {
+    norm = {}
+    for_each(array(ed.Data) ?? []) -> |_i, item| {
+        nm = string(item."#attributes".Name) ?? ""
+        if nm != "" { norm = set(norm, [nm], item."#text") ?? norm }
+    }
+    ed = norm
+}
+ed = object(ed) ?? object(ev.UserData) ?? {}
+ed = filter(ed) -> |_k, v| { v != "-" && v != "" && v != null }
+
+eid = to_string(sys.EventID) ?? to_string(sys.EventID."#text") ?? ""
+prov = string(sys.Provider."#attributes".Name) ?? string(sys.Provider.Name) ?? ""
+chan = string(sys.Channel) ?? ""
+comp = string(sys.Computer) ?? null
+ts = parse_timestamp(string(sys.TimeCreated."#attributes".SystemTime) ?? "", "%+") ?? now()
+sub = object(wec.Subscription) ?? {}
+
+# --- Grundgerüst ---------------------------------------------------------------
+. = {}
+.@timestamp = ts
+.siem.collector = "openwec"
+.siem.pipeline = "windows"
+.siem.category = "windows"
+.siem.subscription = sub.Name
+.event.kind = "event"
+.event.module = "windows"
+.event.dataset = "windows.other"
+.event.category = ["host"]
+.event.type = ["info"]
+.event.code = eid
+.event.provider = prov
+.event.ingested = now()
+.event.original = raw
+.host.name = comp
+.host.hostname = comp
+.host.ip = wec.IpAddress
+.winlog.channel = chan
+.winlog.provider_name = prov
+.winlog.event_id = eid
+.winlog.computer_name = comp
+.winlog.event_data = ed
+
+# --- Tabelle bekannter Ereignisse: [Dataset, Aktion, Kategorie, Typ, Ergebnis] --
+tbl = {
+    "4624": ["windows.security", "logon", "authentication", "start", "success"],
+    "4625": ["windows.security", "logon-failed", "authentication", "start", "failure"],
+    "4634": ["windows.security", "logoff", "authentication", "end", ""],
+    "4647": ["windows.security", "logoff", "authentication", "end", ""],
+    "4648": ["windows.security", "logon-explicit-credentials", "authentication", "start", ""],
+    "4672": ["windows.security", "special-privileges-assigned", "iam", "admin", ""],
+    "4688": ["windows.security", "process-created", "process", "start", ""],
+    "4697": ["windows.security", "service-installed", "configuration", "creation", ""],
+    "4698": ["windows.security", "scheduled-task-created", "configuration", "creation", ""],
+    "4699": ["windows.security", "scheduled-task-deleted", "configuration", "deletion", ""],
+    "4700": ["windows.security", "scheduled-task-enabled", "configuration", "change", ""],
+    "4701": ["windows.security", "scheduled-task-disabled", "configuration", "change", ""],
+    "4702": ["windows.security", "scheduled-task-updated", "configuration", "change", ""],
+    "4719": ["windows.security", "audit-policy-changed", "configuration", "change", ""],
+    "4720": ["windows.security", "user-created", "iam", "creation", ""],
+    "4722": ["windows.security", "user-enabled", "iam", "change", ""],
+    "4723": ["windows.security", "password-change-attempt", "iam", "change", ""],
+    "4724": ["windows.security", "password-reset", "iam", "change", ""],
+    "4725": ["windows.security", "user-disabled", "iam", "change", ""],
+    "4726": ["windows.security", "user-deleted", "iam", "deletion", ""],
+    "4727": ["windows.security", "group-created", "iam", "creation", ""],
+    "4728": ["windows.security", "group-member-added", "iam", "group", ""],
+    "4729": ["windows.security", "group-member-removed", "iam", "group", ""],
+    "4730": ["windows.security", "group-deleted", "iam", "deletion", ""],
+    "4731": ["windows.security", "group-created", "iam", "creation", ""],
+    "4732": ["windows.security", "group-member-added", "iam", "group", ""],
+    "4733": ["windows.security", "group-member-removed", "iam", "group", ""],
+    "4734": ["windows.security", "group-deleted", "iam", "deletion", ""],
+    "4735": ["windows.security", "group-changed", "iam", "change", ""],
+    "4737": ["windows.security", "group-changed", "iam", "change", ""],
+    "4738": ["windows.security", "user-changed", "iam", "change", ""],
+    "4740": ["windows.security", "user-locked-out", "iam", "change", ""],
+    "4741": ["windows.security", "computer-created", "iam", "creation", ""],
+    "4743": ["windows.security", "computer-deleted", "iam", "deletion", ""],
+    "4754": ["windows.security", "group-created", "iam", "creation", ""],
+    "4755": ["windows.security", "group-changed", "iam", "change", ""],
+    "4756": ["windows.security", "group-member-added", "iam", "group", ""],
+    "4757": ["windows.security", "group-member-removed", "iam", "group", ""],
+    "4758": ["windows.security", "group-deleted", "iam", "deletion", ""],
+    "4767": ["windows.security", "user-unlocked", "iam", "change", ""],
+    "4768": ["windows.security", "kerberos-tgt-request", "authentication", "start", ""],
+    "4769": ["windows.security", "kerberos-service-ticket", "authentication", "start", ""],
+    "4771": ["windows.security", "kerberos-preauth-failed", "authentication", "start", "failure"],
+    "4776": ["windows.security", "ntlm-validation", "authentication", "start", ""],
+    "4794": ["windows.security", "dsrm-password-set", "iam", "change", ""],
+    "4662": ["windows.security", "directory-object-access", "iam", "access", ""],
+    "4663": ["windows.security", "file-access", "file", "access", ""],
+    "4660": ["windows.security", "file-deleted", "file", "deletion", ""],
+    "4670": ["windows.security", "permissions-changed", "file", "change", ""],
+    "5136": ["windows.security", "directory-object-modified", "iam", "change", ""],
+    "5137": ["windows.security", "directory-object-created", "iam", "creation", ""],
+    "5139": ["windows.security", "directory-object-moved", "iam", "change", ""],
+    "5141": ["windows.security", "directory-object-deleted", "iam", "deletion", ""],
+    "5145": ["windows.security", "share-object-access", "file", "access", ""],
+    "6416": ["windows.security", "external-device-recognized", "host", "info", ""],
+    "1102": ["windows.security", "audit-log-cleared", "configuration", "change", ""],
+    "104": ["windows.system", "log-cleared", "configuration", "change", ""],
+    "7045": ["windows.system", "service-installed", "configuration", "creation", ""],
+    "4104": ["windows.powershell", "script-block", "process", "info", ""],
+    "1116": ["windows.defender", "malware-detected", "malware", "info", ""],
+    "1117": ["windows.defender", "malware-action-taken", "malware", "info", ""],
+    "1118": ["windows.defender", "malware-action-failed", "malware", "info", "failure"],
+    "1119": ["windows.defender", "malware-action-failed", "malware", "info", "failure"],
+    "5001": ["windows.defender", "realtime-protection-disabled", "malware", "change", ""],
+    "5007": ["windows.defender", "defender-config-changed", "malware", "change", ""],
+}
+info = get(tbl, [eid]) ?? null
+# Eindeutige Provider-Namen schützen vor ID-Kollisionen (z. B. 104/7045 in fremden Logs)
+if info != null {
+    ds = string(info[0]) ?? "windows.other"
+    ok = true
+    if ds == "windows.security" { ok = contains(prov, "Security-Auditing") || chan == "Security" }
+    if eid == "104" { ok = contains(prov, "Eventlog") }
+    if eid == "7045" { ok = prov == "Service Control Manager" }
+    if eid == "4104" { ok = contains(prov, "PowerShell") }
+    if ds == "windows.defender" { ok = contains(prov, "Defender") }
+    if eid == "1102" { ok = contains(prov, "Eventlog") || chan == "Security" }
+    if !ok { info = null }
+}
+if info != null {
+    .event.dataset = info[0]
+    .event.action = info[1]
+    .event.category = [info[2]]
+    .event.type = [info[3]]
+    if (string(info[4]) ?? "") != "" { .event.outcome = info[4] }
+} else if starts_with(prov, "MSExchange") {
+    .event.dataset = "windows.exchange"
+    .event.category = ["configuration"]
+} else if chan == "Directory Service" || prov == "Microsoft-Windows-ActiveDirectory_DomainService" {
+    .event.dataset = "windows.directory-service"
+} else if prov == "Microsoft-Windows-DNSServer" || chan == "DNS Server" {
+    .event.dataset = "windows.dns-server"
+} else if chan == "System" {
+    .event.dataset = "windows.system"
+}
+
+# --- Benutzer / Quelle ---------------------------------------------------------
+actor = string(ed.SubjectUserName) ?? null
+target = string(ed.TargetUserName) ?? null
+logon_like = includes(["4624", "4625", "4648", "4768", "4769", "4771", "4776"], eid)
+if logon_like {
+    .user.name = target
+    .user.domain = string(ed.TargetDomainName) ?? null
+    .user.id = string(ed.TargetUserSid) ?? null
+    if eid == "4648" {
+        .user.name = actor
+        .user.target.name = target
+    }
+} else {
+    .user.name = actor
+    .user.domain = string(ed.SubjectDomainName) ?? null
+    .user.id = string(ed.SubjectUserSid) ?? null
+    if target != null { .user.target.name = target }
+}
+if eid == "4776" {
+    .user.name = string(ed.TargetUserName) ?? null
+    .source.domain = string(ed.Workstation) ?? null
+}
+
+ip = string(ed.IpAddress) ?? string(ed.ClientAddress) ?? null
+if ip != null {
+    ip = replace(ip, "::ffff:", "")
+    if ip != "::1" && ip != "127.0.0.1" && ip != "-" { .source.ip = ip }
+}
+port = to_int(ed.IpPort) ?? to_int(ed.ClientPort) ?? null
+if port != null && port > 0 { .source.port = port }
+ws = string(ed.WorkstationName) ?? null
+if ws != null { .source.domain = ws }
+
+# --- Anmeldung -------------------------------------------------------------------
+if includes(["4624", "4625", "4648"], eid) {
+    lt = to_int(ed.LogonType) ?? null
+    if lt != null {
+        .winlog.logon.type = lt
+        lt_names = {"2": "Interactive", "3": "Network", "4": "Batch", "5": "Service", "7": "Unlock", "8": "NetworkCleartext", "9": "NewCredentials", "10": "RemoteInteractive", "11": "CachedInteractive"}
+        .winlog.logon.type_name = get(lt_names, [to_string(lt) ?? ""]) ?? null
+    }
+    .winlog.logon.id = string(ed.TargetLogonId) ?? null
+    .process.name = string(ed.ProcessName) ?? null
+    .event.reason = string(ed.AuthenticationPackageName) ?? null
+}
+status = downcase(string(ed.SubStatus) ?? string(ed.Status) ?? "")
+if status == "0x0" || status == "0x00000000" { status = string(ed.Status) ?? "" ; status = downcase(status) }
+if includes(["4625", "4771", "4776"], eid) || (includes(["4768", "4769"], eid) && status != "" && status != "0x0") {
+    reasons = {
+        "0xc000006a": "falsches Passwort",
+        "0xc0000064": "Benutzer existiert nicht",
+        "0xc000006d": "ungültiger Benutzername oder Authentifizierung",
+        "0xc000006e": "Kontobeschränkung",
+        "0xc000006f": "außerhalb der erlaubten Zeit",
+        "0xc0000070": "Arbeitsstation nicht erlaubt",
+        "0xc0000071": "Passwort abgelaufen",
+        "0xc0000072": "Konto deaktiviert",
+        "0xc0000133": "Zeitabweichung zum DC",
+        "0xc000015b": "Anmeldetyp nicht gewährt",
+        "0xc0000193": "Konto abgelaufen",
+        "0xc0000224": "Passwortänderung erforderlich",
+        "0xc0000234": "Konto gesperrt",
+        "0x18": "falsches Passwort (Kerberos)",
+        "0x6": "Benutzer unbekannt (Kerberos)",
+        "0x12": "Konto gesperrt/deaktiviert (Kerberos)",
+        "0x25": "Zeitabweichung (Kerberos)",
+    }
+    .event.reason = get(reasons, [status]) ?? .event.reason
+    if status != "" { .winlog.event_data.StatusText = status }
+    if eid == "4776" && status == "0x0" { .event.outcome = "success" }
+    if includes(["4768", "4769"], eid) { .event.outcome = "failure" }
+    if eid == "4776" && status != "0x0" && status != "" { .event.outcome = "failure" }
+} else if includes(["4768", "4769"], eid) {
+    .event.outcome = "success"
+}
+
+# --- Prozess (4688) ----------------------------------------------------------------
+if eid == "4688" {
+    .process.executable = string(ed.NewProcessName) ?? null
+    .process.command_line = string(ed.CommandLine) ?? null
+    .process.parent.executable = string(ed.ParentProcessName) ?? null
+    .process.pid = to_int(ed.NewProcessId) ?? null
+    nm = string(ed.NewProcessName) ?? ""
+    .process.name = replace(nm, r'^.*\\', "")
+}
+
+# --- Dienste / Aufgaben / Audit-Policy / Log gelöscht -------------------------------
+if eid == "7045" || eid == "4697" {
+    .service.name = string(ed.ServiceName) ?? null
+    .service.type = string(ed.ServiceType) ?? null
+    .siem.change.object = string(ed.ServiceName) ?? null
+    .siem.change.new_value = string(ed.ImagePath) ?? string(ed.ServiceFileName) ?? null
+    .siem.change.operation = "service-installed"
+    .process.executable = string(ed.ImagePath) ?? string(ed.ServiceFileName) ?? null
+}
+if includes(["4698", "4699", "4700", "4701", "4702"], eid) {
+    .siem.change.object = string(ed.TaskName) ?? null
+    .siem.change.operation = .event.action
+    .siem.change.new_value = string(ed.TaskContent) ?? null
+}
+if eid == "4719" {
+    .siem.change.object = string(ed.SubcategoryGuid) ?? string(ed.CategoryId) ?? null
+    .siem.change.operation = "audit-policy-changed"
+    .siem.change.new_value = string(ed.AuditPolicyChanges) ?? null
+}
+if eid == "1102" || eid == "104" {
+    .siem.change.object = chan
+    .siem.change.operation = "log-cleared"
+    if eid == "104" { .user.name = string(ed.Channel) ?? .user.name }
+}
+
+# --- Change-Auditing: Benutzer, Gruppen, AD-Objekte, GPO ------------------------------
+eidn = to_int(eid) ?? 0
+if eidn >= 4720 && eidn <= 4767 {
+    .siem.change.actor = actor
+    .siem.change.object = target
+    .siem.change.operation = .event.action
+    member = string(ed.MemberName) ?? string(ed.MemberSid) ?? null
+    if member != null {
+        .siem.change.member = member
+        .user.target.name = target
+    }
+    grp = string(ed.TargetUserName) ?? null
+    if grp != null {
+        privileged = ["domain admins", "enterprise admins", "schema admins", "administrators", "administratoren", "domänen-admins", "organisations-admins", "schema-admins", "backup operators", "sicherungs-operatoren", "account operators", "server operators", "dnsadmins", "group policy creator owners"]
+        if includes(privileged, downcase(grp)) { .siem.change.privileged = true }
+    }
+}
+if includes(["5136", "5137", "5139", "5141"], eid) {
+    .siem.change.actor = actor
+    dn = string(ed.ObjectDN) ?? null
+    .siem.change.object = dn
+    .siem.change.object_class = string(ed.ObjectClass) ?? null
+    .siem.change.attribute = string(ed.AttributeLDAPDisplayName) ?? null
+    .siem.change.new_value = string(ed.AttributeValue) ?? null
+    op = string(ed.OperationType) ?? ""
+    ops = {"%%14674": "value-added", "%%14675": "value-deleted"}
+    .siem.change.operation = get(ops, [op]) ?? .event.action
+    if (string(ed.ObjectClass) ?? "") == "groupPolicyContainer" || contains(dn ?? "", "CN=Policies,CN=System") {
+        .siem.change.gpo = true
+        .event.action = "gpo-changed"
+    }
+}
+
+# --- FIM: Dateizugriffe (4663/4660/4670) und Freigaben (5145) --------------------------
+if includes(["4663", "4660", "4670"], eid) {
+    .file.path = string(ed.ObjectName) ?? null
+    .process.executable = string(ed.ProcessName) ?? null
+    .winlog.event_data.AccessMask = string(ed.AccessMask) ?? null
+    am = downcase(string(ed.AccessMask) ?? "")
+    # WriteData/AppendData = 0x2/0x4, DELETE = 0x10000, WRITE_DAC = 0x40000
+    if eid == "4663" {
+        if am == "0x10000" {
+            .event.type = ["deletion"]
+            .siem.fim.operation = "delete"
+        } else if am == "0x40000" || am == "0x80000" {
+            .event.type = ["change"]
+            .siem.fim.operation = "permissions"
+        } else if am == "0x2" || am == "0x4" || am == "0x6" || am == "0x40" {
+            .event.type = ["change"]
+            .siem.fim.operation = "write"
+        } else {
+            .siem.fim.operation = "read"
+        }
+    } else if eid == "4660" {
+        .siem.fim.operation = "delete"
+    } else {
+        .siem.fim.operation = "permissions"
+    }
+}
+if eid == "5145" {
+    share = string(ed.ShareName) ?? ""
+    rel = string(ed.RelativeTargetName) ?? ""
+    .file.path = share + "\\" + rel
+    .siem.fim.share = share
+    am = downcase(string(ed.AccessMask) ?? "")
+    .siem.fim.operation = "access"
+    if includes(["0x2", "0x6", "0x12019f", "0x1301bf", "0x100116", "0x100117"], am) { .siem.fim.operation = "write" }
+    if am == "0x10000" || am == "0x110080" { .siem.fim.operation = "delete" }
+}
+
+# --- PowerShell / Defender ----------------------------------------------------------------
+if eid == "4104" {
+    .powershell.script_block_text = string(ed.ScriptBlockText) ?? null
+    .file.path = string(ed.Path) ?? null
+}
+if .event.dataset == "windows.defender" {
+    .threat.indicator.name = string(ed."Threat Name") ?? string(ed.ThreatName) ?? null
+    .file.path = string(ed.Path) ?? null
+}
