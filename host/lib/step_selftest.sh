@@ -115,9 +115,15 @@ _st_diagnose() {
         docker exec siem-opensearch curl -s --max-time 5 -o /dev/null -w 'OpenSearch ohne Zugangsdaten: HTTP %{http_code}
 ' https://localhost:9200 -k 2>&1
     } | tee -a "$SIEM_LOG_FILE" >&2
+    {
+        printf '\n--- Netzwerk: Listener und Umleitungen ---\n'
+        ss -ltnup 2>&1 | grep -E ':(514|6514|10514|9200)\b'
+        nft list ruleset 2>&1 | grep -E 'redirect|dport (514|6514)'
+        docker ps -a --format '{{.Names}}: {{.Status}}' 2>&1
+    } | tee -a "$SIEM_LOG_FILE" >&2
     for c in siem-vector siem-opensearch; do
         printf '\n--- %s (letzte Zeilen) ---\n' "$c" >&2
-        docker logs --since 10m --tail 40 "$c" 2>&1 | tee -a "$SIEM_LOG_FILE" >&2
+        docker logs --since 10m --tail 80 "$c" 2>&1 | tee -a "$SIEM_LOG_FILE" >&2
     done
 }
 
