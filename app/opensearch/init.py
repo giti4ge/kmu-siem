@@ -224,8 +224,16 @@ def wait(client: OS, timeout: int) -> dict[str, Any]:
 def count(client: OS, index: str, text: str | None) -> int:
     client.request("POST", f"/{index}/_refresh", ok404=True)
     query: dict[str, Any] = {"match_all": {}} if not text else {"match_phrase": {"message": text}}
-    status, res = client.request("POST", f"/{index}/_count", {"query": query}, ok404=True)
-    return 0 if status == 404 else int(res["count"])
+    # Frisch angelegte Indizes: Shards sind kurz nicht bereit (503 "all shards failed") → wiederholen
+    for attempt in range(6):
+        try:
+            status, res = client.request("POST", f"/{index}/_count", {"query": query}, ok404=True)
+            return 0 if status == 404 else int(res["count"])
+        except RuntimeError as exc:
+            if "HTTP 503" not in str(exc) or attempt == 5:
+                raise
+            time.sleep(2)
+    return 0
 
 
 JWT_DOMAIN = "siem_jwt"

@@ -58,6 +58,9 @@ services:
     user: "2000:2000"
     read_only: true
     command: ["--config", "/etc/vector/vector.yaml"]
+    environment:
+      # Fehler des OpenSearch-Sinks nicht zusammenfassen (Diagnose bei Zustellproblemen)
+      VECTOR_INTERNAL_LOG_RATE_LIMIT: "0"
     volumes:
       - ./vector/vector.yaml:/etc/vector/vector.yaml:ro
       - ./vector/parsers:/etc/vector/parsers:ro
