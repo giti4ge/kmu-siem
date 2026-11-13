@@ -2,7 +2,7 @@
 
 | Dokument-Version | Stand | Status | Ersetzt |
 |---|---|---|---|
-| **2.4.0** | 2026-11-13 | **Freigegeben** (2026-11-13) | [SPEC-v1.md](SPEC-v1.md) (1.0.0) |
+| **2.5.0** | 2026-11-13 | **Freigegeben** (2026-11-13) | [SPEC-v1.md](SPEC-v1.md) (1.0.0) |
 
 **Änderungshistorie:** siehe [SPEC-HISTORY.md](SPEC-HISTORY.md). Den detaillierten Vergleich v1 ↔ v2 enthält [SPEC-DIFF-v1-v2.md](SPEC-DIFF-v1-v2.md).
 
@@ -285,7 +285,7 @@ Einzige Brücke zwischen Web-UI und Host. Kein Docker-Socket in Containern.
 
 - Single Node, Security-Plugin aktiv, internes TLS, Rollen-Mapping zu Control-Plane-Rollen.
 - **Indizes je Kategorie**: `siem-<kategorie>-YYYY.MM.DD`.
-  - Kategorien: `firewall`, `windows`, `linux`, `network`, `edr`, `av`, `asset`, `alerts`, `audit`, `system`, `unparsed` (`ot` reserviert).
+  - Kategorien: `firewall`, `windows`, `linux`, `network`, `edr`, `av`, `asset`, `alerts`, `audit`, `system`, `infra`, `unparsed` (`ot` reserviert).
 - **Codec `zstd` ab Index-Erstellung** (Template), 1 Shard, 0 Replicas.
 - **ISM je Kategorie** (Retention 7–730 Tage, im UI je Kategorie; Standard 180 Tage, `audit` 365 Tage, `unparsed` 14 Tage):
   - Hot: bis Tag 7 (konfigurierbar).
@@ -311,6 +311,36 @@ Einzige Brücke zwischen Web-UI und Host. Kein Docker-Socket in Containern.
 - **LLDP-MIB** zur Uplink-/Trunk-Erkennung; Uplink-Ports werden in der Matrix gesondert dargestellt (MAC-Zählung statt Liste).
 - OUI-Herstellerzuordnung über lokale IEEE-Datenbank (Kanal 1).
 - **Instant On ist in Phase 4 gegen reale Hardware zu verifizieren**; Profil wird anhand der Ergebnisse finalisiert.
+
+### 4.6a Weitere Geräteklassen (UniFi, Synology, Dell iDRAC)
+
+Zusätzliche Quellen, die über **Syslog** und **SNMP** angebunden werden. Jede Klasse erhält einen eigenen VRL-Parser, ein Geräteprofil und einen Eintrag in der Geräteliste (Typ je Quell-IP). Neue Klassen folgen dem festen Muster *Parser + Fixture-Tests + Profil-YAML + Onboarding-Hinweis* und sind ohne Architekturänderung ergänzbar.
+
+| Gerät | Syslog | SNMP | Kategorie | Hinweise |
+|---|---|---|---|---|
+| **Ubiquiti UniFi Network Controller** (Anwendung/UniFi OS) | ✔ Remote-Logging bzw. SIEM-Integration des Controllers (Admin-Logins, Konfigänderungen, Geräte-Ereignisse, Client-Verbindungen) | – (Controller selbst) | `network` | Format je Controller-Version verifizieren (R-14) |
+| **UniFi-Switches** | ✔ über den Controller oder direkt | ✔ v2c/v3, Standard-MIBs + UBNT-/UniFi-MIB | `network` | Port-Matrix wie 4.6, soweit der Switch die Standard-MIBs liefert |
+| **Synology NAS (DSM)** | ✔ Log Center → Protokollversand (UDP/TCP/TLS): Anmeldungen, Dateizugriffe (SMB/File Station), Paket-/Systemereignisse, Backups | ✔ v3, SYNOLOGY-MIB (Enterprise 6574): Laufwerke, RAID, Temperatur, Lüfter, USV | `infra` | Dateizugriffe mit Benutzer/Pfad stehen für die FIM-Auswertung bereit |
+| **Dell iDRAC** | ✔ Remote-Syslog (nur UDP, daher nur im Management-VLAN freigeben): Lifecycle-/SEL-Ereignisse, Anmeldungen, Hardwarefehler | ✔ Traps (IDRAC-MIB, Enterprise 674.10892.5) + Polling v3 | `infra` | Redfish-API als spätere Option |
+
+- **Hardwarezustand** (Laufwerk defekt, RAID degradiert, Netzteil-/Lüfterausfall, Temperatur) wird als Event normalisiert und ist per Standardregeln alarmierbar.
+- **Alle Klassen** erscheinen im Asset-Center (Hersteller, Modell, Firmware, soweit per SNMP/Syslog ermittelbar).
+- Geräte-Typen in der Geräteliste (`devices.csv`): `unifi_controller`, `unifi_switch`, `synology`, `idrac`.
+
+### 4.6b SNMP-MIB-Verwaltung (Import von Hersteller-MIBs)
+
+Hersteller-spezifische Traps und OIDs sollen ohne Programmierung nutzbar werden.
+
+- **Import im Web-UI** (Berechtigung `snmp:mib-import`): einzelne MIB-Dateien oder ZIP-Archive (`.mib`, `.my`, `.txt`), Größenlimit, nur Textdateien.
+- **Verarbeitung** serverseitig mit **pysmi** in einem unprivilegierten Unterprozess ohne Netzwerk (Parser, keine Codeausführung). Abhängigkeiten (`IMPORTS`) werden gegen die mitgelieferten Standard-MIBs (SNMPv2-SMI/-TC/-MIB, IF-MIB, ENTITY-MIB, BRIDGE-/Q-BRIDGE-MIB, LLDP-MIB, HOST-RESOURCES-MIB u. a.) und bereits importierte MIBs aufgelöst. Fehlende Abhängigkeiten werden im UI benannt; der Import bleibt „unvollständig“, bis sie nachgereicht sind.
+- **Ablage:** Original und kompiliertes Ergebnis unter `data/mibs/`; Hash, Importer und Zeitpunkt im Audit-Log. Entfernen und Neuimport sind möglich, die Zuordnung zu Gerätetypen/-profilen ist je MIB einstellbar.
+- **Nutzung:**
+  1. *Traps:* Namen (`NOTIFICATION-TYPE`), Varbind-Namen, Enumerationen und Textual Conventions werden aufgelöst. ECS-Abbildung: `event.action` = Trap-Name, `snmp.*` für Rohwerte (OID, Varbinds), Schweregrad aus manueller Zuordnung im UI.
+  2. *Polling:* MIB-Browser (OID-Baum) im UI; ausgewählte Skalare/Tabellen werden je Gerät/Profil als Metrik-Event gepollt (Intervall wählbar, Counter als Rate).
+  3. *Regeln:* Trap-Namen und Varbind-Werte sind in Detection-Regeln verwendbar.
+- **Nicht aufgelöste Traps** werden nicht verworfen: Sie erscheinen mit Roh-OID im Bereich „Unparsed“ mit Hinweis „MIB importieren“.
+- **Lizenz:** Hersteller-MIBs werden **nicht mitgeliefert** (Weitergabe teils nicht erlaubt); der Dienstleister importiert sie aus der Herstellerdokumentation. Mitgeliefert werden nur frei verwendbare Standard-MIBs (IETF/IEEE).
+- **Sicherheit:** Upload nur für berechtigte Rollen, Audit-Eintrag je Import/Löschung, Validierung vor Aktivierung (kein stilles Überschreiben bestehender Module ohne Bestätigung), Limits für Zahl und Größe der Module.
 
 ### 4.7 FortiGate
 
@@ -600,7 +630,7 @@ FastAPI, SQLite/Alembic, lokale Benutzer, RBAC, TOTP, Audit-Log (Hash-Kette), Se
 - ✅ Audit-Manipulation wird erkannt.
 
 ### Phase 3 – Ingest & Parser
-VRL-Parser FortiGate, ArubaOS, Instant On, FS S3900, Windows, Linux, Ikarus; Linux-Onboarding; Change-Auditing & FIM inkl. Audit-Policy-Check; OpenWEC + Onboarding-Assistent (PowerShell-Skript, Keytab-Upload, Subscriptions); Sophos (Data Lake + Fallback); Config-Generator; „Unparsed“-Bereich; Retention je Kategorie.
+VRL-Parser FortiGate, ArubaOS, Instant On, FS S3900, Windows, Linux, Ikarus; Linux-Onboarding; Change-Auditing & FIM inkl. Audit-Policy-Check; OpenWEC + Onboarding-Assistent (PowerShell-Skript, Keytab-Upload, Subscriptions); Sophos (Data Lake + Fallback); Config-Generator; „Unparsed“-Bereich; Retention je Kategorie; Parser UniFi (Controller, Switches), Synology DSM, Dell iDRAC (Abschnitt 4.6a, Kategorie `infra`).
 - ✅ Je Parser ≥ 95 % der Fixture-Events ECS-konform (Schema-Validierung).
 - ✅ Windows-Server erscheint nach Skriptausführung + GPO-Update ohne weitere Handarbeit.
 - ✅ Sophos-Fallback greift automatisch ohne XDR-Lizenz.
@@ -610,9 +640,10 @@ VRL-Parser FortiGate, ArubaOS, Instant On, FS S3900, Windows, Linux, Ikarus; Lin
 - ✅ Audit-Policy-Check meldet bewusst falsch konfigurierten Testserver korrekt.
 
 ### Phase 4 – Netzwerk-Sensoren
-SNMPv3-Poller + Traps, Geräteprofile, Switch-Port-Matrix, FortiGate-API-Korrelation, net-sensor (VLAN-Trunk, passiv), Discovery-Scanner, Asset-Center.
+SNMPv3-Poller + Traps, SNMP-MIB-Verwaltung (Import von Hersteller-MIBs, Abschnitt 4.6b), SNMP-Profile UniFi/Synology/iDRAC, Geräteprofile, Switch-Port-Matrix, FortiGate-API-Korrelation, net-sensor (VLAN-Trunk, passiv), Discovery-Scanner, Asset-Center.
 - ✅ Port-Matrix für ArubaOS-Switch und FS S3900 vollständig korrekt gegenüber CLI-Ausgabe.
 - ✅ Instant-On-Profil anhand realer Hardware dokumentiert.
+- ✅ MIB-Import: Hersteller-MIB (z. B. SYNOLOGY-MIB, IDRAC-MIB) wird importiert, Traps erscheinen mit Namen und aufgelösten Varbinds; fehlende Abhängigkeit wird benannt; ungültige Datei wird ohne Auswirkung abgelehnt.
 - ✅ Simulierter IP/MAC-Wechsel (Gratuitous ARP und FortiGate-ARP-Wechsel) erzeugt Alert < 2 min.
 - ✅ Sub-Interfaces haben weder IPv4 noch IPv6 und antworten auf nichts.
 
@@ -669,6 +700,7 @@ Ausführliche Einzeldokumente: [docs/adr/](../adr/README.md).
 | ADR-19 | Rechte konsistent bis in OpenSearch (DLS/FLS) | Sonst Umgehung von Rollen und Vier-Augen über Dashboards |
 | ADR-20 | Auslieferung ausschließlich per `install.sh` auf frischer Debian-13-VM, keine OVA/VHDX | Kundenvorgabe; hypervisorunabhängig, kleinere Artefakte, kein Image-Build; Reparatur und Nachhärtung über denselben Weg (`--repair`) |
 | ADR-21 | Updates und Content direkt über GitHub Releases + GHCR, separates Distributions-Repository, Signatur offline | Kein eigener Update-Server nötig; Trennung von Quellcode und Artefakten; Vertrauen über Offline-Signatur statt über GitHub |
+| ADR-22 | SNMP-MIB-Import im Web-UI (pysmi, Sandbox), keine Hersteller-MIBs im Lieferumfang; neue Geräteklassen über Muster Parser + Profil | Neue Gerätetypen ohne Architekturänderung nutzbar; Lizenzrisiko vermieden; Parser führt keinen Code aus |
 
 ---
 
@@ -720,6 +752,7 @@ Ausführliche Einzeldokumente: [docs/adr/](../adr/README.md).
 | R-11 | Installation benötigt Internet (Docker-Repo, Registry) | Proxy-Unterstützung; Erreichbarkeit im Preflight geprüft |
 | R-12 | Abhängigkeit von GitHub (Verfügbarkeit, Rate-Limits, Kontosperre) | Updates sind nicht zeitkritisch; Retry/Backoff; manueller Paket-Upload im Web-UI als Ausweichweg; Distributions-Repository bei Bedarf umziehbar (Quelle konfigurierbar) |
 | R-13 | Zugangstoken auf Kundensystem wird kompromittiert | Token je Kunde, read-only, nur Distributions-Repository, widerrufbar; Quellcode in getrenntem Repository; Signatur verhindert manipulierte Updates |
+| R-14 | Log-/SNMP-Format von UniFi, Synology, iDRAC je Version unterschiedlich; Hersteller-MIBs teils fehlerhaft | Parser nach Herstellerdoku mit „Unparsed“-Fallback; Verifikation mit realen Geräten; MIB-Import meldet Fehler konkret |
 
 ---
 
