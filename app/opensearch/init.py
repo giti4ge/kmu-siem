@@ -228,6 +228,52 @@ def count(client: OS, index: str, text: str | None) -> int:
     return 0 if status == 404 else int(res["count"])
 
 
+JWT_DOMAIN = "siem_jwt"
+
+
+def security(client: OS, jwt_key_b64: str, kibanaserver_password: str) -> dict[str, Any]:
+    """SSO für Dashboards (idempotent über die REST-API, auch für bestehende Installationen).
+
+    - JWT-Authentifizierung (HS256, Schlüssel je Installation): Die Control-Plane stellt nach
+      vollständiger Anmeldung ein kurzlebiges Token aus, nginx reicht es an Dashboards weiter.
+      Kein Vertrauen in Proxy-Header – andere Prozesse auf 127.0.0.1 können nichts fälschen.
+    - Rolle siem_reader (nur Lesen auf siem-*) und Zuordnungen, Dienstkonto kibanaserver.
+    """
+    _, cfg = client.request("GET", "/_plugins/_security/api/securityconfig")
+    dynamic = cfg["config"]["dynamic"]
+    domain = {
+        "description": "SSO aus der KMU-SIEM Control-Plane (JWT)",
+        "http_enabled": True,
+        "transport_enabled": False,
+        "order": 1,
+        "http_authenticator": {
+            "type": "jwt",
+            "challenge": False,
+            "config": {"signing_key": jwt_key_b64, "jwt_header": "Authorization",
+                       "subject_key": "sub", "roles_key": "roles", "jwt_clock_skew_tolerance_seconds": 30},
+        },
+        "authentication_backend": {"type": "noop"},
+    }
+    changed = dynamic["authc"].get(JWT_DOMAIN) != domain
+    if changed:
+        dynamic["authc"][JWT_DOMAIN] = domain
+        client.request("PUT", "/_plugins/_security/api/securityconfig/config", {"dynamic": dynamic})
+    client.request("PUT", "/_plugins/_security/api/roles/siem_reader", {
+        "description": "KMU-SIEM: Ereignisse lesen (Dashboards)",
+        "cluster_permissions": ["cluster_composite_ops_ro"],
+        "index_permissions": [{
+            "index_patterns": ["siem-*"],
+            "allowed_actions": ["read", "indices:admin/mappings/get", "indices:admin/resolve/index"],
+        }],
+    })
+    client.request("PUT", "/_plugins/_security/api/rolesmapping/siem_reader", {"backend_roles": ["siem_reader"]})
+    client.request("PUT", "/_plugins/_security/api/rolesmapping/kibana_user", {"backend_roles": ["siem_reader"]})
+    client.request("PUT", "/_plugins/_security/api/internalusers/kibanaserver", {
+        "password": kibanaserver_password, "description": "Dienstkonto OpenSearch Dashboards"})
+    client.request("PUT", "/_plugins/_security/api/rolesmapping/kibana_server", {"users": ["kibanaserver"]})
+    return {"jwt_domain_changed": changed}
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--url", default="https://127.0.0.1:9200")
@@ -240,6 +286,9 @@ def main(argv: list[str] | None = None) -> int:
     w.add_argument("--timeout", type=int, default=300)
     sub.add_parser("apply")
     sub.add_parser("show")
+    sec = sub.add_parser("security")
+    sec.add_argument("--jwt-key-file", required=True)
+    sec.add_argument("--kibanaserver-password-file", required=True)
     f = sub.add_parser("find")
     f.add_argument("--index", required=True)
     f.add_argument("--text", required=True)
@@ -261,6 +310,10 @@ def main(argv: list[str] | None = None) -> int:
                 stored = json.loads(rf.read_text(encoding="utf-8"))
                 retention = {k: int(v) for k, v in stored.items() if k in CATEGORIES}
             print(json.dumps(apply(client, retention), ensure_ascii=False, indent=2))
+        elif args.cmd == "security":
+            key = Path(args.jwt_key_file).read_text(encoding="utf-8").strip()
+            kpw = Path(args.kibanaserver_password_file).read_text(encoding="utf-8").strip()
+            print(json.dumps(security(client, key, kpw)))
         elif args.cmd == "show":
             _, t = client.request("GET", "/_index_template/siem-*", ok404=True)
             _, pol = client.request("GET", "/_plugins/_ism/policies", ok404=True)

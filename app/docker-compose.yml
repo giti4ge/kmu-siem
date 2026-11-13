@@ -80,6 +80,26 @@ services:
     tmpfs:
       - /tmp
 
+  dashboards:
+    <<: *hardening
+    image: opensearchproject/opensearch-dashboards:3.9.0@sha256:256d4cea5928868ac09bca642a0ac8285a2b7e4b7fdd45c4ec06e75a5cf3184c
+    container_name: siem-dashboards
+    network_mode: host
+    user: "1000:1000"
+    read_only: true
+    env_file:
+      - ${SIEM_DATA}/secrets/dashboards/dashboards.env
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=768"
+      # Sicherheits-Plugin über die Konfigurationsdatei, nicht über das Demo-Setup
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+    volumes:
+      - ./dashboards/opensearch_dashboards.yml:/usr/share/opensearch-dashboards/config/opensearch_dashboards.yml:ro
+      - ${SIEM_DATA}/secrets/pki/dashboards:/usr/share/opensearch-dashboards/config/certs:ro
+    tmpfs:
+      - /tmp
+      - /usr/share/opensearch-dashboards/data:uid=1000,gid=1000
+
   proxy:
     <<: *hardening
     image: owasp/modsecurity-crs:4.25.2-nginx-lts@sha256:5fef82e75f53bf71d3faae38e7842c645e767663b01d5aded90d5fe7f9e6588f

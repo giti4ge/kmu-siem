@@ -72,7 +72,7 @@ _st_lynis() {
 
 _st_containers() {
     local c state
-    for c in siem-opensearch siem-vector siem-proxy siem-api; do
+    for c in siem-opensearch siem-vector siem-proxy siem-api siem-dashboards; do
         state=$(docker inspect -f '{{.State.Status}}' "$c" 2>/dev/null)
         if [[ $state != running ]]; then
             err "$(msg selftest_container "$c" "${state:-fehlt}")"

@@ -1,7 +1,7 @@
 {
   "app": { "name": "KMU-SIEM", "language": "Language" },
   "lang": { "de": "Deutsch", "en": "English" },
-  "nav": { "dashboard": "Dashboard", "users": "Users", "roles": "Roles", "audit": "Audit log", "account": "My account" },
+  "nav": { "dashboard": "Dashboard", "users": "Users", "roles": "Roles", "audit": "Audit log", "account": "My account", "dashboards": "Deep analysis (Dashboards)" },
   "common": {
     "save": "Save", "yes": "yes", "no": "no", "edit": "Edit", "create": "Create", "cancel": "Cancel",
     "delete": "Delete", "show": "Show", "close": "Close", "more": "Load more"
@@ -46,7 +46,8 @@
     "not_found": "Not found.",
     "validation_failed": "Invalid input.",
     "totp_already_enabled": "Two-factor authentication is already set up.",
-    "totp_not_set_up": "Please restart the setup."
+    "totp_not_set_up": "Please restart the setup.",
+    "sso_unavailable": "Sign-in to Dashboards is currently not possible."
   },
   "dashboard": {
     "welcome": "Welcome, {{name}}.",

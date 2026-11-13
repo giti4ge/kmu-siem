@@ -31,7 +31,26 @@ step_app() {
     run_cmd "Anwendung starten" siem_compose up -d --remove-orphans || return 1
     run_cmd "Auf OpenSearch warten" siem_os_init wait --timeout 300 || return 1
     run_cmd "Index-Templates und Aufbewahrung anwenden" siem_os_init apply || return 1
+    run_cmd "SSO für Dashboards einrichten" siem_os_init security \
+        --jwt-key-file "$SECRETS_DIR/control-plane/dashboards-jwt.key" \
+        --kibanaserver-password-file "$SECRETS_DIR/kibanaserver.pw" || return 1
     _app_admin || return 1
+}
+
+# Dashboards: Dienstkonto, Cookie-Schlüssel, JWT-Schlüssel (geteilt mit der Control-Plane)
+_app_dashboards_secrets() {
+    local kpw="$SECRETS_DIR/kibanaserver.pw" cpw="$SECRETS_DIR/dashboards-cookie.pw"
+    local jwt="$SECRETS_DIR/control-plane/dashboards-jwt.key" envf="$SECRETS_DIR/dashboards/dashboards.env" rc
+    _gen_password "$kpw" || return 1
+    _gen_password "$cpw" || return 1
+    if [[ ! -s $jwt ]]; then
+        ( umask 077; openssl rand -base64 32 >"$jwt" ) || return 1
+    fi
+    chown "$UID_API:$UID_API" "$jwt" && chmod 0400 "$jwt" || return 1
+    printf 'KIBANASERVER_PASSWORD=%s\nCOOKIE_PASSWORD=%s\n' "$(cat "$kpw")" "$(cat "$cpw")" \
+        | write_file "$envf" 0400
+    rc=$?; (( rc <= 1 )) || return 1
+    chmod 0700 "$SECRETS_DIR/dashboards"
 }
 
 # Im Bundle mitgelieferte Images (images/<name>.tar + <name>.ref) laden, falls nicht vorhanden
@@ -106,6 +125,7 @@ _app_secrets() {
     install -d -m 0700 "$SECRETS_DIR" || return 1
     _gen_password "$admin_pw" || return 1
     _gen_password "$vector_pw" || return 1
+    _app_dashboards_secrets || return 1
 
     # internal_users.yml nur neu erzeugen, wenn sich ein Kennwort geändert hat
     sumfile="$APP_DATA/opensearch-security/.pwsum"

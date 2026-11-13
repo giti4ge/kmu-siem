@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -9,10 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as DbSession
 
 from ..db import as_utc, utcnow
-from ..deps import Ctx, any_stage, client_ip, error, get_db, stages, state
+from ..deps import Ctx, any_stage, client_ip, error, get_db, require, stages, state
 from ..models import User
 from ..schemas import CodeIn, LoginIn, MeOut, PasswordChangeIn, TotpSetupOut, UserOut
-from ..security import crypto, passwords, rbac, sessions, totp
+from ..security import crypto, jwt, passwords, rbac, sessions, totp
 from ..security.sessions import STAGE_MFA_ENROLL, STAGE_MFA_VERIFY, STAGE_OK, STAGE_PASSWORD_CHANGE
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -186,3 +187,16 @@ def logout(request: Request, response: Response, ctx: Ctx = Depends(any_stage),
 @router.get("/me", response_model=MeOut)
 def me(ctx: Ctx = Depends(any_stage)) -> MeOut:
     return me_out(ctx.user, ctx.session, ctx.stage)
+
+
+@router.get("/sso/dashboards", status_code=status.HTTP_204_NO_CONTENT)
+def sso_dashboards(request: Request, response: Response, ctx: Ctx = Depends(require("logs:read"))) -> Response:
+    """Für nginx auth_request: kurzlebiges JWT im Antwort-Header X-SIEM-JWT (nie im Body/Log)."""
+    key_file = state(request).settings.secrets_dir / "dashboards-jwt.key"
+    try:
+        key = base64.b64decode(key_file.read_text().strip())
+    except (OSError, ValueError) as exc:
+        raise error(status.HTTP_503_SERVICE_UNAVAILABLE, "sso_unavailable") from exc
+    response.headers["X-SIEM-JWT"] = jwt.dashboards_token(key, ctx.user.username, ["siem_reader"])
+    response.status_code = status.HTTP_204_NO_CONTENT
+    return response

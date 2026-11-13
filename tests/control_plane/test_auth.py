@@ -196,3 +196,32 @@ def test_disabled_user_cannot_login_and_sessions_end(h):
     assert adm.patch(f"/api/users/{uid}", json={"enabled": False}).status_code == 200
     assert ana.get("/api/auth/me").status_code == 401
     assert TestClient(h.app).post("/api/auth/login", json={"username": "ana", "password": PASSWORD}).status_code == 401
+
+
+def test_sso_dashboards_jwt(h, settings):
+    import base64
+    import hashlib
+    import hmac
+    import json
+    import os
+    import time
+    key = os.urandom(32)
+    settings.secrets_dir.mkdir(parents=True, exist_ok=True)
+    h.create_user("ana", ["security-analyst"])
+    h.create_user("rep", ["report-recipient"])
+    ana = h.login("ana")
+    assert ana.get("/api/auth/sso/dashboards").json()["detail"]["error"] == "sso_unavailable"
+    (settings.secrets_dir / "dashboards-jwt.key").write_text(base64.b64encode(key).decode())
+    r = ana.get("/api/auth/sso/dashboards")
+    assert r.status_code == 204 and r.content == b""
+    token = r.headers["x-siem-jwt"]
+    head, payload, sig = token.split(".")
+    pad = lambda s: s + "=" * (-len(s) % 4)  # noqa: E731
+    expected = hmac.new(key, f"{head}.{payload}".encode(), hashlib.sha256).digest()
+    assert base64.urlsafe_b64decode(pad(sig)) == expected
+    claims = json.loads(base64.urlsafe_b64decode(pad(payload)))
+    assert claims["sub"] == "ana" and claims["roles"] == ["siem_reader"]
+    assert 0 < claims["exp"] - time.time() <= 300
+    # Ohne logs:read bzw. ohne Anmeldung kein Token
+    assert h.login("rep").get("/api/auth/sso/dashboards").status_code == 403
+    assert TestClient(h.app).get("/api/auth/sso/dashboards").status_code == 401
