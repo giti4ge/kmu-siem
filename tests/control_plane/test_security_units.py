@@ -103,3 +103,26 @@ def test_cli_create_admin_idempotent(tmp_path, monkeypatch, capsys):
     short = tmp_path / "short"
     short.write_text("kurz")
     assert cli.main(["create-admin", "--username", "zwei", "--password-file", str(short)]) == 2
+
+
+def test_cli_password_stdin_and_reset_mfa(tmp_path, monkeypatch, capsys):
+    import io
+
+    from siem_api.config import get_settings
+    from siem_api.db import Database
+    from siem_api.models import User
+    monkeypatch.setenv("SIEM_DB_URL", f"sqlite:///{tmp_path / 'c.db'}")
+    monkeypatch.setenv("SIEM_SECRETS_DIR", str(tmp_path / "sec"))
+    monkeypatch.setattr("sys.stdin", io.StringIO("Gruene-Wiese-am-Fluss-2026!\n"))
+    assert cli.main(["create-admin", "--password-stdin"]) == 0
+    db = Database(get_settings().db_url)
+    with db.sessionmaker() as s:
+        u = s.query(User).filter_by(username="admin").one()
+        assert passwords.verify_password(u.password_hash, "Gruene-Wiese-am-Fluss-2026!")
+        u.totp_enabled, u.totp_secret_enc = True, b"x"
+        s.commit()
+    assert cli.main(["reset-mfa", "--username", "admin"]) == 0
+    with db.sessionmaker() as s:
+        assert s.query(User).filter_by(username="admin").one().totp_enabled is False
+    assert cli.main(["reset-mfa", "--username", "niemand"]) == 1
+    assert cli.main(["verify-audit"]) == 0

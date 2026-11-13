@@ -10,6 +10,8 @@ readonly PKI_LEAF_DAYS=825
 # Container-Benutzer (UID:GID) der Dienste
 readonly UID_OPENSEARCH=1000
 readonly UID_VECTOR=2000
+# shellcheck disable=SC2034  # genutzt in step_app.sh
+readonly UID_API=2100
 readonly UID_PROXY=101
 
 pki_ensure() {

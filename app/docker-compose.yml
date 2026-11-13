@@ -66,6 +66,20 @@ services:
     tmpfs:
       - /tmp
 
+  api:
+    <<: *hardening
+    # Eigenes Image; Release: per Digest festgeschrieben (ADR-0013), Entwicklung: lokal geladen
+    image: ${SIEM_API_IMAGE:-ghcr.io/giti4ge/kmu-siem/api:dev}
+    container_name: siem-api
+    network_mode: host
+    user: "2100:2100"
+    read_only: true
+    volumes:
+      - ${SIEM_DATA}/config-db:/data/config-db
+      - ${SIEM_DATA}/secrets/control-plane:/data/secrets
+    tmpfs:
+      - /tmp
+
   proxy:
     <<: *hardening
     image: owasp/modsecurity-crs:4.25.2-nginx-lts@sha256:5fef82e75f53bf71d3faae38e7842c645e767663b01d5aded90d5fe7f9e6588f

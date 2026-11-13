@@ -25,10 +25,41 @@ step_app() {
     _app_secrets || return 1
     pki_ensure || return 1
     _app_env || return 1
-    run_cmd "Container-Images laden" siem_compose pull --quiet || return 1
+    _app_load_images || return 1
+    # Nur fehlende Images holen (per Digest festgeschrieben bzw. aus dem Bundle geladen)
+    run_cmd "Container-Images laden" siem_compose pull --quiet --policy missing || return 1
     run_cmd "Anwendung starten" siem_compose up -d --remove-orphans || return 1
     run_cmd "Auf OpenSearch warten" siem_os_init wait --timeout 300 || return 1
     run_cmd "Index-Templates und Aufbewahrung anwenden" siem_os_init apply || return 1
+    _app_admin || return 1
+}
+
+# Im Bundle mitgelieferte Images (images/<name>.tar + <name>.ref) laden, falls nicht vorhanden
+_app_load_images() {
+    local tar ref
+    for tar in "$APP_DIR/current/images/"*.tar; do
+        [[ -f $tar ]] || continue
+        ref=$(cat "${tar%.tar}.ref" 2>/dev/null) || ref=""
+        if [[ -n $ref ]] && docker image inspect "$ref" >/dev/null 2>&1; then
+            continue
+        fi
+        run_cmd "Image laden: ${tar##*/}" docker load -q -i "$tar" || return 1
+    done
+}
+
+# Ersten Web-Administrator anlegen (Kennwort aus den Installationsfragen), danach Geheimnis löschen
+_app_admin() {
+    local secret="$SIEM_STATE_DIR/secrets/web_admin_password" i
+    for (( i = 0; i < 60; i++ )); do
+        [[ $(docker inspect -f '{{.State.Health.Status}}' siem-api 2>/dev/null) == healthy ]] && break
+        sleep 2
+    done
+    [[ $(docker inspect -f '{{.State.Health.Status}}' siem-api 2>/dev/null) == healthy ]] \
+        || { err "Control-Plane (siem-api) nicht bereit"; return 1; }
+    [[ -f $secret ]] || return 0
+    run_cmd "Web-Administrator anlegen" docker exec -i siem-api python -m siem_api.cli create-admin \
+        --username admin --password-stdin <"$secret" || return 1
+    shred -u "$secret" 2>/dev/null || rm -f "$secret"
 }
 
 # Bundle des laufenden Installers übernehmen (bei Lauf aus /opt/siem/host: vorhandenes "current")
@@ -55,6 +86,9 @@ _app_dirs() {
     install -d -m 0750 -o "$UID_OPENSEARCH" -g "$UID_OPENSEARCH" \
         "$SIEM_ROOT/data/opensearch" "$SIEM_ROOT/data/opensearch-snapshots" || return 1
     install -d -m 0750 -o "$UID_VECTOR" -g "$UID_VECTOR" "$SIEM_ROOT/data/vector-buffer" || return 1
+    # Control-Plane: Config-DB und eigene Schlüssel (Master-Key, Audit-Schlüssel)
+    install -d -m 0750 -o "$UID_API" -g "$UID_API" "$SIEM_ROOT/data/config-db" || return 1
+    install -d -m 0700 -o "$UID_API" -g "$UID_API" "$SECRETS_DIR/control-plane" || return 1
     install -d -m 0750 "$APP_DATA" || return 1
     install -d -m 0750 -o root -g "$UID_OPENSEARCH" "$APP_DATA/opensearch-security" || return 1
 }
@@ -126,6 +160,7 @@ _app_env() {
 # Von install.sh verwaltet – Laufzeitkonfiguration des Anwendungs-Stacks
 SIEM_DATA=$SIEM_ROOT/data
 OPENSEARCH_JAVA_OPTS=-Xms${heap}g -Xmx${heap}g
+SIEM_API_IMAGE=ghcr.io/giti4ge/kmu-siem/api:${SIEM_VERSION:-dev}
 EOF
     (( $? <= 1 ))
 }
