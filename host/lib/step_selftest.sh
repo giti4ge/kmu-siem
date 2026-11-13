@@ -5,7 +5,7 @@
 #   - Proxy: HTTPS mit TLS 1.3, Sicherheits-Header, /health
 # Phase 1.4 ergänzt AIDE-Initialisierung und Lynis-Prüfung.
 
-readonly SELFTEST_TIMEOUT=10
+readonly SELFTEST_TIMEOUT=30  # Vector kann kurz nach Sicherheits-Neuladen von OpenSearch im Retry-Backoff sein
 # Erster Test nach (Neu-)Start: Vector kann nach OpenSearch-Neustart im Retry-Backoff sein
 readonly SELFTEST_WARMUP=90
 : "${SIEM_MIN_LYNIS:=80}"
