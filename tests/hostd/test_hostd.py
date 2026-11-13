@@ -14,6 +14,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "host" / "siem-hostd"))
 
@@ -317,3 +318,32 @@ class TestSocketServer(TmpEnv):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSystemLogs(unittest.TestCase):
+    def test_allowlist_and_limits(self):
+        for bad in ({"source": "/etc/shadow"}, {"source": "install", "lines": 0},
+                    {"source": "install", "lines": 5000}, {"source": "install", "lines": True},
+                    {"source": "install", "query": "x" * 101}):
+            with self.assertRaises(hostd.HostdError):
+                hostd.system_logs(bad, reader=lambda c: [])
+
+    def test_journal_and_container_commands_fixed(self):
+        seen = []
+        out = hostd.system_logs({"source": "vector", "lines": 2, "query": "ERROR"},
+                                reader=lambda c: seen.append(c) or ["a ERROR 1", "b ok", "c error 2", "d ERROR 3"])
+        self.assertEqual(seen[0][:3], ["/usr/bin/docker", "logs", "--tail"])
+        self.assertEqual(seen[0][-1], "siem-vector")
+        self.assertEqual(out["lines"], ["c error 2", "d ERROR 3"])
+        self.assertTrue(out["truncated"])
+        hostd.system_logs({"source": "ssh"}, reader=lambda c: seen.append(c) or [])
+        self.assertEqual(seen[1][:3], ["/usr/bin/journalctl", "-u", "ssh"])
+
+    def test_file_source(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = Path(d) / "x.log"
+            f.write_text("eins\nzwei\ndrei\n", encoding="utf-8")
+            with mock.patch.dict(hostd.LOG_SOURCES, {"install": ("file", str(f))}):
+                self.assertEqual(hostd.system_logs({"source": "install", "lines": 2})["lines"], ["zwei", "drei"])
+            with mock.patch.dict(hostd.LOG_SOURCES, {"install": ("file", str(Path(d) / "fehlt"))}):
+                self.assertEqual(hostd.system_logs({"source": "install"})["lines"], [])

@@ -6,11 +6,13 @@
 # Phase 1.4 ergänzt AIDE-Initialisierung und Lynis-Prüfung.
 
 readonly SELFTEST_TIMEOUT=10
+# Erster Test nach (Neu-)Start: Vector kann nach OpenSearch-Neustart im Retry-Backoff sein
+readonly SELFTEST_WARMUP=90
 : "${SIEM_MIN_LYNIS:=80}"
 
 step_selftest() {
     _st_containers || return 1
-    _st_syslog tcp || return 1
+    _st_syslog tcp "$SELFTEST_WARMUP" || return 1
     _st_syslog udp || return 1
     _st_syslog tls || return 1
     _st_proxy || return 1
@@ -81,9 +83,9 @@ _st_containers() {
     done
 }
 
-# _st_syslog tcp|udp|tls – Testereignis senden und in OpenSearch suchen
+# _st_syslog tcp|udp|tls [Timeout] – Testereignis senden und in OpenSearch suchen
 _st_syslog() {
-    local proto=$1 id line res
+    local proto=$1 tmo=${2:-$SELFTEST_TIMEOUT} id line res
     id="selftest-$(date +%s)-$RANDOM-$proto"
     line="<14>1 $(date -u +%Y-%m-%dT%H:%M:%SZ) $(hostname) siem-selftest - - - SIEM-SELFTEST $id"
     case $proto in
@@ -93,21 +95,29 @@ _st_syslog() {
                  | timeout 10 openssl s_client -connect 127.0.0.1:6514 -quiet \
                      -CAfile "$SECRETS_DIR/pki/ca.crt" -verify_return_error >/dev/null 2>>"$SIEM_LOG_FILE" || true ;;
     esac
-    if res=$(siem_os_init find --index 'siem-system-*' --text "$id" --timeout "$SELFTEST_TIMEOUT"); then
+    if res=$(siem_os_init find --index 'siem-system-*' --text "$id" --timeout "$tmo"); then
         ok "$(msg selftest_syslog "${proto^^}" "$(sed -E 's/.*"seconds": ([0-9.]+).*/\1/' <<<"$res")")"
         return 0
     fi
-    err "$(msg selftest_syslog_fail "${proto^^}" "$SELFTEST_TIMEOUT")"
-    _st_diagnose
+    err "$(msg selftest_syslog_fail "${proto^^}" "$tmo")"
+    _st_diagnose "$id"
     return 1
 }
 
 # Diagnose bei Fehlschlag: letzte Log-Zeilen der beteiligten Dienste (auch ins Protokoll)
 _st_diagnose() {
     local c
+    {
+        printf '
+--- Ereignis in anderen Indizes? (%s) ---
+' "${1:-}"
+        [[ -n ${1:-} ]] && siem_os_init find --index 'siem-*' --text "$1" --timeout 3 2>&1
+        docker exec siem-opensearch curl -s --max-time 5 -o /dev/null -w 'OpenSearch ohne Zugangsdaten: HTTP %{http_code}
+' https://localhost:9200 -k 2>&1
+    } | tee -a "$SIEM_LOG_FILE" >&2
     for c in siem-vector siem-opensearch; do
         printf '\n--- %s (letzte Zeilen) ---\n' "$c" >&2
-        docker logs --tail 25 "$c" 2>&1 | tee -a "$SIEM_LOG_FILE" >&2
+        docker logs --since 10m --tail 40 "$c" 2>&1 | tee -a "$SIEM_LOG_FILE" >&2
     done
 }
 

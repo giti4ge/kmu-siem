@@ -7,6 +7,7 @@ import AuditPage from "./pages/Audit";
 import Dashboard from "./pages/Dashboard";
 import { EnrollPage, LoginPage, MfaPage, PasswordPage } from "./pages/Auth";
 import RolesPage from "./pages/Roles";
+import SystemLogPage from "./pages/SystemLog";
 import UsersPage from "./pages/Users";
 
 export function useMe() {
@@ -31,6 +32,7 @@ const NAV = [
   { to: "/system/users", key: "nav.users", perm: "users:read" },
   { to: "/system/roles", key: "nav.roles", perm: "users:read" },
   { to: "/system/audit", key: "nav.audit", perm: "audit:read" },
+  { to: "/system/log", key: "nav.syslog", perm: "system:read" },
 ];
 
 export default function App() {
@@ -101,6 +103,7 @@ function Shell({ me }: { me: Me }) {
             {can("users:read") && <Route path="/system/users" element={<UsersPage canWrite={can("users:write")} />} />}
             {can("users:read") && <Route path="/system/roles" element={<RolesPage canWrite={can("users:write")} />} />}
             {can("audit:read") && <Route path="/system/audit" element={<AuditPage />} />}
+            {can("system:read") && <Route path="/system/log" element={<SystemLogPage />} />}
             <Route path="/account" element={<PasswordPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

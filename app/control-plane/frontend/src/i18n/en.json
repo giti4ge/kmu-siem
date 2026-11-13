@@ -1,19 +1,50 @@
 {
-  "app": { "name": "KMU-SIEM", "language": "Language" },
-  "lang": { "de": "Deutsch", "en": "English" },
-  "nav": { "dashboard": "Dashboard", "users": "Users", "roles": "Roles", "audit": "Audit log", "account": "My account", "dashboards": "Deep analysis (Dashboards)" },
+  "app": {
+    "name": "KMU-SIEM",
+    "language": "Language"
+  },
+  "lang": {
+    "de": "Deutsch",
+    "en": "English"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "roles": "Roles",
+    "audit": "Audit log",
+    "account": "My account",
+    "dashboards": "Deep analysis (Dashboards)",
+    "syslog": "System log"
+  },
   "common": {
-    "save": "Save", "yes": "yes", "no": "no", "edit": "Edit", "create": "Create", "cancel": "Cancel",
-    "delete": "Delete", "show": "Show", "close": "Close", "more": "Load more"
+    "save": "Save",
+    "yes": "yes",
+    "no": "no",
+    "edit": "Edit",
+    "create": "Create",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "show": "Show",
+    "close": "Close",
+    "more": "Load more"
   },
   "auth": {
-    "login_title": "Sign in", "username": "Username", "password": "Password", "login": "Sign in", "logout": "Sign out",
-    "confirm": "Confirm", "code": "Six-digit code",
-    "mfa_title": "Second factor", "mfa_hint": "Please enter the current code from your authenticator app.",
+    "login_title": "Sign in",
+    "username": "Username",
+    "password": "Password",
+    "login": "Sign in",
+    "logout": "Sign out",
+    "confirm": "Confirm",
+    "code": "Six-digit code",
+    "mfa_title": "Second factor",
+    "mfa_hint": "Please enter the current code from your authenticator app.",
     "enroll_title": "Set up two-factor authentication",
     "enroll_hint": "Two-factor authentication is mandatory for your role. Scan the QR code with an authenticator app (or enter the key) and confirm the displayed code.",
-    "password_forced": "Change password", "password_changed": "Password changed.",
-    "current_password": "Current password", "new_password": "New password", "repeat_password": "Repeat new password",
+    "password_forced": "Change password",
+    "password_changed": "Password changed.",
+    "current_password": "Current password",
+    "new_password": "New password",
+    "repeat_password": "Repeat new password",
     "password_rules": "At least 12 characters, hard to guess, must not contain the username."
   },
   "errors": {
@@ -47,7 +78,9 @@
     "validation_failed": "Invalid input.",
     "totp_already_enabled": "Two-factor authentication is already set up.",
     "totp_not_set_up": "Please restart the setup.",
-    "sso_unavailable": "Sign-in to Dashboards is currently not possible."
+    "sso_unavailable": "Sign-in to Dashboards is currently not possible.",
+    "hostd_unavailable": "The host service is not reachable.",
+    "invalid_request": "Request rejected."
   },
   "dashboard": {
     "welcome": "Welcome, {{name}}.",
@@ -55,22 +88,45 @@
     "version": "Version {{version}}"
   },
   "users": {
-    "new": "New user", "username": "Username", "display_name": "Display name", "email": "E-mail",
-    "password": "Initial password", "language": "Language", "roles": "Roles", "mfa": "2FA", "status": "Status",
-    "last_login": "Last sign-in", "enabled": "active", "disabled": "disabled",
+    "new": "New user",
+    "username": "Username",
+    "display_name": "Display name",
+    "email": "E-mail",
+    "password": "Initial password",
+    "language": "Language",
+    "roles": "Roles",
+    "mfa": "2FA",
+    "status": "Status",
+    "last_login": "Last sign-in",
+    "enabled": "active",
+    "disabled": "disabled",
     "initial_password_hint": "The user must change the initial password at first sign-in.",
-    "edit_title": "Edit user {{name}}", "reset_password": "New initial password",
-    "reset_password_do": "Reset password", "reset_mfa": "Reset 2FA",
+    "edit_title": "Edit user {{name}}",
+    "reset_password": "New initial password",
+    "reset_password_do": "Reset password",
+    "reset_mfa": "Reset 2FA",
     "delete_confirm": "Really delete user {{name}}?"
   },
   "roles": {
-    "new": "New role", "name": "Name", "description": "Description", "mfa": "2FA required", "module": "Module",
-    "action": { "read": "Read", "write": "Write", "approve": "Approve" },
+    "new": "New role",
+    "name": "Name",
+    "description": "Description",
+    "mfa": "2FA required",
+    "module": "Module",
+    "action": {
+      "read": "Read",
+      "write": "Write",
+      "approve": "Approve"
+    },
     "builtin_hint": "Built-in role – read only. Create a custom role for different permissions.",
-    "categories": "Allowed log categories", "categories_hint": "Comma-separated, empty = all categories.",
+    "categories": "Allowed log categories",
+    "categories_hint": "Comma-separated, empty = all categories.",
     "builtin": {
-      "system-admin": "System administrator", "security-analyst": "Security analyst", "auditor": "Auditor",
-      "privacy-officer": "Data protection / works council", "report-recipient": "Report recipient"
+      "system-admin": "System administrator",
+      "security-analyst": "Security analyst",
+      "auditor": "Auditor",
+      "privacy-officer": "Data protection / works council",
+      "report-recipient": "Report recipient"
     },
     "builtin_desc": {
       "system-admin": "Full access to configuration, users and data (2FA required)",
@@ -81,18 +137,65 @@
     }
   },
   "modules": {
-    "dashboard": "Dashboard", "alerts": "Alerts", "logs": "Log explorer", "switches": "Switch ports", "assets": "Assets",
-    "sources": "Sources", "rules": "Rules & notification", "changes": "Change audit & FIM", "reports": "Reports",
-    "archive": "Archive", "privacy": "Data protection", "system": "System", "users": "Users & roles", "audit": "Audit log"
+    "dashboard": "Dashboard",
+    "alerts": "Alerts",
+    "logs": "Log explorer",
+    "switches": "Switch ports",
+    "assets": "Assets",
+    "sources": "Sources",
+    "rules": "Rules & notification",
+    "changes": "Change audit & FIM",
+    "reports": "Reports",
+    "archive": "Archive",
+    "privacy": "Data protection",
+    "system": "System",
+    "users": "Users & roles",
+    "audit": "Audit log"
   },
   "audit": {
-    "verify": "Verify integrity", "verify_ok": "Audit log intact ({{count}} entries checked).",
+    "verify": "Verify integrity",
+    "verify_ok": "Audit log intact ({{count}} entries checked).",
     "verify_fail": "Tampering detected at entry {{seq}}: {{reason}}",
     "reason": {
-      "sequence_gap": "entry missing", "chain_broken": "chain broken", "entry_modified": "entry modified",
-      "truncated": "entries removed at the end", "head_missing": "check file missing"
+      "sequence_gap": "entry missing",
+      "chain_broken": "chain broken",
+      "entry_modified": "entry modified",
+      "truncated": "entries removed at the end",
+      "head_missing": "check file missing"
     },
-    "time": "Time", "actor": "User", "action": "Action", "target": "Target", "outcome": "Result", "ip": "IP",
-    "details": "Details", "outcome_success": "success", "outcome_failure": "failed"
+    "time": "Time",
+    "actor": "User",
+    "action": "Action",
+    "target": "Target",
+    "outcome": "Result",
+    "ip": "IP",
+    "details": "Details",
+    "outcome_success": "success",
+    "outcome_failure": "failed"
+  },
+  "syslog": {
+    "source": "Source",
+    "lines": "Lines",
+    "filter": "Filter",
+    "apply": "Apply",
+    "refresh": "Refresh",
+    "export": "Export",
+    "truncated": "Showing the last {{count}} lines.",
+    "empty": "No entries.",
+    "sources": {
+      "install": "Installation",
+      "hostd-audit": "Host service (audit)",
+      "siem-hostd": "Host service",
+      "docker": "Docker",
+      "nftables": "Firewall (nftables)",
+      "ssh": "SSH",
+      "chrony": "Time sync",
+      "unattended-upgrades": "Automatic updates",
+      "opensearch": "OpenSearch",
+      "vector": "Ingest (Vector)",
+      "proxy": "Proxy / WAF",
+      "api": "Control plane",
+      "dashboards": "Dashboards"
+    }
   }
 }
