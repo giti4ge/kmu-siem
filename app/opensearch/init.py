@@ -245,7 +245,7 @@ def security(client: OS, jwt_key_b64: str, kibanaserver_password: str) -> dict[s
         "description": "SSO aus der KMU-SIEM Control-Plane (JWT)",
         "http_enabled": True,
         "transport_enabled": False,
-        "order": 1,
+        "order": 0,
         "http_authenticator": {
             "type": "jwt",
             "challenge": False,
@@ -254,9 +254,16 @@ def security(client: OS, jwt_key_b64: str, kibanaserver_password: str) -> dict[s
         },
         "authentication_backend": {"type": "noop"},
     }
-    changed = dynamic["authc"].get(JWT_DOMAIN) != domain
+    # JWT zuerst; Basic danach und ohne Challenge – eine Basic-Domain mit Challenge an erster
+    # Stelle beantwortet jede Anfrage ohne Basic-Zugangsdaten sofort mit 401 (auch Bearer-JWTs).
+    # Interne Clients (Vector, kibanaserver, init.py) senden Basic-Zugangsdaten ohnehin direkt.
+    basic = dynamic["authc"]["basic_internal_auth_domain"]
+    wanted_basic = {**basic, "order": 1,
+                    "http_authenticator": {**basic["http_authenticator"], "challenge": False}}
+    changed = dynamic["authc"].get(JWT_DOMAIN) != domain or basic != wanted_basic
     if changed:
         dynamic["authc"][JWT_DOMAIN] = domain
+        dynamic["authc"]["basic_internal_auth_domain"] = wanted_basic
         client.request("PUT", "/_plugins/_security/api/securityconfig/config", {"dynamic": dynamic})
     client.request("PUT", "/_plugins/_security/api/roles/siem_reader", {
         "description": "KMU-SIEM: Ereignisse lesen (Dashboards)",

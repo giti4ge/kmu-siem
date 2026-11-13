@@ -18,6 +18,7 @@ pw=$(cat "$S/opensearch-admin.pw")
 echo "--- securityconfig authc"
 curl -s --cacert "$S/pki/ca.crt" -u "admin:$pw" https://127.0.0.1:9200/_plugins/_security/api/securityconfig \
     | jq -c '.config.dynamic.authc | to_entries[] | {k: .key, order: .value.order, type: .value.http_authenticator.type, cfg: (.value.http_authenticator.config | del(.signing_key)?)}'
+curl -s --cacert "$S/pki/ca.crt" -u "admin:$pw" -X PUT -H 'Content-Type: application/json'     -d '{"transient":{"logger.org.opensearch.security.auth":"debug","logger.org.opensearch.security.http":"debug"}}'     https://127.0.0.1:9200/_cluster/settings >/dev/null
 echo "--- OpenSearch authinfo mit Bearer-JWT"
 curl -s --cacert "$S/pki/ca.crt" -H "Authorization: Bearer $T" https://127.0.0.1:9200/_plugins/_security/authinfo | head -c 400; echo
 echo "--- Dashboards authinfo, Header roh"
@@ -27,4 +28,4 @@ curl -s -H "Authorization: Bearer $T" http://127.0.0.1:5601/dashboards/api/v1/au
 echo "--- Dashboards authinfo, URL-Parameter"
 curl -s "http://127.0.0.1:5601/dashboards/api/v1/auth/authinfo?authorization=$T" | head -c 400; echo
 echo "--- OpenSearch-Log (Security)"
-docker logs siem-opensearch 2>&1 | grep -iE "jwt|security\.auth|Exception" | grep -v "No 'Authorization'" | tail -15 | cut -c1-400
+docker logs siem-opensearch 2>&1 | grep -iE "jwt|token|auth" | grep -v "No 'Authorization'" | tail -25 | cut -c1-400

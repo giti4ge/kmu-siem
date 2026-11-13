@@ -15,6 +15,7 @@ config:
         order: 0
         http_authenticator:
           type: basic
-          challenge: true
+          # keine Challenge: sonst scheitert jede andere Anmeldung (JWT-SSO, siehe init.py security)
+          challenge: false
         authentication_backend:
           type: intern
