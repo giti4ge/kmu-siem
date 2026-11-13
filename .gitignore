@@ -33,3 +33,4 @@ Thumbs.db
 # Testumgebungen
 .vm/
 app/images/
+app/proxy/html/

@@ -306,6 +306,12 @@ if found "${TAG}-again"; then pass "nach erneuter Freigabe wieder angenommen"; e
 if curl -sk --max-time 5 https://127.0.0.1:8443/health | grep -q '"status":"ok"'; then pass "/health über 443"; else fail "/health über 443"; fi
 # Control-Plane: Web-Admin aus der Installation, MFA-Einrichtung beim ersten Login verpflichtend
 if curl -sk --max-time 5 https://127.0.0.1:8443/api/health | grep -q '"status":"ok"'; then pass "/api/health über 443"; else fail "/api/health über 443"; fi
+UI=$(curl -sk -D - --max-time 5 https://127.0.0.1:8443/system/users)
+if grep -q '<div id="root">' <<<"$UI" && grep -qi '^content-security-policy:' <<<"$UI"; then pass "Web-UI: Deep-Link liefert SPA mit Sicherheits-Headern"
+else fail "Web-UI nicht ausgeliefert: $(head -c 300 <<<"$UI")"; fi
+ASSET=$(grep -oE '/assets/[^"]+\.js' <<<"$UI" | head -1)
+if [[ -n $ASSET ]] && curl -sk -D - -o /dev/null --max-time 5 "https://127.0.0.1:8443$ASSET" | grep -qi '^content-security-policy:'; then
+    pass "Web-UI: Assets mit Sicherheits-Headern"; else fail "Web-UI: Asset $ASSET fehlt oder ohne Header"; fi
 LOGIN=$(curl -sk --max-time 10 -H 'Content-Type: application/json' -d '{"username":"admin","password":"Kennwort-fuer-webadmin-1"}' https://127.0.0.1:8443/api/auth/login || true)
 if grep -q '"stage":"mfa_enroll"' <<<"$LOGIN"; then pass "Web-Admin meldet sich an, TOTP-Einrichtung verlangt"; else fail "Web-Admin-Anmeldung: $LOGIN"; fi
 CODE=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 -H 'Content-Type: application/json' -d '{"username":"admin","password":"falsch-falsch-falsch"}' https://127.0.0.1:8443/api/auth/login)

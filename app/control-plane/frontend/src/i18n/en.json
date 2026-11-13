@@ -1,0 +1,97 @@
+{
+  "app": { "name": "KMU-SIEM", "language": "Language" },
+  "lang": { "de": "Deutsch", "en": "English" },
+  "nav": { "dashboard": "Dashboard", "users": "Users", "roles": "Roles", "audit": "Audit log", "account": "My account" },
+  "common": {
+    "save": "Save", "yes": "yes", "no": "no", "edit": "Edit", "create": "Create", "cancel": "Cancel",
+    "delete": "Delete", "show": "Show", "close": "Close", "more": "Load more"
+  },
+  "auth": {
+    "login_title": "Sign in", "username": "Username", "password": "Password", "login": "Sign in", "logout": "Sign out",
+    "confirm": "Confirm", "code": "Six-digit code",
+    "mfa_title": "Second factor", "mfa_hint": "Please enter the current code from your authenticator app.",
+    "enroll_title": "Set up two-factor authentication",
+    "enroll_hint": "Two-factor authentication is mandatory for your role. Scan the QR code with an authenticator app (or enter the key) and confirm the displayed code.",
+    "password_forced": "Change password", "password_changed": "Password changed.",
+    "current_password": "Current password", "new_password": "New password", "repeat_password": "Repeat new password",
+    "password_rules": "At least 12 characters, hard to guess, must not contain the username."
+  },
+  "errors": {
+    "unknown": "Unexpected error.",
+    "invalid_credentials": "Wrong username or password – or the account is temporarily locked.",
+    "invalid_code": "Invalid or already used code.",
+    "not_authenticated": "Session expired – please sign in again.",
+    "csrf_failed": "Security check failed – please reload the page.",
+    "forbidden": "Permission denied.",
+    "stage_mfa_verify": "Please confirm the second factor first.",
+    "stage_password_change": "Please change your password first.",
+    "stage_mfa_enroll": "Please set up two-factor authentication first.",
+    "password_too_short": "The password must be at least 12 characters long.",
+    "password_too_long": "The password is too long (at most 256 characters).",
+    "password_too_weak": "The password is too easy to guess or known from data breaches.",
+    "password_contains_username": "The password must not contain the username.",
+    "password_unchanged": "The new password must differ from the current one.",
+    "password_mismatch": "The passwords do not match.",
+    "invalid_current_password": "The current password is wrong.",
+    "username_taken": "The username is already taken.",
+    "unknown_role": "Unknown role.",
+    "unknown_permission": "Unknown permission.",
+    "role_exists": "A role with this name already exists.",
+    "role_in_use": "The role is still assigned to users.",
+    "builtin_role": "Built-in roles cannot be changed.",
+    "last_admin": "The last active system administrator cannot be removed.",
+    "cannot_demote_self": "You cannot disable yourself or remove your own administrator role.",
+    "cannot_delete_self": "You cannot delete yourself.",
+    "cannot_reset_own_mfa": "Only another administrator can reset your two-factor authentication.",
+    "not_found": "Not found.",
+    "validation_failed": "Invalid input.",
+    "totp_already_enabled": "Two-factor authentication is already set up.",
+    "totp_not_set_up": "Please restart the setup."
+  },
+  "dashboard": {
+    "welcome": "Welcome, {{name}}.",
+    "coming": "Overview of sources, alerts and system health follows with the next stages.",
+    "version": "Version {{version}}"
+  },
+  "users": {
+    "new": "New user", "username": "Username", "display_name": "Display name", "email": "E-mail",
+    "password": "Initial password", "language": "Language", "roles": "Roles", "mfa": "2FA", "status": "Status",
+    "last_login": "Last sign-in", "enabled": "active", "disabled": "disabled",
+    "initial_password_hint": "The user must change the initial password at first sign-in.",
+    "edit_title": "Edit user {{name}}", "reset_password": "New initial password",
+    "reset_password_do": "Reset password", "reset_mfa": "Reset 2FA",
+    "delete_confirm": "Really delete user {{name}}?"
+  },
+  "roles": {
+    "new": "New role", "name": "Name", "description": "Description", "mfa": "2FA required", "module": "Module",
+    "action": { "read": "Read", "write": "Write", "approve": "Approve" },
+    "builtin_hint": "Built-in role – read only. Create a custom role for different permissions.",
+    "categories": "Allowed log categories", "categories_hint": "Comma-separated, empty = all categories.",
+    "builtin": {
+      "system-admin": "System administrator", "security-analyst": "Security analyst", "auditor": "Auditor",
+      "privacy-officer": "Data protection / works council", "report-recipient": "Report recipient"
+    },
+    "builtin_desc": {
+      "system-admin": "Full access to configuration, users and data (2FA required)",
+      "security-analyst": "Analyse alerts and events, maintain rules and assets",
+      "auditor": "Read only, including the audit log",
+      "privacy-officer": "Approvals, access log and reports",
+      "report-recipient": "Read reports only"
+    }
+  },
+  "modules": {
+    "dashboard": "Dashboard", "alerts": "Alerts", "logs": "Log explorer", "switches": "Switch ports", "assets": "Assets",
+    "sources": "Sources", "rules": "Rules & notification", "changes": "Change audit & FIM", "reports": "Reports",
+    "archive": "Archive", "privacy": "Data protection", "system": "System", "users": "Users & roles", "audit": "Audit log"
+  },
+  "audit": {
+    "verify": "Verify integrity", "verify_ok": "Audit log intact ({{count}} entries checked).",
+    "verify_fail": "Tampering detected at entry {{seq}}: {{reason}}",
+    "reason": {
+      "sequence_gap": "entry missing", "chain_broken": "chain broken", "entry_modified": "entry modified",
+      "truncated": "entries removed at the end", "head_missing": "check file missing"
+    },
+    "time": "Time", "actor": "User", "action": "Action", "target": "Target", "outcome": "Result", "ip": "IP",
+    "details": "Details", "outcome_success": "success", "outcome_failure": "failed"
+  }
+}

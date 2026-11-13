@@ -73,6 +73,26 @@ jobs:
           [ "$(docker inspect -f '{{.State.Health.Status}}' api)" != unhealthy ]
           docker logs api 2>&1 | tail -5
 
+  frontend:
+    name: Frontend (TypeScript, Build, i18n)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/control-plane/frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/control-plane/frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Keine hartcodierten Texte, DE/EN vollständig
+        run: python3 ../../../tools/check_i18n.py
+      - name: CSP-tauglich (keine Inline-Skripte)
+        run: "! grep -E '<script>|<script [^>]*>[^<]' ../../proxy/html/index.html"
+
   integration:
     name: Preflight im Debian-13-Container
     runs-on: ubuntu-latest
