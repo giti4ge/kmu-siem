@@ -30,7 +30,9 @@ ts = parse_timestamp(string(sys.TimeCreated."#attributes".SystemTime) ?? "", "%+
 sub = object(wec.Subscription) ?? {}
 
 # --- Grundgerüst ---------------------------------------------------------------
-. = {}
+del(.Event)
+del(.OpenWEC)
+del(.source_type)
 .@timestamp = ts
 .siem.collector = "openwec"
 .siem.pipeline = "windows"
