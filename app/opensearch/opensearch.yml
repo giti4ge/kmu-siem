@@ -40,3 +40,4 @@ plugins.security.nodes_dn:
 plugins.security.restapi.roles_enabled: ["all_access"]
 plugins.security.system_indices.enabled: true
 plugins.security.audit.type: noop
+plugins.security.unsupported.restapi.allow_securityconfig_modification: true

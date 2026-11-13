@@ -1,7 +1,7 @@
 {
   "app": { "name": "KMU-SIEM", "language": "Sprache" },
   "lang": { "de": "Deutsch", "en": "English" },
-  "nav": { "dashboard": "Dashboard", "users": "Benutzer", "roles": "Rollen", "audit": "Audit-Log", "account": "Mein Konto" },
+  "nav": { "dashboard": "Dashboard", "users": "Benutzer", "roles": "Rollen", "audit": "Audit-Log", "account": "Mein Konto", "dashboards": "Tiefenanalyse (Dashboards)" },
   "common": {
     "save": "Speichern", "yes": "ja", "no": "nein", "edit": "Bearbeiten", "create": "Anlegen", "cancel": "Abbrechen",
     "delete": "Löschen", "show": "Anzeigen", "close": "Schließen", "more": "Weitere laden"
@@ -46,7 +46,8 @@
     "not_found": "Nicht gefunden.",
     "validation_failed": "Eingabe ungültig.",
     "totp_already_enabled": "Die Zwei-Faktor-Anmeldung ist bereits eingerichtet.",
-    "totp_not_set_up": "Bitte die Einrichtung neu starten."
+    "totp_not_set_up": "Bitte die Einrichtung neu starten.",
+    "sso_unavailable": "Anmeldung an Dashboards derzeit nicht möglich."
   },
   "dashboard": {
     "welcome": "Willkommen, {{name}}.",

@@ -1,0 +1,25 @@
+# KMU-SIEM – OpenSearch Dashboards (nur über den Proxy unter /dashboards erreichbar)
+server.host: "127.0.0.1"
+server.port: 5601
+server.basePath: "/dashboards"
+server.rewriteBasePath: true
+server.name: "kmu-siem-dashboards"
+
+opensearch.hosts: ["https://127.0.0.1:9200"]
+opensearch.ssl.verificationMode: full
+opensearch.ssl.certificateAuthorities: ["/usr/share/opensearch-dashboards/config/certs/ca.crt"]
+opensearch.username: "kibanaserver"
+opensearch.password: "${KIBANASERVER_PASSWORD}"
+# Nur das vom Proxy gesetzte JWT weiterreichen
+opensearch.requestHeadersAllowlist: ["authorization"]
+
+# SSO: Anmeldung ausschließlich über die Control-Plane (JWT im Authorization-Header)
+opensearch_security.auth.type: "jwt"
+opensearch_security.jwt.header: "Authorization"
+opensearch_security.multitenancy.enabled: false
+opensearch_security.cookie.secure: true
+opensearch_security.cookie.password: "${COOKIE_PASSWORD}"
+opensearch_security.readonly_mode.roles: []
+
+home.disableWelcomeScreen: true
+data.search.usageTelemetry.enabled: false

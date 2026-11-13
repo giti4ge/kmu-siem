@@ -24,7 +24,7 @@ SQUID_LOG=${SQUID_LOG:-/var/log/squid/access.log}
 # Gemeinsame Prüfungen des Endzustands
 check_installed() {
     check "Zustand: alle Schritte erledigt" '! grep -qvE " done " /var/lib/siem/install.state && grep -q "^selftest done" /var/lib/siem/install.state'
-    check "Container laufen (opensearch, vector, proxy, api)" 'for c in siem-opensearch siem-vector siem-proxy siem-api; do [ "$(docker inspect -f "{{.State.Status}}" $c)" = running ] || exit 1; done'
+    check "Container laufen (opensearch, vector, proxy, api, dashboards)" 'for c in siem-opensearch siem-vector siem-proxy siem-api siem-dashboards; do [ "$(docker inspect -f "{{.State.Status}}" $c)" = running ] || exit 1; done'
     check "siem-hostd aktiv" 'systemctl is-active --quiet siem-hostd'
     check "nftables: Tabelle inet siem, policy drop" 'nft list chain inet siem input | grep -q "policy drop"'
     check "auditd und AIDE eingerichtet" 'systemctl is-active --quiet auditd && test -s /var/lib/aide/aide.db'

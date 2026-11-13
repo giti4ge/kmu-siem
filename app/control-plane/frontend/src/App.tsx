@@ -69,6 +69,11 @@ function Shell({ me }: { me: Me }) {
               {t(n.key)}
             </NavLink>
           ))}
+          {can("logs:read") && (
+            <a href="/dashboards/app/home" className="rounded px-2 py-1.5 text-sm hover:bg-slate-800">
+              {t("nav.dashboards")}
+            </a>
+          )}
           <NavLink to="/account" className="rounded px-2 py-1.5 text-sm hover:bg-slate-800">
             {t("nav.account")}
           </NavLink>

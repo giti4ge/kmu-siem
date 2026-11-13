@@ -33,6 +33,7 @@ pki_ensure() {
         "opensearch.crt:node.pem" "opensearch.key:node-key.pem" "ca.crt:ca.pem" || return 1
     _pki_deploy vector "$UID_VECTOR" \
         "syslog.crt:syslog.crt" "syslog.key:syslog.key" "ca.crt:ca.crt" || return 1
+    _pki_deploy dashboards "$UID_OPENSEARCH" "ca.crt:ca.crt" || return 1
     _pki_deploy proxy "$UID_PROXY" \
         "web.chain.crt:web.crt" "web.key:web.key" || return 1
 }

@@ -222,8 +222,16 @@ vmr 'siem-hostd firewall show | jq ".committed | .services.https.sources = []" >
      siem-hostd firewall show | jq ".committed" > /tmp/fw-orig.json'
 if reach; then pass "443 vor der Änderung erreichbar"; else fail "443 vor der Änderung nicht erreichbar"; fi
 
+# apply mit sichtbarer Ausgabe, falls kein Token geliefert wird (Diagnose zu Issue #8)
+apply_nohttps() {
+    local out
+    out=$(vmr 'siem-hostd firewall apply --file /tmp/fw-nohttps.json --no-wait; echo "rc=$?"; siem-hostd firewall show | jq -c .pending' 2>&1 || true)
+    TOKEN=$(sed '/^rc=/,$d' <<<"$out" | jq -r .token 2>/dev/null || true)
+    [[ -n $TOKEN && $TOKEN != null ]] || printf '%s
+' "$out" | sed 's/^/       │ apply: /'
+}
 # 8a: ohne Bestätigung → automatische Rücknahme
-TOKEN=$(vmr 'siem-hostd firewall apply --file /tmp/fw-nohttps.json --no-wait' | jq -r .token)
+apply_nohttps
 [[ -n $TOKEN && $TOKEN != null ]] && pass "apply liefert Bestätigungs-Token" || fail "kein Token"
 if reach; then fail "443 trotz entzogener Freigabe erreichbar"; else pass "Änderung sofort aktiv (443 gesperrt)"; fi
 check "unbestätigte Änderung nicht dauerhaft gespeichert" 'grep -q "set allow_https { type ipv4_addr; flags interval; auto-merge; elements" /etc/nftables.conf'
@@ -233,7 +241,7 @@ check "keine ausstehende Änderung mehr" 'siem-hostd firewall show | jq -e ".pen
 check "Rücknahme im Audit-Log" 'grep -q "Dead-Man" /var/log/siem-hostd.log'
 
 # 8b: mit Bestätigung → dauerhaft
-TOKEN=$(vmr 'siem-hostd firewall apply --file /tmp/fw-nohttps.json --no-wait' | jq -r .token)
+apply_nohttps
 check "falsches Token abgelehnt" '! siem-hostd firewall confirm falsches-token 2>/dev/null'
 check "Bestätigung mit Token" "siem-hostd firewall confirm $TOKEN >/dev/null"
 sleep 65
@@ -259,7 +267,7 @@ vmr 'pkill -f "http.server" || true' || true
 # --- Test 9 ------------------------------------------------------------------
 log "Test 9: Anwendung – Ingest Ende-zu-Ende, OpenSearch, Proxy, Disk-Puffer"
 OSI='python3 /opt/siem/app/current/opensearch/init.py --ca /opt/siem/data/secrets/pki/ca.crt --password-file /opt/siem/data/secrets/opensearch-admin.pw'
-check "Container laufen (opensearch, vector, proxy, api)" 'for c in siem-opensearch siem-vector siem-proxy siem-api; do [ "$(docker inspect -f "{{.State.Status}}" $c)" = running ] || exit 1; done'
+check "Container laufen (opensearch, vector, proxy, api, dashboards)" 'for c in siem-opensearch siem-vector siem-proxy siem-api siem-dashboards; do [ "$(docker inspect -f "{{.State.Status}}" $c)" = running ] || exit 1; done'
 check "Images per Digest festgeschrieben" 'for c in siem-opensearch siem-vector siem-proxy; do docker inspect -f "{{.Config.Image}}" $c | grep -q "@sha256:" || exit 1; done'
 check "OpenSearch nur auf 127.0.0.1" '! ss -Hltn | awk "{print \$4}" | grep -E ":(9200|9300)$" | grep -vqE "^(\[::ffff:)?127\.0\.0\.1\]?:"'
 check "OpenSearch ohne Anmeldung abgewiesen (401)" '[ "$(curl -s -o /dev/null -w "%{http_code}" --cacert /opt/siem/data/secrets/pki/ca.crt https://127.0.0.1:9200/)" = 401 ]'
@@ -312,8 +320,14 @@ else fail "Web-UI nicht ausgeliefert: $(head -c 300 <<<"$UI")"; fi
 ASSET=$(grep -oE '/assets/[^"]+\.js' <<<"$UI" | head -1)
 if [[ -n $ASSET ]] && curl -sk -D - -o /dev/null --max-time 5 "https://127.0.0.1:8443$ASSET" | grep -qi '^content-security-policy:'; then
     pass "Web-UI: Assets mit Sicherheits-Headern"; else fail "Web-UI: Asset $ASSET fehlt oder ohne Header"; fi
+# SSO zu OpenSearch Dashboards (JWT aus der Control-Plane)
+vmr 'for i in $(seq 1 90); do c=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5601/dashboards/api/status); case $c in 200|401) exit 0;; esac; sleep 2; done; exit 1'     && pass "Dashboards gestartet" || fail "Dashboards nicht bereit"
+if python3 "$REPO/tests/vm/sso_check.py" https://127.0.0.1:8443 admin Kennwort-fuer-webadmin-1; then pass "SSO zu Dashboards Ende-zu-Ende"
+else fail "SSO zu Dashboards"; vmr "$(cat "$REPO/tests/vm/sso_diag.sh")" 2>&1 | sed 's/^/       │ /' || true; fi
+check "Dashboards nur auf 127.0.0.1" '! ss -Hltn | awk "{print \$4}" | grep -E ":5601$" | grep -vqE "^(\[::ffff:)?127\.0\.0\.1\]?:"'
 LOGIN=$(curl -sk --max-time 10 -H 'Content-Type: application/json' -d '{"username":"admin","password":"Kennwort-fuer-webadmin-1"}' https://127.0.0.1:8443/api/auth/login || true)
-if grep -q '"stage":"mfa_enroll"' <<<"$LOGIN"; then pass "Web-Admin meldet sich an, TOTP-Einrichtung verlangt"; else fail "Web-Admin-Anmeldung: $LOGIN"; fi
+# Nach der SSO-Prüfung ist TOTP eingerichtet: Anmeldung verlangt jetzt den zweiten Faktor
+if grep -q '"stage":"mfa_verify"' <<<"$LOGIN"; then pass "Web-Admin meldet sich an, zweiter Faktor verlangt"; else fail "Web-Admin-Anmeldung: $LOGIN"; fi
 CODE=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 10 -H 'Content-Type: application/json' -d '{"username":"admin","password":"falsch-falsch-falsch"}' https://127.0.0.1:8443/api/auth/login)
 if [[ $CODE == 401 ]]; then pass "falsches Kennwort: 401"; else fail "falsches Kennwort: HTTP $CODE"; fi
 check "Audit-Kette der Control-Plane intakt" 'docker exec siem-api python -m siem_api.cli verify-audit | grep -q "\"ok\": true"'

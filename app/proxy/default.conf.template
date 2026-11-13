@@ -41,6 +41,11 @@ server {
         return 200 '{"status":"ok"}';
     }
 
+    # SSO-Token nur intern über auth_request, nie direkt an den Browser
+    location = /api/auth/sso/dashboards {
+        return 404;
+    }
+
     # REST-API der Control-Plane
     location /api/ {
         proxy_pass ${BACKEND};
@@ -51,6 +56,39 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 60s;
         client_max_body_size 1m;
+    }
+
+    # OpenSearch Dashboards mit SSO: nginx fragt die Control-Plane (Sitzungs-Cookie) und
+    # erhält ein kurzlebiges JWT, das als Authorization-Header weitergereicht wird.
+    location /dashboards/ {
+        auth_request /_sso_dashboards;
+        auth_request_set $siem_jwt $upstream_http_x_siem_jwt;
+        error_page 401 403 = @login;
+        # Rohes JWT – Dashboards setzt das „Bearer“-Präfix beim Weiterreichen selbst
+        proxy_set_header Authorization $siem_jwt;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_http_version 1.1;
+        proxy_read_timeout 120s;
+        proxy_pass http://127.0.0.1:5601;
+        # Eigene CSP von Dashboards gilt; übrige Sicherheits-Header hier erneut (add_header erbt nicht)
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+    }
+    location = /_sso_dashboards {
+        internal;
+        proxy_pass ${BACKEND}/api/auth/sso/dashboards;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+    location @login {
+        return 302 /;
     }
 
     # Web-UI (SPA): unbekannte Pfade liefern index.html (Client-Routing)

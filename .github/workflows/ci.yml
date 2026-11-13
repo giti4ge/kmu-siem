@@ -30,7 +30,7 @@ jobs:
       - name: Ruff
         run: |
           pip install --quiet ruff
-          ruff check host/siem-hostd app/opensearch app/control-plane/backend tests/hostd tests/control_plane tests/generators tools
+          ruff check host/siem-hostd app/opensearch app/control-plane/backend tests/hostd tests/control_plane tests/generators tests/vm tools
       - name: Doku-Links prüfen
         run: python tools/check_links.py
 
@@ -110,7 +110,7 @@ jobs:
       - name: api + proxy aus der echten Compose-Datei starten
         run: |
           D=/tmp/siem
-          mkdir -p $D/config-db $D/secrets/control-plane $D/secrets/pki/proxy
+          mkdir -p $D/config-db $D/secrets/control-plane $D/secrets/pki/proxy $D/secrets/dashboards && touch $D/secrets/dashboards/dashboards.env
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost"             -keyout $D/secrets/pki/proxy/web.key -out $D/secrets/pki/proxy/web.crt 2>/dev/null
           sudo chown -R 2100:2100 $D/config-db $D/secrets/control-plane
           sudo chown -R 101:101 $D/secrets/pki/proxy
@@ -157,7 +157,7 @@ jobs:
           mkdir -p /tmp/siem/data/app /tmp/siem/certs
           openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=test" \
             -keyout /tmp/siem/certs/key.pem -out /tmp/siem/certs/cert.pem 2>/dev/null
-          mkdir -p /tmp/siem/data/secrets/vector
+          mkdir -p /tmp/siem/data/secrets/vector /tmp/siem/data/secrets/dashboards && touch /tmp/siem/data/secrets/dashboards/dashboards.env
           echo '{"opensearch_password": "test"}' > /tmp/siem/data/secrets/vector/secrets.json
       - name: Compose-Datei prüfen
         run: SIEM_DATA=/tmp/siem/data OPENSEARCH_JAVA_OPTS="-Xms1g -Xmx1g" docker compose -f app/docker-compose.yml config -q
@@ -180,5 +180,13 @@ jobs:
             -v /tmp/siem/certs/cert.pem:/etc/nginx/siem-certs/web.crt:ro \
             -v /tmp/siem/certs/key.pem:/etc/nginx/siem-certs/web.key:ro \
             "$IMG" nginx -t
+      - name: Dashboards-Konfiguration prüfen (Start ohne Konfigurationsfehler)
+        run: |
+          IMG=$(grep -oE 'opensearchproject/opensearch-dashboards:[^ ]+' app/docker-compose.yml)
+          mkdir -p /tmp/osd-certs && cp /tmp/siem/certs/cert.pem /tmp/osd-certs/ca.crt && chmod 0644 /tmp/osd-certs/ca.crt
+          docker run -d --name osd --network host -e KIBANASERVER_PASSWORD=x -e COOKIE_PASSWORD=$(openssl rand -hex 20)             -v "$PWD/app/dashboards/opensearch_dashboards.yml:/usr/share/opensearch-dashboards/config/opensearch_dashboards.yml:ro"             -v /tmp/osd-certs:/usr/share/opensearch-dashboards/config/certs:ro "$IMG"
+          sleep 45
+          docker logs osd 2>&1 | grep -E '"fatal"|InvalidConfigurationError|FATAL' && exit 1
+          [ "$(docker inspect -f '{{.State.Running}}' osd)" = true ] || { docker logs osd 2>&1 | tail -20; exit 1; }
       - name: OpenSearch-Init (Syntax)
         run: python3 -c "import ast,sys; ast.parse(open('app/opensearch/init.py').read())"
