@@ -43,9 +43,10 @@ step_app() {
 _app_api_opensearch() {
     local pw="$SECRETS_DIR/siem-api.pw" dir="$SECRETS_DIR/control-plane"
     _gen_password "$pw" || return 1
-    printf '{"user": "siem_api", "password": "%s"}\n' "$(cat "$pw")" \
-        | write_file "$dir/opensearch.json" 0400 "$UID_API:$UID_API"
-    (( $? <= 1 )) || return 1
+    # nicht über write_file: das setzt das Verzeichnis auf 0755 (hier muss es 0700 bleiben)
+    ( umask 077; printf '{"user": "siem_api", "password": "%s"}
+' "$(cat "$pw")" >"$dir/opensearch.json" ) || return 1
+    chown "$UID_API:$UID_API" "$dir/opensearch.json" && chmod 0400 "$dir/opensearch.json" || return 1
 }
 
 # CA-Zertifikat (öffentlich) für den API-Container; erst nach pki_ensure möglich
