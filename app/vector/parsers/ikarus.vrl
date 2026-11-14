@@ -44,7 +44,10 @@ if contains(lower, "mail.security") || contains(lower, "mail security") {
 .log.syslog.severity.name = syslog_severity
 .log.level = syslog_severity
 
-kv = parse_key_value(raw, accept_standalone_key: false) ?? {}
+# Freitext vor dem ersten "schlüssel=" abschneiden (parse_key_value verschluckt sonst das erste Paar)
+kvs = parse_regex(raw, r'(?P<rest>[A-Za-z_]+=.*)$') ?? null
+kv = {}
+if kvs != null { kv = parse_key_value(string(kvs.rest) ?? "", accept_standalone_key: false) ?? {} }
 threat = string(kv.virus) ?? string(kv.threat) ?? string(kv.malware) ?? string(kv.signature) ?? null
 if threat == null {
     m = parse_regex(raw, r'(?i)(?:virus|malware|trojan|threat|infection)\s+(?:found|detected)[:\s]+(?P<name>[A-Za-z0-9_./:\-]+)') ?? null
