@@ -4,6 +4,13 @@ Stand: 2026-11-14 · Anlass: Ergänzungsliste des Auftraggebers (14.11.2026) · 
 
 Dieses Dokument ordnet jeden Punkt der Liste dem Ist-Stand und der Roadmap zu und nennt je Themenblock die **offenen Entscheidungen**. Technische Vorschläge sind als Vorgabe formuliert, die der Auftraggeber nur bei Widerspruch ändern muss; fachliche Fragen sind als **Frage** markiert.
 
+## Entscheidungen des Auftraggebers (2026-11-14)
+
+- **Multisite:** Roadmap, **nicht in dieser Version**. Der Auftraggeber hat eine andere Idee, die später besprochen wird; Block A ist damit zurückgestellt (Vorkehrungen aus Spezifikation 10.2 bleiben).
+- **KI-Forensik:** wie vorgeschlagen (Block G).
+- **Exchange-Logs:** Roadmap, derzeit nicht umsetzen.
+- **Poseidon, PA Filesight, Shelly:** Formate werden erst im Betrieb gelernt (Backlog).
+
 ## 1. Zuordnung der Punkte
 
 Legende Stand: ✅ vorhanden · 🟡 teilweise · 🔲 offen · ➕ neu (nicht in Spezifikation 2.5.0)
