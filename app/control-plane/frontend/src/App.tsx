@@ -15,6 +15,7 @@ import LinuxPage from "./pages/Linux";
 import RetentionPage from "./pages/Retention";
 import SophosPage from "./pages/Sophos";
 import ChangesPage from "./pages/Changes";
+import SnmpPage from "./pages/Snmp";
 import WindowsPage from "./pages/Windows";
 
 export function useMe() {
@@ -41,6 +42,7 @@ const NAV = [
   { to: "/sources/devices", key: "nav.devices", perm: "sources:read" },
   { to: "/sources/windows", key: "nav.windows", perm: "sources:read" },
   { to: "/sources/linux", key: "nav.linux", perm: "sources:read" },
+  { to: "/sources/snmp", key: "nav.snmp", perm: "sources:read" },
   { to: "/sources/sophos", key: "nav.sophos", perm: "sources:read" },
   { to: "/system/retention", key: "nav.retention", perm: "privacy:read" },
   { to: "/system/users", key: "nav.users", perm: "users:read" },
@@ -120,6 +122,7 @@ function Shell({ me }: { me: Me }) {
             {can("system:read") && <Route path="/system/log" element={<SystemLogPage />} />}
             {can("sources:read") && <Route path="/sources/windows" element={<WindowsPage canWrite={can("sources:write")} />} />}
             {can("privacy:read") && <Route path="/system/retention" element={<RetentionPage canWrite={can("privacy:write")} />} />}
+            {can("sources:read") && <Route path="/sources/snmp" element={<SnmpPage canWrite={can("sources:write")} />} />}
             {can("sources:read") && <Route path="/sources/sophos" element={<SophosPage canWrite={can("sources:write")} />} />}
             {can("sources:read") && <Route path="/sources/linux" element={<LinuxPage canWrite={can("sources:write")} />} />}
             {can("sources:read") && <Route path="/sources/devices" element={<DevicesPage canWrite={can("sources:write")} />} />}

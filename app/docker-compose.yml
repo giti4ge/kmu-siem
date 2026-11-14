@@ -91,6 +91,23 @@ services:
     tmpfs:
       - /tmp
 
+  snmp:
+    <<: *hardening
+    # SNMP-Trap-Empfänger (v2c/v3), gleiches Image wie die API; UDP 10162 (nftables leitet 162 dorthin um).
+    # Beendet sich bei Konfigurationsänderung (Exit 3) und startet mit den neuen Zugangsdaten neu.
+    image: ${SIEM_API_IMAGE:-ghcr.io/giti4ge/kmu-siem/api:dev}
+    container_name: siem-snmp
+    network_mode: host
+    user: "2100:2100"
+    read_only: true
+    command: ["python", "-m", "siem_api.snmp_receiver"]
+    healthcheck:
+      disable: true
+    volumes:
+      - ${SIEM_DATA}/secrets/control-plane:/data/secrets:ro
+    tmpfs:
+      - /tmp
+
   openwec:
     <<: *hardening
     # Windows Event Collector (WEF, Kerberos/5985); wartet auf Konfiguration + Keytab aus dem Web-UI

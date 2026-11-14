@@ -68,7 +68,23 @@ sources:
     decoding:
       codec: json
 
+  # SNMP-Traps: der Empfänger (Container siem-snmp, Host-Netz) liefert ECS-JSON-Zeilen nur über Loopback
+  snmp_in:
+    type: socket
+    mode: tcp
+    address: "127.0.0.1:10602"
+    framing:
+      method: newline_delimited
+    decoding:
+      codec: json
+
 transforms:
+  snmp:
+    type: remap
+    inputs: ["snmp_in"]
+    source: |
+      .event.ingested = now()
+
   sophos:
     type: remap
     inputs: ["sophos_in"]
@@ -220,7 +236,7 @@ transforms:
 sinks:
   opensearch:
     type: elasticsearch
-    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "ikarus", "windows", "sophos"]
+    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "ikarus", "windows", "sophos", "snmp"]
     endpoints: ["https://127.0.0.1:9200"]
     api_version: v8
     mode: bulk
