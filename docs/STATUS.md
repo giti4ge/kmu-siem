@@ -23,6 +23,7 @@ Stand: 2026-11-14 · Bezug: [Spezifikation 2.6.1](spec/SPEC.md)
 | Quellenfreigabe | Typ-Vorschlag, Freigeben und Ignorieren unbekannter Quellen |
 | Support-Zugang | SSH für den Dienstleister: zeitlich begrenzt, Schlüssel und Quelladresse, nur Diagnosebefehle |
 | Datenschutzmodus | Benutzernamen als Pseudonym für Analyst/Auditor/Management (optional) |
+| Revisionssicheres Archiv | Vector schreibt stündliche Dateien (gzip), Siegel mit Hash-Kette und Ed25519, tägliche und manuelle Prüfung, Fehler als Audit-Ereignis (API `/api/archive`) |
 | Forensik-Export | signiertes Beweispaket (Hashliste, Signatur, Nachweis im Audit-Log), Prüffunktion |
 
 ## Bewusst vereinfacht (Abweichung von der Spezifikation)
@@ -31,11 +32,12 @@ Stand: 2026-11-14 · Bezug: [Spezifikation 2.6.1](spec/SPEC.md)
 - **Updates:** Prüfung und Anzeige; das Einspielen erfolgt mit dem signierten Paket über `install.sh --upgrade`. Kein automatischer Abruf mit Signaturprüfung im Web-UI.
 - **Dashboard-Anpassung:** je Browser (lokal gespeichert), nicht je Benutzer in der Konfigurationsdatenbank.
 - **Regeln:** 16 eingebaute Regeln mit Schwellwert, Schweregrad und Ein/Aus; kein Sigma-Import und keine eigenen Regeln im UI.
+- **Archiv:** gzip statt zstd (Prüfung mit Python-Standardbibliothek); Dateien sind nicht schreibgeschützt, Manipulation wird aber durch die Siegel erkannt und lokalisiert.
 - **Windows-Skript:** nur per Review und Unit-Test geprüft, nicht an einer echten Domäne.
 
 ## Offen (noch nicht gebaut)
 
-1. Revisionssicheres Archiv (Write-once, Hash-Kette), Fall-Verwaltung und externer RFC-3161-Zeitstempel.
+1. Archiv-Rest: Web-UI-Seite, RFC-3161-Zeitstempel, Langzeitziel (SMB/NFS/SFTP/S3), Archiv-Retention, Wiederherstellung in `siem-restore-*`; Fall-Verwaltung mit Write-once-Fallarchiv.
 2. Vier-Augen-Freigabe (optional, Standard aus) und Aufdeckung pseudonymisierter Namen mit Freigabe.
 3. Rückwirkende Verarbeitung gepufferter Ereignisse nach der Quellenfreigabe.
 4. Phase 4 Rest: LLDP, Geräteprofile, MIB-Import, net-sensor, Discovery-Scanner.

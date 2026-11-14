@@ -136,6 +136,8 @@ _app_dirs() {
         install -m 0640 -o "$UID_API" -g "$UID_VECTOR" "$APP_DIR/current/vector/devices.csv" \
             "$SIEM_ROOT/data/vector-config/devices.csv" || return 1
     fi
+    # Revisionssicheres Archiv: Vector (gid 2000) schreibt die Stundendateien, siem-api (uid 2100) versiegelt
+    install -d -m 2770 -o "$UID_API" -g "$UID_VECTOR" "$SIEM_ROOT/data/archive" || return 1
     install -d -m 0750 "$APP_DATA" || return 1
     install -d -m 0750 -o root -g "$UID_OPENSEARCH" "$APP_DATA/opensearch-security" || return 1
 }

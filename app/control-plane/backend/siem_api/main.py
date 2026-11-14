@@ -14,6 +14,7 @@ from . import __version__
 from . import active_response as ar_mod
 from . import ai as ai_mod
 from . import alerts as alerts_mod
+from . import archive as archive_mod
 from . import fortigate as fortigate_mod
 from . import maintenance as maintenance_mod
 from . import notify as notify_mod
@@ -31,6 +32,7 @@ from .routers import (
     alerts as alerts_router,
 )
 from .routers import ar as ar_router
+from .routers import archive as archive_router
 from .routers import (
     assets,
     audit,
@@ -109,6 +111,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db_path=Path(db_file) if db_file else None, backup_dir=settings.backup_dir,
         client=OpenSearchClient(settings.opensearch_url, settings.secrets_dir), report=maint_report)
 
+    archive_worker = archive_mod.Worker(
+        archive_mod.Archive(settings.archive_dir, archive_mod.load_or_create_key(settings.secrets_dir / "archive-ed25519.pem")),
+        settings.backup_dir / "archive.json", report=maint_report)
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         # Sophos-Abruf im Hintergrund (nur wenn aktiviert); in Tests per SIEM_SOPHOS_POLL=0 abschaltbar
@@ -116,6 +122,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             poller.start()
             forti_poller.start()
             maintenance.start()
+            archive_worker.start()
             alert_engine.start()
             ar_expirer.start()
         yield
@@ -124,6 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         forti_poller.stop.set()
         forti_poller.trigger.set()
         maintenance.stop.set()
+        archive_worker.stop.set()
         alert_engine.stop.set()
         ar_expirer.stop.set()
 
@@ -134,6 +142,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.forti_store = forti_store
     app.state.forti_poller = forti_poller
     app.state.maintenance = maintenance
+    app.state.archive_worker = archive_worker
     app.state.alert_store = alert_store
     app.state.notify_store = notify_store
     app.state.ai_store = ai_store
@@ -160,7 +169,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
                    logs.router, linux.router, retention.router, sophos_router.router, changes.router,
-                   snmp.router, maintenance_router.router, alerts_router.router, forensic_export_router.router, support_router.router, updates_router.router, setup_router.router, reports_router.router, ar_router.router, ai_router.router, dashboard_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
+                   snmp.router, maintenance_router.router, alerts_router.router, forensic_export_router.router, archive_router.router, support_router.router, updates_router.router, setup_router.router, reports_router.router, ar_router.router, ai_router.router, dashboard_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
         app.include_router(router)
     return app
 
