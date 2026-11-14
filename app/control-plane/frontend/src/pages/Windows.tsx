@@ -21,6 +21,11 @@ function toBase64(buf: ArrayBuffer): string {
   return btoa(s);
 }
 
+type AuditServer = {
+  computer: string; collected: string; ok: boolean;
+  deviations: { subcategory: string; missing_success: boolean; missing_failure: boolean }[];
+};
+
 export default function WindowsPage({ canWrite }: { canWrite: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -81,6 +86,28 @@ export default function WindowsPage({ canWrite }: { canWrite: boolean }) {
     } catch (e) {
       setError(e);
     }
+  };
+
+  const ac = useQuery({ queryKey: ["audit-check"], queryFn: () => api<{ servers: AuditServer[] }>("GET", "/api/wec/audit-check") });
+  const uploadCheck = async (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    try {
+      const d = await api<{ servers: AuditServer[] }>("POST", "/api/wec/audit-check", JSON.parse((await file.text()).replace(/^﻿/, "")));
+      qc.setQueryData(["audit-check"], d);
+    } catch (e) {
+      setError(e instanceof SyntaxError ? new ApiError(400, "audit_invalid_report") : e);
+    }
+  };
+  const downloadCheck = async () => {
+    const res = await fetch("/api/wec/audit-check/script", { credentials: "same-origin" });
+    if (!res.ok) return;
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "siem-audit-check.ps1";
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const d = q.data;
@@ -151,6 +178,33 @@ export default function WindowsPage({ canWrite }: { canWrite: boolean }) {
           <dt className="text-slate-500">{t("wec.keytab_state")}</dt>
           <dd>{d?.keytab ? t("common.yes") : t("common.no")}</dd>
         </dl>
+      </section>
+
+      <section className="card mb-4">
+        <h2 className="mb-2 font-medium">{t("wec.check_title")}</h2>
+        <p className="mb-3 text-sm text-slate-600">{t("wec.check_text")}</p>
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <button className="btn" disabled={!canWrite} onClick={downloadCheck}>{t("wec.check_download")}</button>
+          <input type="file" accept=".json,application/json" aria-label={t("wec.check_upload")} disabled={!canWrite}
+            onChange={(e) => { void uploadCheck(e.target.files?.[0]); e.target.value = ""; }} />
+        </div>
+        {ac.data && ac.data.servers.length === 0 && <p className="text-sm text-slate-600">{t("wec.check_empty")}</p>}
+        {ac.data?.servers.map((sv) => (
+          <div key={sv.computer} className="mb-2 border-b border-slate-100 pb-2 text-sm">
+            <span className="font-medium">{sv.computer}</span>{" "}
+            <span className={sv.ok ? "text-green-700" : "text-red-700"}>{sv.ok ? t("wec.check_ok") : t("wec.check_deviation", { count: sv.deviations.length })}</span>
+            {sv.collected && <span className="ml-2 text-xs text-slate-500">{new Date(sv.collected).toLocaleString()}</span>}
+            {!sv.ok && (
+              <ul className="ml-4 list-disc text-xs text-slate-700">
+                {sv.deviations.map((v) => (
+                  <li key={v.subcategory}>
+                    {v.subcategory}: {[v.missing_success ? t("wec.success") : "", v.missing_failure ? t("wec.failure") : ""].filter(Boolean).join(" + ")} {t("wec.check_missing")}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
       </section>
 
       <section className="card">

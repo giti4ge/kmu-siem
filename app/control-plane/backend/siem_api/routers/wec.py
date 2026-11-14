@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import base64
 import binascii
+import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DbSession
 
-from .. import wec
+from .. import wec, wec_audit
 from ..deps import Ctx, error, get_db, require, state
 
 router = APIRouter(tags=["wec"], prefix="/api/wec")
@@ -100,3 +101,36 @@ def put_keytab(body: KeytabIn, request: Request, db: DbSession = Depends(get_db)
         raise error(503, "wec_storage_unavailable") from exc
     st.audit.append(db, actor=ctx.user.username, action="wec.keytab", target=wec.principal(settings), ip=ctx.ip)
     return _status(request, settings)
+
+
+@router.get("/audit-check")
+def get_audit_check(request: Request, ctx: Ctx = Depends(require("sources:read"))) -> dict:
+    return {"servers": wec_audit.view(wec_audit.load(state(request).settings.wec_dir))}
+
+
+@router.get("/audit-check/script")
+def get_audit_script(ctx: Ctx = Depends(require("sources:write"))) -> Response:
+    return Response(
+        content="﻿" + wec_audit.SCRIPT, media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="siem-audit-check.ps1"', "Cache-Control": "no-store"})
+
+
+@router.post("/audit-check")
+async def post_audit_check(request: Request, db: DbSession = Depends(get_db),
+                           ctx: Ctx = Depends(require("sources:write"))) -> dict:
+    st = state(request)
+    raw_body = await request.body()
+    if len(raw_body) > 2_000_000:
+        raise error(413, "audit_invalid_report")
+    try:
+        reports = wec_audit.validate_upload(json.loads(raw_body.decode("utf-8-sig")))
+    except (ValueError, UnicodeDecodeError) as exc:
+        code = exc.code if isinstance(exc, wec.WecError) else "audit_invalid_report"
+        raise error(400, code) from exc
+    try:
+        data = wec_audit.save(st.settings.wec_dir, reports)
+    except OSError as exc:
+        raise error(503, "wec_storage_unavailable") from exc
+    st.audit.append(db, actor=ctx.user.username, action="wec.audit_check", target=f"{len(reports)} Server",
+                    ip=ctx.ip, details={"servers": [r["computer"] for r in reports][:50]})
+    return {"servers": wec_audit.view(data)}
