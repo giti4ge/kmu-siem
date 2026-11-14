@@ -11,6 +11,7 @@ import RolesPage from "./pages/Roles";
 import SystemLogPage from "./pages/SystemLog";
 import UnparsedPage from "./pages/Unparsed";
 import UsersPage from "./pages/Users";
+import LinuxPage from "./pages/Linux";
 import WindowsPage from "./pages/Windows";
 
 export function useMe() {
@@ -35,6 +36,7 @@ const NAV = [
   { to: "/sources/unparsed", key: "nav.unparsed", perm: "logs:read" },
   { to: "/sources/devices", key: "nav.devices", perm: "sources:read" },
   { to: "/sources/windows", key: "nav.windows", perm: "sources:read" },
+  { to: "/sources/linux", key: "nav.linux", perm: "sources:read" },
   { to: "/system/users", key: "nav.users", perm: "users:read" },
   { to: "/system/roles", key: "nav.roles", perm: "users:read" },
   { to: "/system/audit", key: "nav.audit", perm: "audit:read" },
@@ -111,6 +113,7 @@ function Shell({ me }: { me: Me }) {
             {can("audit:read") && <Route path="/system/audit" element={<AuditPage />} />}
             {can("system:read") && <Route path="/system/log" element={<SystemLogPage />} />}
             {can("sources:read") && <Route path="/sources/windows" element={<WindowsPage canWrite={can("sources:write")} />} />}
+            {can("sources:read") && <Route path="/sources/linux" element={<LinuxPage canWrite={can("sources:write")} />} />}
             {can("sources:read") && <Route path="/sources/devices" element={<DevicesPage canWrite={can("sources:write")} />} />}
             {can("logs:read") && <Route path="/sources/unparsed" element={<UnparsedPage />} />}
             <Route path="/account" element={<PasswordPage />} />

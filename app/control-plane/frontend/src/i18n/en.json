@@ -16,6 +16,7 @@
     "dashboards": "Deep analysis (Dashboards)",
     "syslog": "System log",
     "windows": "Windows integration",
+    "linux": "Linux onboarding",
     "devices": "Devices",
     "unparsed": "Unrecognized sources"
   },
@@ -94,6 +95,8 @@
     "wec_keytab_principal": "The keytab does not contain the expected principal HTTP/<FQDN>@<REALM>.",
     "wec_not_configured": "Please save domain and FQDN first.",
     "wec_storage_unavailable": "The configuration could not be saved.",
+    "linux_invalid_server": "Invalid server address.",
+    "linux_ca_unavailable": "The appliance CA certificate is not available.",
     "device_invalid_ip": "Invalid IP address.",
     "device_invalid_name": "Invalid name (letters, digits, spaces, . _ -; at most 64 characters).",
     "device_invalid_type": "Unknown device type.",
@@ -280,6 +283,17 @@
       "synology": "Synology NAS (DSM)",
       "idrac": "Dell iDRAC"
     }
+  },
+  "linux": {
+    "title": "Connect Linux servers",
+    "intro": "Agentless via rsyslog (syslog over TLS, port 6514) with optional auditd rules. Supports Debian/Ubuntu, RHEL family and SUSE.",
+    "step1": "1. Generate script",
+    "server": "Appliance address (as seen from the servers)",
+    "server_hint": "Hostname or IP the Linux servers can reach; port 6514 must be allowed in the firewall for these servers.",
+    "audit": "Set up auditd rules (users, sudo, SSH, configuration files)",
+    "download": "Download script",
+    "step2": "2. Run on the server",
+    "step2_text": "Run as root. The script installs rsyslog with the TLS module, stores the CA certificate, sets up forwarding and sends a test message. Then add the server under Devices with type “Linux server” or wait for auto-detection."
   },
   "unparsed": {
     "title": "Unrecognized sources",
