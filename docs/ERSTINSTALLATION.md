@@ -11,12 +11,27 @@ Diese Anleitung führt von der leeren VM bis zur ersten Fehlermeldung. Das ausf�
 | VM | Debian 13 minimal + SSH-Server, amd64 |
 | Ressourcen | Test: 4 vCPU, 16 GB RAM (statisch), Disk 1 40 GB; Disk 2 (Daten) leer, mindestens 100 GB (Produktion 500 GB) |
 | Netz | feste IP, DNS-Name (A-Record) für den FQDN, Internet (HTTPS) direkt oder per Proxy |
-| Zugang | SSH-Schlüssel für `siemadmin` bereithalten (Public Key als Datei oder zum Einfügen) |
+| Zugang | SSH-Schlüsselpaar für `siemadmin` (Erstellung: Abschnitt 2) |
 | Arbeitsplatz | `gh` (GitHub CLI) angemeldet oder Browser mit Zugriff auf `giti4ge/kmu-siem` |
 
 Debian-Installation: nur „SSH server“ und „Standard-Systemwerkzeuge“, Disk 2 unberührt lassen (Details: Handbuch 3.5).
 
-## 2. Testpaket beziehen
+## 2. SSH-Schlüsselpaar erstellen
+
+Der Installer fragt nach dem **öffentlichen** Schlüssel (Public Key) für den Benutzer `siemadmin`. Der private Schlüssel bleibt auf dem Arbeitsplatz.
+
+```powershell
+# Arbeitsplatz (Windows PowerShell)
+ssh-keygen -t ed25519 -C "siemadmin"
+type $env:USERPROFILE\.ssh\id_ed25519.pub     # eine Zeile: ssh-ed25519 AAAA... siemadmin
+```
+
+- Speicherort bestätigen (Standard `C:\Users\<name>\.ssh\id_ed25519`), Passphrase empfohlen.
+- `id_ed25519` = privat, nie weitergeben. `id_ed25519.pub` = öffentlich, kommt in den Installer.
+- Bei der Frage „SSH-Public-Key“ entweder die komplette Zeile **einfügen** (einfachste Variante) oder den Pfad einer Datei **auf der VM** angeben, z. B. nach `scp $env:USERPROFILE\.ssh\id_ed25519.pub install@<vm>:~/siemadmin.pub` den Pfad `/home/install/siemadmin.pub`.
+- Nach der Härtung in einer **neuen** Sitzung testen: `ssh siemadmin@<vm>` (bei anderem Schlüsselnamen `ssh -i <privater-schlüssel> siemadmin@<vm>`). Erst nach erfolgreicher Anmeldung im Installer bestätigen; dann wird die Kennwort-Anmeldung abgeschaltet.
+
+## 3. Testpaket beziehen
 
 Das Paket entsteht in der CI (Actions → *Testpaket (Installer-Tarball)* → Run workflow, Branch/Tag `main` bzw. `v0.1.0-rc.1`). Das Ergebnis ist ein Artefakt `kmu-siem-testpaket-<version>-<commit>` mit `.tar.gz` und `.sha256` (14 Tage gültig). Der Entwurf des Releases `v0.1.0-rc.1` enthält dasselbe Paket als Anhang.
 
@@ -28,7 +43,7 @@ sha256sum -c *.sha256                    # muss "OK" melden
 scp kmu-siem-testpaket-*.tar.gz install@<vm>:~
 ```
 
-## 3. Installation
+## 4. Installation
 
 ```bash
 ssh install@<vm>
@@ -48,7 +63,7 @@ Wichtig:
 
 Danach: `https://<fqdn>` öffnen, Fingerabdruck mit der Ausgabe des Skripts vergleichen, als `admin` anmelden, MFA einrichten, Einrichtungsassistent durchlaufen. Weiter mit der [Testcheckliste](TESTCHECKLISTE.md).
 
-## 4. Fehler rückmelden
+## 5. Fehler rückmelden
 
 Ablauf je Auffälligkeit (ausführlich: [BETRIEB.md](BETRIEB.md)):
 
@@ -68,6 +83,6 @@ Schweregrade für die Issues:
 | Mittel | Funktion eingeschränkt, Umgehung möglich |
 | Niedrig | Darstellung, Text, Komfort |
 
-## 5. Bekannte Einschränkungen (nicht als Fehler melden)
+## 6. Bekannte Einschränkungen (nicht als Fehler melden)
 
 Siehe [STATUS.md](STATUS.md) und die Release-Notes: Windows-Skript nicht an echter Domäne geprüft, PDF über Browser-Druck, Update-Einspielen per `install.sh --upgrade`, kein Content-Kanal, SFTP/SMB-Direktanbindung fehlt, Parserformate teils aus Dokumentation abgeleitet. **Abweichungen davon sind ausdrücklich erwünscht** – genau dafür ist der Test.
