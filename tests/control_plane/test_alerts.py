@@ -154,3 +154,20 @@ def test_management_role_is_reduced():
     from siem_api.security import rbac
     perms = set(rbac.BUILTIN_ROLES["management"]["permissions"])
     assert perms == {"dashboard:read", "reports:read"}
+
+
+def test_setup_checks(app, settings):
+    from sqlalchemy.orm import Session
+
+    from siem_api.routers import setup
+
+    class Req:
+        pass
+
+    r = Req()
+    r.app = app  # type: ignore[attr-defined]
+    with Session(app.state.siem.db.engine) as db:
+        items = setup.checks(r, db)  # type: ignore[arg-type]
+    by = {i["id"]: i for i in items}
+    assert by["notify"]["ok"] is False and by["devices"]["ok"] is False and by["backup"]["ok"] is False
+    assert all(i["link"].startswith("/") for i in items) and by["fortigate"]["optional"] is True

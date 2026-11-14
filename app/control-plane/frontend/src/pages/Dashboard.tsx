@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { api, type Me } from "../api";
 
@@ -13,7 +14,7 @@ type Data = {
 };
 
 const AREAS = ["perimeter", "windows", "servers", "network", "endpoints"];
-const WIDGETS = ["areas", "alerts", "blocked", "logons", "volume", "health"] as const;
+const WIDGETS = ["setup", "areas", "alerts", "blocked", "logons", "volume", "health"] as const;
 const LIGHT: Record<string, string> = { ok: "bg-green-500", warn: "bg-yellow-400", critical: "bg-red-600" };
 const SEV = ["critical", "high", "medium", "low"];
 
@@ -46,6 +47,7 @@ export default function Dashboard({ me }: { me: Me }) {
   const show = (w: string) => !hidden.includes(w);
   const q = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Data>("GET", "/api/dashboard"), refetchInterval: 60000 });
   const d = q.data;
+  const setup = useQuery({ queryKey: ["setup"], queryFn: () => api<{ items: { id: string; ok: boolean | null; optional: boolean; link: string }[]; open_required: number }>("GET", "/api/setup") });
   const info = useQuery({
     queryKey: ["system-info"],
     queryFn: () => api<{ version: string }>("GET", "/api/system/info"),
@@ -68,6 +70,21 @@ export default function Dashboard({ me }: { me: Me }) {
       )}
       {d?.errors.length ? <p className="card mb-4 text-sm text-red-700">{t("dashboard.unavailable")}</p> : null}
       <div className="grid gap-4 md:grid-cols-2">
+        {show("setup") && setup.data && setup.data.open_required > 0 && (
+          <section className="card md:col-span-2 border-l-4 border-yellow-400">
+            <h2 className="mb-1 font-medium">{t("dashboard.setup_title")}</h2>
+            <p className="mb-2 text-sm text-slate-600">{t("dashboard.setup_intro", { count: setup.data.open_required })}</p>
+            <ul className="text-sm">
+              {setup.data.items.map((i) => (
+                <li key={i.id} className="flex items-center gap-2 py-0.5">
+                  <span aria-hidden>{i.ok ? "✔" : i.ok === null ? "•" : "○"}</span>
+                  <Link className="underline" to={i.link}>{t(`dashboard.setup.${i.id}`)}</Link>
+                  {i.optional && <span className="text-xs text-slate-500">{t("dashboard.optional")}</span>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
         {show("areas") && (
           <section className="card md:col-span-2">
             <h2 className="mb-2 font-medium">{t("dashboard.w.areas")}</h2>
