@@ -2,7 +2,7 @@
 
 | Dokument-Version | Stand | Status | Ersetzt |
 |---|---|---|---|
-| **2.6.0** | 2026-11-14 | **Freigegeben** (2026-11-14) | [SPEC-v1.md](SPEC-v1.md) (1.0.0) |
+| **2.6.1** | 2026-11-14 | **Freigegeben** (2026-11-14) | [SPEC-v1.md](SPEC-v1.md) (1.0.0) |
 
 **Änderungshistorie:** siehe [SPEC-HISTORY.md](SPEC-HISTORY.md). Den detaillierten Vergleich v1 ↔ v2 enthält [SPEC-DIFF-v1-v2.md](SPEC-DIFF-v1-v2.md).
 
@@ -46,8 +46,8 @@ Gehärtete SIEM-Appliance für KMU-Umgebungen, ausschließlich aus Open-Source-K
 | Parameter | Wert |
 |---|---|
 | Ausgangssituation | Neue Debian-13-VM (amd64), Minimalinstallation mit SSH-Server und Standard-Systemwerkzeugen, ohne Desktop; feste IP-Adresse; Hypervisor beliebig (VMware, Hyper-V, Proxmox u. a.) |
-| Umgebung | ~50 Endpunkte, angebundene Server: DCs, Exchange, Member-Server |
-| Last (Planwert) | 15–40 EPS Ø, Peaks bis 300 EPS; 2–4 GB Rohlogs/Tag |
+| Umgebung | **bis 150 Endpunkte**, angebundene Server: DCs, Exchange, Member-Server |
+| Last (Planwert) | bis 150 Endpunkte: 30–80 EPS Ø, Peaks bis 500 EPS; 4–8 GB Rohlogs/Tag |
 | Betrieb | Beim Kunden, Bestandteil der Dienstleistung (kein Verkauf, kein Air-Gap) |
 | Zugriff Dienstleister | SSH und Web-UI über das Kundennetz; kein Fernzugriffs-Tunnel |
 | Alarmierung | ausschließlich E-Mail und MS Teams |
@@ -228,6 +228,8 @@ Einzige Brücke zwischen Web-UI und Host. Kein Docker-Socket in Containern.
 - Ports: 22/tcp, 443/tcp, 514/udp+tcp, 6514/tcp, 5985/tcp, 5986/tcp (nur wenn HTTPS-WEF aktiviert), 162/udp.
 - **Pro Dienst eigene Quell-Allowlist** im UI (z. B. 514 nur von Switches/FortiGate, 5985 nur von Windows-Servern, 22/443 nur Management-Netze). Standard nach Installation: alle RFC1918-Netze.
 - Rate-Limit für neue Verbindungen auf 22/443.
+- **Eingangsschutz (ab 2.6.1, Umsetzung vor Phase 5):** (1) *Quell-Allowlist* je Dienst (vorhanden) – Pakete nicht freigegebener Quellen werden vor jeder Anwendung verworfen; (2) *Rate-Limits je Quelladresse* in nftables für 514/6514/5985/162 (Meter je `ip saddr`, Standard 2000 Pakete/s bzw. 100 neue TCP-Verbindungen/min, Überschreitung wird verworfen und gezählt) und ein Grenzwert gleichzeitiger TCP-Verbindungen je Quelle; (3) *Mengenbegrenzung je Quelle in Vector* (`throttle`, Standard 500 EPS je Gerät; Überschuss wird gezählt und als Alarm „Quelle überlastet“ gemeldet, nicht gespeichert); (4) *Größenbegrenzung* (Syslog-Zeile höchstens 64 KB, WEC-Ereignis höchstens 1 MB, SNMP-Paket höchstens 8 KB); (5) *Backpressure statt Speicherwachstum*: Disk-Buffer mit Obergrenze, Plattenwächter (4.5) und Speicherlimits der Container; (6) *SNMP*: bevorzugt v3 (authPriv), v2c nur aus der Allowlist; (7) *HTTPS*: Reverse-Proxy mit ModSecurity/OWASP-CRS, Verbindungs- und Anfragelimits, Größenlimit für Uploads, Anmelde-Sperre (vorhanden). Grenze: Volumetrische Angriffe, die die Anbindung des Kunden füllen, kann die Appliance nicht abwehren (Aufgabe des Perimeters/Providers); sie schützt sich selbst und bleibt bedienbar.
+- **Keine Ausführung von Fremdinhalt:** Log-Inhalte sind Daten. Parser (VRL) führen keinen Code aus und haben keinen Datei-/Netzzugriff; die Web-UI gibt Werte nur maskiert aus (kein HTML), CSV-Exporte entschärfen Formelanfänge; Uploads (MIB, Parser, Update-/Content-Pakete) sind nur für berechtigte Rollen möglich, größenbegrenzt, und Pakete müssen signiert sein. Auf Endpunkten werden keine Agenten oder Binärdateien verteilt (agentlos), nur lesende/konfigurierende Skripte mit Prüfsumme.
 - **Dead-Man's-Switch**: `firewall.apply` aktiviert neue Regeln, startet 60-s-Timer; ohne `firewall.confirm` aus derselben UI-Session automatisches Zurücksetzen.
 
 ### 4.3 Ingest & Normalisierung (Vector)
@@ -291,11 +293,12 @@ Einzige Brücke zwischen Web-UI und Host. Kein Docker-Socket in Containern.
   - Hot: bis Tag 7 (konfigurierbar).
   - Warm: `read_only`, `force_merge` auf 1 Segment.
   - Delete: nach Retention.
-- **Speicher-Wächter** (worker):
+- **Speicher-Wächter** (umgesetzt in Phase 4.7, Hintergrunddienst der API, alle 5 min):
   - OpenSearch-Watermarks: low 85 %, high 90 %, flood 95 %.
   - Warnung ab 75 %, Notbereinigung ab 85 % (älteste Indizes der Kategorien mit niedrigster Priorität zuerst; `audit` und `alerts` zuletzt), jede Löschung im Audit-Log + Alert.
   - **Retention-Plausibilisierung**: UI berechnet aus gemessenem Tagesvolumen je Kategorie den Speicherbedarf und verhindert unrealistische Einstellungen.
-- Snapshots: täglich lokal (`opensearch-snapshots`), optional SMB/NFS-Ziel.
+- Snapshots: täglich lokal (`opensearch-snapshots`, 7 Stück), optional SMB/NFS-Ziel.
+- **Wartungsjobs (Phase 4.7):** nächtliches Fenster 02:00–04:00: Sicherung der Config-DB (`VACUUM INTO` mit Prüfung der Kopie, 14 Stück), OpenSearch-Snapshot (nicht bei knappem Speicher), sonntags Integritätsprüfung der Config-DB. Zustand und letzter Lauf im Web-UI (System → Wartung), manueller Start möglich; Fehler und jede Notlöschung stehen im Audit-Log (E-Mail/Teams-Alarm mit der Alert-Engine in Phase 5). Index-Pflege übernimmt ISM (Hot → Warm mit `force_merge` auf 1 Segment → Löschen); ein eigener Indizierungsjob ist nicht nötig.
 
 ### 4.6 Switches
 

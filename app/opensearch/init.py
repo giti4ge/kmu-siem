@@ -295,11 +295,15 @@ def security(client: OS, jwt_key_b64: str, kibanaserver_password: str,
             "cluster_permissions": [
                 "cluster_monitor", "cluster_composite_ops_ro",
                 "cluster:admin/opendistro/ism/policy/*", "cluster:admin/opendistro/ism/managedindex/*",
+                # Wartung: lokale Snapshots verwalten
+                "cluster:admin/repository/*", "cluster:admin/snapshot/*",
             ],
             "index_permissions": [
                 {"index_patterns": ["siem-*"],
                  "allowed_actions": ["read", "indices_monitor", "indices:admin/mappings/get",
                                      "indices:admin/resolve/index"]},
+                # Plattenwächter: Notbereinigung löscht Indizes (Reihenfolge und Grenzen im Code der API)
+                {"index_patterns": ["siem-*"], "allowed_actions": ["indices:admin/delete"]},
                 {"index_patterns": ["siem-alerts-*", "siem-audit-*"],
                  "allowed_actions": ["crud", "create_index", "indices:admin/mapping/put"]},
             ],

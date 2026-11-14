@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -11,10 +12,12 @@ from fastapi.responses import JSONResponse
 
 from . import __version__
 from . import fortigate as fortigate_mod
+from . import maintenance as maintenance_mod
 from .audit import AuditLog
 from .config import Settings, get_settings
 from .db import Database, migrate
 from .deps import AppState
+from .opensearch import OpenSearchClient
 from .routers import (
     assets,
     audit,
@@ -33,6 +36,7 @@ from .routers import (
 from .routers import (
     fortigate as fortigate_router,
 )
+from .routers import maintenance as maintenance_router
 from .routers import sophos as sophos_router
 from .security import rbac
 from .security.keys import KeyRing
@@ -53,17 +57,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     forti_store = fortigate_mod.Store(settings.secrets_dir, keys.master_key)
     forti_poller = fortigate_mod.Poller(forti_store)
 
+    db_file = database.engine.url.database if database.engine.url.get_backend_name() == "sqlite" else None
+
+    def maint_report(action: str, outcome: str, details: dict) -> None:
+        with database.sessionmaker() as sess:
+            app.state.siem.audit.append(sess, actor="system", action=action, target="maintenance",
+                                        outcome=outcome, ip="", details=details)
+
+    maintenance = maintenance_mod.Scheduler(
+        db_path=Path(db_file) if db_file else None, backup_dir=settings.backup_dir,
+        client=OpenSearchClient(settings.opensearch_url, settings.secrets_dir), report=maint_report)
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         # Sophos-Abruf im Hintergrund (nur wenn aktiviert); in Tests per SIEM_SOPHOS_POLL=0 abschaltbar
         if os.environ.get("SIEM_SOPHOS_POLL", "1") != "0":
             poller.start()
             forti_poller.start()
+            maintenance.start()
         yield
         poller.stop.set()
         poller.trigger.set()
         forti_poller.stop.set()
         forti_poller.trigger.set()
+        maintenance.stop.set()
 
     app = FastAPI(title="KMU-SIEM API", version=__version__, docs_url=None, redoc_url=None, openapi_url=None,
                   lifespan=lifespan)
@@ -71,6 +88,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sophos_poller = poller
     app.state.forti_store = forti_store
     app.state.forti_poller = forti_poller
+    app.state.maintenance = maintenance
     app.state.siem = AppState(settings=settings, db=database, keys=keys,
                               audit=AuditLog(keys.audit_key, keys.audit_head_file))
 
@@ -90,7 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
                    logs.router, linux.router, retention.router, sophos_router.router, changes.router,
-                   snmp.router, switches.router, assets.router, fortigate_router.router):
+                   snmp.router, maintenance_router.router, switches.router, assets.router, fortigate_router.router):
         app.include_router(router)
     return app
 

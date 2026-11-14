@@ -21,6 +21,7 @@
     "snmp": "SNMP traps",
     "sophos": "Sophos Central",
     "retention": "Retention",
+    "maintenance": "Maintenance",
     "devices": "Devices",
     "unparsed": "Unrecognized sources"
   },
@@ -351,6 +352,23 @@
     "download": "Download script",
     "step2": "2. Run on the server",
     "step2_text": "Run as root. The script installs rsyslog with the TLS module, stores the CA certificate, sets up forwarding and sends a test message. Then add the server under Devices with type “Linux server” or wait for auto-detection."
+  },
+  "maintenance": {
+    "title": "Maintenance",
+    "intro": "Disk guard every 5 minutes (warning at {{warn}} %, emergency cleanup at {{emergency}} %); backups and snapshots at night between {{start}}:00 and {{end}}:00.",
+    "job": "Job",
+    "last": "Last run",
+    "result": "Result",
+    "never": "not run yet",
+    "ok": "OK",
+    "failed": "Failed",
+    "run": "Run now",
+    "jobs": {
+      "guard": "Disk guard",
+      "db_backup": "Configuration database backup",
+      "db_integrity": "Integrity check (weekly)",
+      "snapshot": "OpenSearch snapshot"
+    }
   },
   "retention": {
     "title": "Retention per category",
