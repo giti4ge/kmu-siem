@@ -3,19 +3,14 @@ name: VM-Test (frische Debian-13-VM)
 # Installiert auf einer frischen Debian-13-VM (QEMU) und prüft Preflight,
 # unbeaufsichtigte Installation, Resume, Repair sowie Varianten (interaktiv/Proxy/
 # ohne zweite Disk, Abbruch in jedem Schritt). Dauer ca. 20–40 Minuten.
+# Läuft nicht mehr bei jedem PR (Kosten/Zeit): wöchentlich (Sonntag 03:00 UTC), per Hand
+# (Actions → Run workflow) und bei Versions-Tags. Vor jedem Release und nach Änderungen an
+# host/ oder dem Container-Stack bitte per Hand starten. Schnelle Prüfungen laufen weiter in ci.yml.
 on:
-  pull_request:
-    paths:
-      - "host/**"
-      - "app/**"
-      - "tests/vm/**"
-      - ".github/workflows/vm-test.yml"
+  schedule:
+    - cron: "0 3 * * 0"
   push:
-    branches: [main]
-    paths:
-      - "host/**"
-      - "app/**"
-      - "tests/vm/**"
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
