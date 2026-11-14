@@ -32,6 +32,8 @@ BRIDGE_FDB_PORT = "1.3.6.1.2.1.17.4.3.1.2"
 BRIDGE_PORT_IFINDEX = "1.3.6.1.2.1.17.1.4.1.2"
 FDB_EVERY = 5  # Zyklen (= 5 min bei 60 s)
 MAX_FDB = 4096
+UPLINK_MACS = 8  # Ports mit mehr gelernten MACs gelten als Uplink/Trunk und liefern keine Asset-Ereignisse
+ASSET_REFRESH_SECONDS = 3600
 STATUS = {1: "up", 2: "down", 3: "testing", 4: "unknown", 5: "dormant", 6: "notPresent", 7: "lowerLayerDown"}
 
 
@@ -109,6 +111,36 @@ def fdb_event(target: dict[str, Any], entries: list[dict[str, Any]], now: dateti
     return ev
 
 
+def asset_events(target: dict[str, Any], entries: list[dict[str, Any]],
+                 known: dict[tuple[str, int], tuple[int, float]], now: datetime) -> list[dict[str, Any]]:
+    """Asset-Ereignisse für Endgeräte-Ports (neu, Portwechsel, stündlich); ``known`` wird fortgeschrieben."""
+    per_port: dict[int, int] = {}
+    for e in entries:
+        per_port[e["if_index"]] = per_port.get(e["if_index"], 0) + 1
+    out = []
+    ts = now.timestamp()
+    for e in entries:
+        if per_port[e["if_index"]] > UPLINK_MACS:
+            continue
+        key = (e["mac"], e["vlan"])
+        prev = known.get(key)
+        if prev and prev[0] == e["if_index"] and ts - prev[1] < ASSET_REFRESH_SECONDS:
+            continue
+        ev = _base(target, now)
+        ev["siem"]["category"] = "asset"
+        moved = bool(prev) and prev[0] != e["if_index"]
+        ev["event"].update({"dataset": "asset.mac", "action": "asset-moved" if moved else "asset-seen",
+                            "category": ["host"]})
+        ev["source"] = {"mac": e["mac"]}
+        if e["vlan"] > 0:
+            ev["network"] = {"vlan": {"id": str(e["vlan"])}}
+        ev["observer"]["ingress"] = {"interface": {"name": e["port"]}}
+        ev["message"] = f"MAC {e['mac']} an {target.get('name') or target['ip']} Port {e['port']}"
+        out.append(ev)
+        known[key] = (e["if_index"], ts)
+    return out
+
+
 def _base(target: dict[str, Any], now: datetime) -> dict[str, Any]:
     return {
         "@timestamp": now.isoformat().replace("+00:00", "Z"),
@@ -165,6 +197,7 @@ class Tracker:
         self.fails: dict[str, int] = {}
         self.alarmed: set[str] = set()
         self.cycles: dict[str, int] = {}
+        self.known: dict[str, dict[tuple[str, int], tuple[int, float]]] = {}
 
     async def poll_once(self, target: dict[str, Any], session: Session,
                         now: datetime | None = None) -> list[dict[str, Any]]:
@@ -186,6 +219,7 @@ class Tracker:
                 fdb = await asyncio.wait_for(collect_fdb(session, data["interfaces"]), 45)
                 if fdb:  # Geräte ohne (lesbare) BRIDGE-MIB liefern keine FDB-Ereignisse
                     out.append(fdb_event(target, fdb, now))
+                    out.extend(asset_events(target, fdb, self.known.setdefault(ip, {}), now))
             except Exception as exc:  # noqa: BLE001 – Gerät ohne BRIDGE-MIB: Status bleibt gültig
                 log.info("Ziel %s: keine FDB (%s)", ip, type(exc).__name__)
         self.ports[ip] = {i["index"]: i["oper"] for i in data["interfaces"]}

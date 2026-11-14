@@ -193,6 +193,7 @@
     "dashboard": "Dashboard",
     "alerts": "Alerts",
     "logs": "Log explorer",
+    "assets": "Asset center",
     "switches": "Switch ports",
     "assets": "Assets",
     "sources": "Sources",
@@ -471,6 +472,23 @@
       "notPresent": "not present",
       "lowerLayerDown": "lower layer down"
     }
+  },
+  "assets": {
+    "title": "Asset center",
+    "intro": "End devices seen on the switches polled via SNMP (end-device ports only, uplinks excluded).",
+    "period": "Period",
+    "days": "{{count}} days",
+    "search": "Search (MAC, switch, port, VLAN)",
+    "count": "{{count}} devices",
+    "empty": "No devices yet. Requires SNMP polling targets with a readable MAC table.",
+    "mac": "MAC address",
+    "switch": "Switch",
+    "port": "Port",
+    "vlan": "VLAN",
+    "first_seen": "First seen",
+    "last_seen": "Last seen",
+    "new": "new",
+    "truncated": "Result truncated – shorten the period."
   },
   "unparsed": {
     "title": "Unrecognized sources",

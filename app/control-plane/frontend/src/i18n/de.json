@@ -193,6 +193,7 @@
     "dashboard": "Dashboard",
     "alerts": "Alarme",
     "logs": "Log-Explorer",
+    "assets": "Asset-Center",
     "switches": "Switch-Ports",
     "assets": "Assets",
     "sources": "Quellen",
@@ -471,6 +472,23 @@
       "notPresent": "nicht vorhanden",
       "lowerLayerDown": "Unterschicht aus"
     }
+  },
+  "assets": {
+    "title": "Asset-Center",
+    "intro": "Endgeräte, die an den per SNMP abgefragten Switches gesehen wurden (nur Endgeräte-Ports, Uplinks sind ausgenommen).",
+    "period": "Zeitraum",
+    "days": "{{count}} Tage",
+    "search": "Suche (MAC, Switch, Port, VLAN)",
+    "count": "{{count}} Geräte",
+    "empty": "Noch keine Geräte. Voraussetzung: SNMP-Abfrageziele mit lesbarer MAC-Tabelle.",
+    "mac": "MAC-Adresse",
+    "switch": "Switch",
+    "port": "Port",
+    "vlan": "VLAN",
+    "first_seen": "Erstmals gesehen",
+    "last_seen": "Zuletzt gesehen",
+    "new": "neu",
+    "truncated": "Ergebnis gekürzt – bitte Zeitraum verkürzen."
   },
   "unparsed": {
     "title": "Nicht erkannte Quellen",

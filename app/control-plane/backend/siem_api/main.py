@@ -14,7 +14,7 @@ from .audit import AuditLog
 from .config import Settings, get_settings
 from .db import Database, migrate
 from .deps import AppState
-from .routers import audit, auth, changes, devices, linux, logs, retention, snmp, switches, system, users, wec
+from .routers import assets, audit, auth, changes, devices, linux, logs, retention, snmp, switches, system, users, wec
 from .routers import sophos as sophos_router
 from .security import rbac
 from .security.keys import KeyRing
@@ -65,7 +65,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
                    logs.router, linux.router, retention.router, sophos_router.router, changes.router,
-                   snmp.router, switches.router):
+                   snmp.router, switches.router, assets.router):
         app.include_router(router)
     return app
 

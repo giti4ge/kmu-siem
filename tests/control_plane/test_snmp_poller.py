@@ -58,11 +58,28 @@ def test_fdb_qbridge_and_fallback_and_schedule():
     fb = {sp.BRIDGE_PORT_IFINDEX: {"1": "1"}, sp.BRIDGE_FDB_PORT: {"0.17.34.1.2.3": "1"}}
     tr = sp.Tracker()
     first = run(tr.poll_once(TARGET, FakeSession(fdb=fb), NOW))
-    assert [e["event"]["dataset"] for e in first] == ["snmp.device", "snmp.fdb"]
+    assert [e["event"]["dataset"] for e in first] == ["snmp.device", "snmp.fdb", "asset.mac"]
     assert first[1]["snmp"]["fdb"]["entries"] == [{"mac": "00:11:22:01:02:03", "vlan": 0, "if_index": 1, "port": "Gi1/0/1"}]
     for _ in range(sp.FDB_EVERY - 1):
         assert [e["event"]["dataset"] for e in run(tr.poll_once(TARGET, FakeSession(fdb=fb), NOW))] == ["snmp.device"]
-    assert "snmp.fdb" in [e["event"]["dataset"] for e in run(tr.poll_once(TARGET, FakeSession(fdb=fb), NOW))]
+    again = run(tr.poll_once(TARGET, FakeSession(fdb=fb), NOW))
+    assert "asset.mac" not in [e["event"]["dataset"] for e in again]  # unverändert und frisch → keine Wiederholung
+    assert "snmp.fdb" in [e["event"]["dataset"] for e in again]
+
+
+def test_asset_events_new_moved_refresh_and_uplink_skipped():
+    known: dict = {}
+    e = [{"mac": "00:11:22:01:02:03", "vlan": 10, "if_index": 1, "port": "Gi1"}]
+    first = sp.asset_events(TARGET, e, known, NOW)
+    assert len(first) == 1 and first[0]["siem"]["category"] == "asset" and first[0]["event"]["action"] == "asset-seen"
+    assert first[0]["source"]["mac"] == "00:11:22:01:02:03" and first[0]["network"]["vlan"]["id"] == "10"
+    assert sp.asset_events(TARGET, e, known, NOW) == []
+    moved = sp.asset_events(TARGET, [dict(e[0], if_index=2, port="Gi2")], known, NOW)
+    assert moved[0]["event"]["action"] == "asset-moved"
+    later = datetime.fromtimestamp(NOW.timestamp() + sp.ASSET_REFRESH_SECONDS + 1, UTC)
+    assert len(sp.asset_events(TARGET, [dict(e[0], if_index=2, port="Gi2")], known, later)) == 1
+    uplink = [{"mac": f"00:00:00:00:00:{i:02x}", "vlan": 1, "if_index": 9, "port": "Gi9"} for i in range(sp.UPLINK_MACS + 1)]
+    assert sp.asset_events(TARGET, uplink, {}, NOW) == []
 
 
 def test_status_event_and_port_change():
