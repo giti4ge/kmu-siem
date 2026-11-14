@@ -9,8 +9,10 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-"tests/**" = ["E501"]  # erwartete Ausgaben dürfen lang sein
+"tests/**" = ["E501", "S106", "S603", "S607"]  # erwartete Ausgaben, Testkennwörter, sh -n im Test
 "app/control-plane/backend/siem_api/wec.py" = ["E501"]  # PowerShell-Vorlage und XPath-Abfragen
+"app/control-plane/backend/siem_api/linux_onboarding.py" = ["E501"]  # Shell-Vorlage
+"app/control-plane/backend/siem_api/sophos.py" = ["E501"]  # API-Pfade und Feldlisten
 
 [lint.flake8-bugbear]
 # FastAPI-Abhängigkeiten in Standardwerten sind das vorgesehene Muster

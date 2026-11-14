@@ -135,5 +135,6 @@ def put_retention(body: RetentionIn, request: Request, db: DbSession = Depends(g
         raise error(status.HTTP_503_SERVICE_UNAVAILABLE, "opensearch_unavailable") from exc
     if changed:
         state(request).audit.append(db, actor=ctx.user.username, action="retention.set", target="ism", ip=ctx.ip,
-                                    details={"changed": {k: {"from": current.get(k), "to": v} for k, v in changed.items()}})
+                                    details={"changed": {k: {"from": current.get(k), "to": v}
+                                                         for k, v in changed.items()}})
     return _view(policies, per_day, total)
