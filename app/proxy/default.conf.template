@@ -3,6 +3,13 @@
 # Extern erreichbar ist nur Port 443 (per nftables auf 8443 umgeleitet); 8080 nur lokal.
 
 server_tokens off;
+
+# Eingangsschutz (je Quelladresse): Anfragerate, gleichzeitige Verbindungen, Anmeldeversuche, Timeouts gegen Slowloris
+limit_req_zone $binary_remote_addr zone=siem_api:10m rate=30r/s;
+limit_req_zone $binary_remote_addr zone=siem_login:10m rate=10r/m;
+limit_conn_zone $binary_remote_addr zone=siem_conn:10m;
+limit_req_status 429;
+limit_conn_status 429;
 more_clear_headers Server;
 
 # Nur lokal: Gesundheitsprüfung und Weiterleitung auf HTTPS
@@ -33,6 +40,11 @@ server {
     add_header Cross-Origin-Opener-Policy "same-origin" always;
 
     client_max_body_size 10m;
+    limit_conn siem_conn 100;
+    client_header_timeout 15s;
+    client_body_timeout 15s;
+    send_timeout 30s;
+    keepalive_timeout 30s;
 
     # Gesundheitsprüfung für externes Monitoring (ohne Anmeldung, ohne Details)
     location = /health {
@@ -46,8 +58,21 @@ server {
         return 404;
     }
 
+    # Anmeldung: strenger begrenzt (zusätzlich zur Kontosperre der API)
+    location = /api/auth/login {
+        limit_req zone=siem_login burst=10 nodelay;
+        proxy_pass ${BACKEND};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 60s;
+        client_max_body_size 1m;
+    }
+
     # REST-API der Control-Plane
     location /api/ {
+        limit_req zone=siem_api burst=60 nodelay;
         proxy_pass ${BACKEND};
         proxy_http_version 1.1;
         proxy_set_header Host $host;

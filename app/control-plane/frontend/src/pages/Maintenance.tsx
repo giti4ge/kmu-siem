@@ -11,6 +11,41 @@ type Data = {
   keep: { db_backups: number; snapshots: number };
 };
 
+async function downloadDiagnostics() {
+  const pkg = await api<unknown>("GET", "/api/system/diagnostics");
+  const url = URL.createObjectURL(new Blob([JSON.stringify(pkg, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `diagnose-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+type Upd = { current: string; config: { repo: string; channel: string; has_token: boolean; last_check: string | null; latest: { version: string; name: string; notes: string; url: string } | null } };
+
+function Updates({ canWrite }: { canWrite: boolean }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["updates"], queryFn: () => api<Upd>("GET", "/api/updates") });
+  const check = useMutation({ mutationFn: () => api("POST", "/api/updates/check"), onSettled: () => qc.invalidateQueries({ queryKey: ["updates"] }) });
+  const d = q.data;
+  return (
+    <section className="card mt-4">
+      <h2 className="mb-1 font-medium">{t("maintenance.upd_title")}</h2>
+      <ErrorBox error={q.error ?? check.error} />
+      <p className="text-sm">{t("maintenance.upd_current", { version: d?.current ?? "" })} ({d?.config.channel}, {d?.config.repo})</p>
+      {d?.config.latest ? (
+        <div className="mt-1 rounded bg-green-50 p-2 text-sm">
+          <strong>{t("maintenance.upd_available", { version: d.config.latest.version })}</strong>
+          <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap text-xs">{d.config.latest.notes}</pre>
+          <p className="mt-1 text-xs text-slate-600">{t("maintenance.upd_howto")}</p>
+        </div>
+      ) : d?.config.last_check ? <p className="text-sm text-slate-600">{t("maintenance.upd_uptodate")}</p> : null}
+      {canWrite && <button className="btn-secondary mt-2" disabled={check.isPending} onClick={() => check.mutate()}>{t("maintenance.upd_check")}</button>}
+    </section>
+  );
+}
+
 const JOBS = ["guard", "db_backup", "db_integrity", "snapshot"];
 
 function summary(job: string, d: unknown): string {
@@ -67,6 +102,12 @@ export default function MaintenancePage({ canWrite }: { canWrite: boolean }) {
           </tbody>
         </table>
       </section>
+      <section className="card mt-4">
+        <h2 className="mb-1 font-medium">{t("maintenance.diag_title")}</h2>
+        <p className="mb-2 text-sm text-slate-600">{t("maintenance.diag_intro")}</p>
+        <button className="btn" onClick={() => downloadDiagnostics()}>{t("maintenance.diag_button")}</button>
+      </section>
+      <Updates canWrite={canWrite} />
     </div>
   );
 }

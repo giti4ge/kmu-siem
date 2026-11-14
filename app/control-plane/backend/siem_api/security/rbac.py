@@ -35,6 +35,7 @@ SECURITY_ANALYST = "security-analyst"
 AUDITOR = "auditor"
 PRIVACY_OFFICER = "privacy-officer"
 REPORT_RECIPIENT = "report-recipient"
+MANAGEMENT = "management"
 
 # Vordefinierte Rollen. Der System-Admin hat bewusst KEIN "approve": Freigaben im
 # Datenschutzmodus erteilen DSB/Betriebsrat, nicht der Administrator selbst.
@@ -60,6 +61,11 @@ BUILTIN_ROLES: dict[str, dict] = {
         "mfa_required": False,
         "permissions": ["privacy:read", "privacy:approve", "logs:approve", "alerts:approve",
                         "archive:approve", "audit:read", "reports:read"],
+    },
+    MANAGEMENT: {
+        "description": "Management/Geschäftsführung: Kennzahlen im Dashboard und Reports (reduzierte Sicht)",
+        "mfa_required": False,
+        "permissions": ["dashboard:read", "reports:read"],
     },
     REPORT_RECIPIENT: {
         "description": "Nur Reports lesen",

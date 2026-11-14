@@ -36,14 +36,19 @@ sources:
     type: syslog
     mode: udp
     address: "0.0.0.0:10514"
+    max_length: 65536
   syslog_tcp:
     type: syslog
     mode: tcp
     address: "0.0.0.0:10514"
+    max_length: 65536
+    connection_limit: 500
   syslog_tls:
     type: syslog
     mode: tcp
     address: "0.0.0.0:6514"
+    max_length: 65536
+    connection_limit: 500
     tls:
       enabled: true
       crt_file: /etc/vector/certs/syslog.crt
@@ -55,6 +60,8 @@ sources:
     address: "127.0.0.1:10600"
     framing:
       method: newline_delimited
+      newline_delimited:
+        max_length: 1048576
     decoding:
       codec: json
 
@@ -94,9 +101,19 @@ transforms:
 
   # Gerätetyp bestimmen: 1. Geräteliste (Quell-IP → Typ, vom Config-Generator gerendert),
   # 2. Auto-Detect am Inhalt (nur eindeutige Formate), sonst leer → generischer Parser.
+  # Eingangsschutz: höchstens 1000 Ereignisse/s je Absenderadresse; Überschuss wird verworfen (und nicht gespeichert)
+  throttle_source:
+    type: throttle
+    inputs: ["syslog_*"]
+    key_field: "{{ source_ip }}"
+    threshold: 1000
+    window_secs: 1
+    internal_metrics:
+      emit_events_discarded_per_key: true
+
   detect:
     type: remap
-    inputs: ["syslog_*"]
+    inputs: ["throttle_source"]
     source: |
       dt = ""
       rec, err = get_enrichment_table_record("devices", {"ip": string(.source_ip) ?? ""})

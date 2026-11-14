@@ -15,6 +15,17 @@ ignore = [
 "app/control-plane/backend/siem_api/sophos.py" = ["E501"]  # API-Pfade und Feldlisten
 "app/control-plane/backend/siem_api/fortigate.py" = ["E501"]  # API-Pfade und Ereignisaufbau
 "app/control-plane/backend/siem_api/snmp_config.py" = ["E501"]  # Zuordnung verschlüsselter Felder
+"app/control-plane/backend/siem_api/alerts.py" = ["E501"]  # Regeltexte
+"app/control-plane/backend/siem_api/dashboard.py" = ["E501"]
+"app/control-plane/backend/siem_api/ai.py" = ["E501"]
+"app/control-plane/backend/siem_api/updates.py" = ["E501"]
+"app/control-plane/backend/siem_api/reports.py" = ["E501"]
+"app/control-plane/backend/siem_api/routers/reports.py" = ["E501"]
+"app/control-plane/backend/siem_api/active_response.py" = ["E501"]
+"app/control-plane/backend/siem_api/routers/ar.py" = ["E501"]
+"app/control-plane/backend/siem_api/routers/ai.py" = ["E501"]
+"app/control-plane/backend/siem_api/routers/alerts.py" = ["E501"]
+"app/control-plane/backend/siem_api/main.py" = ["E501"]
 
 [lint.flake8-bugbear]
 # FastAPI-Abhängigkeiten in Standardwerten sind das vorgesehene Muster

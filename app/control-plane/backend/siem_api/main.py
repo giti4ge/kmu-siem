@@ -11,13 +11,25 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from . import __version__
+from . import active_response as ar_mod
+from . import ai as ai_mod
+from . import alerts as alerts_mod
 from . import fortigate as fortigate_mod
 from . import maintenance as maintenance_mod
+from . import notify as notify_mod
+from . import updates as updates_mod
 from .audit import AuditLog
 from .config import Settings, get_settings
 from .db import Database, migrate
 from .deps import AppState
 from .opensearch import OpenSearchClient
+from .routers import (
+    ai as ai_router,
+)
+from .routers import (
+    alerts as alerts_router,
+)
+from .routers import ar as ar_router
 from .routers import (
     assets,
     audit,
@@ -33,11 +45,16 @@ from .routers import (
     users,
     wec,
 )
+from .routers import dashboard as dashboard_router
 from .routers import (
     fortigate as fortigate_router,
 )
 from .routers import maintenance as maintenance_router
+from .routers import notify as notify_router
+from .routers import reports as reports_router
+from .routers import setup as setup_router
 from .routers import sophos as sophos_router
+from .routers import updates as updates_router
 from .security import rbac
 from .security.keys import KeyRing
 from .sophos import Poller, Store
@@ -64,6 +81,26 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             app.state.siem.audit.append(sess, actor="system", action=action, target="maintenance",
                                         outcome=outcome, ip="", details=details)
 
+    alert_store = alerts_mod.RuleStore(settings.secrets_dir / "rules.json")
+    notify_store = notify_mod.Store(settings.secrets_dir, keys.master_key)
+    ai_store = ai_mod.Store(settings.secrets_dir, keys.master_key)
+    update_store = updates_mod.Store(settings.secrets_dir, keys.master_key)
+    ar_store = ar_mod.Store(settings.secrets_dir, keys.master_key)
+    ar_expirer = ar_mod.Expirer(ar_store, forti_store)
+
+    def on_alert(alert: dict) -> None:
+        notify_mod.dispatch(notify_store, alert)
+        ip = ar_mod.auto_candidate(alert)
+        if ip and ar_store.config()["auto"]:
+            try:
+                entry = ar_mod.block(ar_store, forti_store, ip, None, alert["rule"]["name"], "automatisch", auto=True)
+                maint_report("ar.auto_block", "success", {"ip": entry["ip"], "until": entry["until"]})
+            except ar_mod.ARError as exc:
+                maint_report("ar.auto_block", "failure", {"ip": ip, "error": exc.code})
+
+    alert_engine = alerts_mod.Engine(OpenSearchClient(settings.opensearch_url, settings.secrets_dir), alert_store,
+                                     notify=on_alert)
+
     maintenance = maintenance_mod.Scheduler(
         db_path=Path(db_file) if db_file else None, backup_dir=settings.backup_dir,
         client=OpenSearchClient(settings.opensearch_url, settings.secrets_dir), report=maint_report)
@@ -75,12 +112,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             poller.start()
             forti_poller.start()
             maintenance.start()
+            alert_engine.start()
+            ar_expirer.start()
         yield
         poller.stop.set()
         poller.trigger.set()
         forti_poller.stop.set()
         forti_poller.trigger.set()
         maintenance.stop.set()
+        alert_engine.stop.set()
+        ar_expirer.stop.set()
 
     app = FastAPI(title="KMU-SIEM API", version=__version__, docs_url=None, redoc_url=None, openapi_url=None,
                   lifespan=lifespan)
@@ -89,6 +130,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.forti_store = forti_store
     app.state.forti_poller = forti_poller
     app.state.maintenance = maintenance
+    app.state.alert_store = alert_store
+    app.state.notify_store = notify_store
+    app.state.ai_store = ai_store
+    app.state.update_store = update_store
+    app.state.ar_store = ar_store
+    app.state.alert_engine = alert_engine
     app.state.siem = AppState(settings=settings, db=database, keys=keys,
                               audit=AuditLog(keys.audit_key, keys.audit_head_file))
 
@@ -108,7 +155,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
                    logs.router, linux.router, retention.router, sophos_router.router, changes.router,
-                   snmp.router, maintenance_router.router, switches.router, assets.router, fortigate_router.router):
+                   snmp.router, maintenance_router.router, alerts_router.router, updates_router.router, setup_router.router, reports_router.router, ar_router.router, ai_router.router, dashboard_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
         app.include_router(router)
     return app
 

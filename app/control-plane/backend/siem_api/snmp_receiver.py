@@ -14,6 +14,7 @@ import logging
 import os
 import socket
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -74,6 +75,34 @@ def trap_event(source_ip: str, varbinds: list[tuple[str, str]], now: datetime | 
     return ev
 
 
+TRAPS_PER_SECOND = 100  # je Absenderadresse (Token-Bucket, Burst = 2 s)
+
+
+class RateLimiter:
+    """Token-Bucket je Absenderadresse; verworfene Traps werden gezählt und höchstens einmal je Minute gemeldet."""
+
+    def __init__(self, rate: float, clock=time.monotonic, max_keys: int = 4096) -> None:
+        self.rate, self.clock, self.max_keys = rate, clock, max_keys
+        self.buckets: dict[str, tuple[float, float]] = {}
+        self.dropped = 0
+        self._last_report = clock()
+
+    def allow(self, key: str) -> bool:
+        now = self.clock()
+        tokens, last = self.buckets.get(key, (self.rate * 2, now))
+        tokens = min(self.rate * 2, tokens + (now - last) * self.rate)
+        if len(self.buckets) >= self.max_keys and key not in self.buckets:
+            self.buckets.clear()  # Schutz vor Speicherwachstum durch gefälschte Absender
+        ok = tokens >= 1
+        self.buckets[key] = (tokens - 1 if ok else tokens, now)
+        if not ok:
+            self.dropped += 1
+            if now - self._last_report >= 60:
+                log.warning("SNMP: %d Traps wegen Überlast verworfen (letzte Quelle %s)", self.dropped, key)
+                self._last_report = now
+        return ok
+
+
 def send_to_vector(event: dict[str, Any], addr: tuple[str, int] = VECTOR_ADDR) -> None:
     try:
         with socket.create_connection(addr, timeout=5) as s:
@@ -115,8 +144,12 @@ async def run(secrets_dir: Path, master_key: bytes, listen: tuple[str, int] = LI
 
     eng.observer.register_observer(on_receive, "rfc3412.receiveMessage:request")
 
+    limiter = RateLimiter(TRAPS_PER_SECOND)
+
     def on_trap(snmp_engine, state_ref, ctx_engine_id, ctx_name, var_binds, _ctx):
         _, addr = snmp_engine.message_dispatcher.get_transport_info(state_ref)
+        if not limiter.allow(str(addr[0])):
+            return  # Überlast einer Quelle: verwerfen (Zähler, Meldung höchstens einmal je Minute)
         model, name = sec_info.pop(tuple(addr), (2, ""))
         vbs = [(str(n.prettyPrint()), str(v.prettyPrint())) for n, v in var_binds]
         send(trap_event(str(addr[0]), vbs, version="v3" if model == 3 else "v2c", user=name if model == 3 else None))
