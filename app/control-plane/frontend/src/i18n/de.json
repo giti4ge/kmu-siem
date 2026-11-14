@@ -16,6 +16,7 @@
     "dashboards": "Tiefenanalyse (Dashboards)",
     "syslog": "System-Protokoll",
     "windows": "Windows-Anbindung",
+    "linux": "Linux-Anbindung",
     "devices": "Geräte",
     "unparsed": "Nicht erkannte Quellen"
   },
@@ -94,6 +95,8 @@
     "wec_keytab_principal": "Die Keytab enthält nicht den erwarteten Prinzipal HTTP/<FQDN>@<REALM>.",
     "wec_not_configured": "Bitte zuerst Domäne und FQDN speichern.",
     "wec_storage_unavailable": "Die Konfiguration konnte nicht gespeichert werden.",
+    "linux_invalid_server": "Ungültige Serveradresse.",
+    "linux_ca_unavailable": "Das CA-Zertifikat der Appliance ist nicht verfügbar.",
     "device_invalid_ip": "Ungültige IP-Adresse.",
     "device_invalid_name": "Ungültiger Name (Buchstaben, Ziffern, Leerzeichen, . _ -; höchstens 64 Zeichen).",
     "device_invalid_type": "Unbekannter Gerätetyp.",
@@ -280,6 +283,17 @@
       "synology": "Synology NAS (DSM)",
       "idrac": "Dell iDRAC"
     }
+  },
+  "linux": {
+    "title": "Linux-Server anbinden",
+    "intro": "Agentlos über rsyslog (Syslog-TLS, Port 6514) mit optionalen auditd-Regeln. Unterstützt Debian/Ubuntu, RHEL-Familie und SUSE.",
+    "step1": "1. Skript erzeugen",
+    "server": "Adresse der Appliance (aus Sicht der Server)",
+    "server_hint": "Hostname oder IP, die die Linux-Server erreichen können; Port 6514 muss in der Firewall für diese Server freigegeben sein.",
+    "audit": "auditd-Regeln einrichten (Benutzer, sudo, SSH, Konfigurationsdateien)",
+    "download": "Skript herunterladen",
+    "step2": "2. Auf dem Server ausführen",
+    "step2_text": "Als root ausführen. Das Skript installiert rsyslog mit TLS-Modul, hinterlegt das CA-Zertifikat, richtet die Weiterleitung ein und sendet eine Testmeldung. Danach den Server unter Geräte mit Typ „Linux-Server“ eintragen oder auf automatische Erkennung warten."
   },
   "unparsed": {
     "title": "Nicht erkannte Quellen",
