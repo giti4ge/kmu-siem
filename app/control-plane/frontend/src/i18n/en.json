@@ -28,7 +28,8 @@
     "ar": "Active response",
     "reports": "Reports",
     "devices": "Devices",
-    "unparsed": "Unrecognized sources"
+    "unparsed": "Unrecognized sources",
+    "archive": "Archive"
   },
   "common": {
     "save": "Save",
@@ -165,15 +166,41 @@
     "setup_title": "Setup",
     "setup_intro": "{{count}} required steps still open.",
     "optional": "(optional)",
-    "setup": {"notify": "Set up notifications (e-mail/Teams)", "devices": "Add log sources (device list)", "fortigate": "Connect FortiGate API", "windows": "Connect Windows servers (onboarding)", "retention": "Review retention per category", "backup": "Configuration backup is running", "ai": "Set up AI analysis", "ar": "Set up active response"},
+    "setup": {
+      "notify": "Set up notifications (e-mail/Teams)",
+      "devices": "Add log sources (device list)",
+      "fortigate": "Connect FortiGate API",
+      "windows": "Connect Windows servers (onboarding)",
+      "retention": "Review retention per category",
+      "backup": "Configuration backup is running",
+      "ai": "Set up AI analysis",
+      "ar": "Set up active response"
+    },
     "none": "No data.",
     "unavailable": "The event database is currently unreachable; figures are incomplete.",
     "disk": "Storage usage",
     "new_sources": "Unknown sources (24 h)",
-    "w": {"setup": "Setup", "areas": "Network status", "alerts": "Open alerts", "blocked": "Top attackers (blocked, 24 h)",
-          "logons": "Failed logons (24 h)", "volume": "Events per category (24 h)", "health": "System health"},
-    "area": {"perimeter": "Perimeter", "windows": "Windows/AD", "servers": "Servers", "network": "Network", "endpoints": "Endpoints"},
-    "state": {"ok": "OK", "warn": "Anomalies", "critical": "Critical"}
+    "w": {
+      "setup": "Setup",
+      "areas": "Network status",
+      "alerts": "Open alerts",
+      "blocked": "Top attackers (blocked, 24 h)",
+      "logons": "Failed logons (24 h)",
+      "volume": "Events per category (24 h)",
+      "health": "System health"
+    },
+    "area": {
+      "perimeter": "Perimeter",
+      "windows": "Windows/AD",
+      "servers": "Servers",
+      "network": "Network",
+      "endpoints": "Endpoints"
+    },
+    "state": {
+      "ok": "OK",
+      "warn": "Anomalies",
+      "critical": "Critical"
+    }
   },
   "users": {
     "new": "New user",
@@ -228,12 +255,10 @@
     "dashboard": "Dashboard",
     "alerts": "Alerts",
     "logs": "Log explorer",
-    "assets": "Asset center",
-    "switches": "Switch ports",
     "assets": "Assets",
+    "switches": "Port matrix",
     "sources": "Sources",
     "rules": "Rules & notification",
-    "switches": "Port matrix",
     "changes": "Change audit & FIM",
     "reports": "Reports",
     "archive": "Archive",
@@ -415,8 +440,17 @@
     "severity": "Severity",
     "threshold": "Threshold",
     "enabled": "Enabled",
-    "st": {"open": "open", "acknowledged": "acknowledged", "closed": "closed"},
-    "sev": {"low": "low", "medium": "medium", "high": "high", "critical": "critical"}
+    "st": {
+      "open": "open",
+      "acknowledged": "acknowledged",
+      "closed": "closed"
+    },
+    "sev": {
+      "low": "low",
+      "medium": "medium",
+      "high": "high",
+      "critical": "critical"
+    }
   },
   "notify": {
     "title": "Notifications",
@@ -451,7 +485,13 @@
     "limit": "Daily limit (tokens)",
     "anonymize": "Pseudonymization active for the custom endpoint",
     "used": "Used today: {{count}} tokens",
-    "prov": {"anthropic": "Anthropic", "gemini": "Google Gemini", "openai": "OpenAI-compatible", "azure": "Azure OpenAI", "custom": "Custom endpoint (outside the appliance)"},
+    "prov": {
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "openai": "OpenAI-compatible",
+      "azure": "Azure OpenAI",
+      "custom": "Custom endpoint (outside the appliance)"
+    },
     "forensics": "AI forensics",
     "forensics_intro": "Analyzes related events of a user, host or address. Every statement must be backed by events; unsupported statements are discarded.",
     "pivot": "Search by",
@@ -715,5 +755,40 @@
     "suggestion": "Suggestion: {{type}} ({{pct}} %)",
     "approve": "Approve",
     "ignore": "Ignore"
+  },
+  "archive": {
+    "title": "Tamper-evident archive",
+    "intro": "Every event is also written to hourly archive files. Completed hours are sealed (SHA-256, hash chain, signature); changes or deletions are detected by the verification.",
+    "category": "Category",
+    "files": "Files",
+    "size": "Size",
+    "sealed": "Sealed",
+    "last_sealed": "Last sealed",
+    "empty": "No archive files yet.",
+    "total": "Total: {{size}}",
+    "verify_title": "Integrity check",
+    "last_seal": "Last sealing",
+    "last_verify": "Last check",
+    "ok": "OK",
+    "failed": "failed",
+    "problems": "{{n}} problems",
+    "since": "From",
+    "until": "To",
+    "verify": "Check now",
+    "seal": "Seal now",
+    "result_ok": "Archive unchanged ({{n}} files checked).",
+    "result_bad": "{{n}} problems found – archive may have been tampered with.",
+    "key_title": "Public key",
+    "key_intro": "Seals are signed with {{alg}}. A third party can verify the seals independently with this public key.",
+    "p": {
+      "file_modified": "file modified",
+      "file_missing": "file missing",
+      "chain_broken": "seal chain broken",
+      "seal_modified": "seal modified",
+      "signature_invalid": "invalid signature",
+      "unsealed_old": "unsealed for a long time",
+      "seal_log_corrupt": "seal log corrupt",
+      "seal_malformed": "seal malformed"
+    }
   }
 }

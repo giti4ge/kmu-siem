@@ -15,6 +15,7 @@ import LinuxPage from "./pages/Linux";
 import ActiveResponsePage from "./pages/ActiveResponse";
 import AlertsPage from "./pages/Alerts";
 import ForensicsPage from "./pages/Forensics";
+import ArchivePage from "./pages/Archive";
 import MaintenancePage from "./pages/Maintenance";
 import NotificationsPage from "./pages/Notifications";
 import ReportsPage from "./pages/Reports";
@@ -57,6 +58,7 @@ const NAV = [
   { to: "/sources/snmp", key: "nav.snmp", perm: "sources:read" },
   { to: "/sources/sophos", key: "nav.sophos", perm: "sources:read" },
   { to: "/system/retention", key: "nav.retention", perm: "privacy:read" },
+  { to: "/system/archive", key: "nav.archive", perm: "archive:read" },
   { to: "/system/maintenance", key: "nav.maintenance", perm: "system:read" },
   { to: "/system/notifications", key: "nav.notifications", perm: "system:read" },
   { to: "/alerts", key: "nav.alerts", perm: "alerts:read" },
@@ -144,6 +146,7 @@ function Shell({ me }: { me: Me }) {
             {can("reports:read") && <Route path="/reports" element={<ReportsPage />} />}
             {can("alerts:read") && <Route path="/alerts" element={<AlertsPage canWrite={can("alerts:write")} canRules={can("rules:read")} />} />}
             {can("system:read") && <Route path="/system/notifications" element={<NotificationsPage canWrite={can("system:write")} />} />}
+            {can("archive:read") && <Route path="/system/archive" element={<ArchivePage canWrite={can("archive:write")} />} />}
             {can("system:read") && <Route path="/system/maintenance" element={<MaintenancePage canWrite={can("system:write")} />} />}
             {can("privacy:read") && <Route path="/system/retention" element={<RetentionPage canWrite={can("privacy:write")} />} />}
             {can("sources:read") && <Route path="/sources/fortigate" element={<FortigatePage canWrite={can("sources:write")} />} />}
