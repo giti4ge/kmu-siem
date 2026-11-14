@@ -197,6 +197,7 @@
     "assets": "Assets",
     "sources": "Sources",
     "rules": "Rules & notification",
+    "switches": "Port matrix",
     "changes": "Change audit & FIM",
     "reports": "Reports",
     "archive": "Archive",
@@ -438,6 +439,32 @@
     "aes256": "AES-256",
     "keys_hint": "Empty key fields keep the stored key.",
     "saved": "Saved – the receiver picks up the change."
+  },
+  "switches": {
+    "title": "Port matrix",
+    "intro": "Interface status of devices polled via SNMP (updated every minute).",
+    "empty": "No data yet. Add polling targets under Sources → SNMP traps → Polling targets.",
+    "stale_short": "stale",
+    "stale": "No current data since",
+    "last_seen": "Last poll",
+    "ports": "Ports",
+    "legend": "Green: up · grey: down · dashed: administratively disabled.",
+    "port": "Port",
+    "admin": "Admin",
+    "oper": "Operational",
+    "speed": "Speed",
+    "errors_in": "Errors in",
+    "errors_out": "Errors out",
+    "mbps": "Mbit/s",
+    "state": {
+      "up": "up",
+      "down": "down",
+      "testing": "testing",
+      "unknown": "unknown",
+      "dormant": "dormant",
+      "notPresent": "not present",
+      "lowerLayerDown": "lower layer down"
+    }
   },
   "unparsed": {
     "title": "Unrecognized sources",

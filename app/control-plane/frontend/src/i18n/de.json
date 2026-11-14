@@ -197,6 +197,7 @@
     "assets": "Assets",
     "sources": "Quellen",
     "rules": "Regeln & Benachrichtigung",
+    "switches": "Port-Matrix",
     "changes": "Change-Audit & FIM",
     "reports": "Reports",
     "archive": "Archiv",
@@ -438,6 +439,32 @@
     "aes256": "AES-256",
     "keys_hint": "Leere Schlüsselfelder behalten den gespeicherten Schlüssel.",
     "saved": "Gespeichert – der Empfänger übernimmt die Änderung."
+  },
+  "switches": {
+    "title": "Port-Matrix",
+    "intro": "Schnittstellenstatus der per SNMP abgefragten Geräte (aktualisiert jede Minute).",
+    "empty": "Noch keine Daten. Abfrageziele unter Quellen → SNMP-Traps → Abfrageziele eintragen.",
+    "stale_short": "veraltet",
+    "stale": "Keine aktuellen Daten seit",
+    "last_seen": "Letzte Abfrage",
+    "ports": "Ports",
+    "legend": "Grün: aktiv · grau: inaktiv · gestrichelt: administrativ abgeschaltet.",
+    "port": "Port",
+    "admin": "Administrativ",
+    "oper": "Betrieb",
+    "speed": "Geschwindigkeit",
+    "errors_in": "Fehler ein",
+    "errors_out": "Fehler aus",
+    "mbps": "Mbit/s",
+    "state": {
+      "up": "aktiv",
+      "down": "inaktiv",
+      "testing": "Test",
+      "unknown": "unbekannt",
+      "dormant": "ruhend",
+      "notPresent": "nicht vorhanden",
+      "lowerLayerDown": "Unterschicht aus"
+    }
   },
   "unparsed": {
     "title": "Nicht erkannte Quellen",
