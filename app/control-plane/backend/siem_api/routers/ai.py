@@ -96,7 +96,7 @@ def explain(body: ExplainIn, request: Request, db: DbSession = Depends(get_db),
         alert = _row(doc)
         sample_hosts = [h for h in (str(alert.get("group") or ""),) if h]
         p = ai.make_pseudonymizer(secrets, st.config()["anonymize"], sample_hosts, [])
-        return ai.explain_alert(st, p, alert, body.test)
+        return ai.explain_alert(st, p, alert, body.test, reveal=not request.app.state.privacy.masked_for(ctx.permissions))
 
     return _run(request, db, ctx, "ai.explain", body.alert_id, go)
 
@@ -116,6 +116,6 @@ def forensics(body: ForensicsIn, request: Request, db: DbSession = Depends(get_d
         hosts = sorted({str(e["host"]["name"]) for e in events if e.get("host", {}).get("name")})
         users = sorted({str(e["user"]["name"]) for e in events if e.get("user", {}).get("name")})
         p = ai.make_pseudonymizer(secrets, st.config()["anonymize"], hosts, users)
-        return ai.analyze(st, p, events, body.test)
+        return ai.analyze(st, p, events, body.test, reveal=not request.app.state.privacy.masked_for(ctx.permissions))
 
     return _run(request, db, ctx, "ai.forensics", f"{body.field}={body.value}"[:100], go)

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../api";
+import { api, getCsrf } from "../api";
 import { ErrorBox } from "./Auth";
 
 type Cfg = { enabled: boolean; provider: string; model: string; base_url: string; has_key: boolean; anonymize: boolean; daily_token_limit: number };
@@ -70,6 +70,20 @@ function Section({ title, items }: { title: string; items: Item[] }) {
   );
 }
 
+async function exportPackage(field: string, value: string, hours: number, csrf?: string) {
+  const r = await fetch("/api/forensics/export", {
+    method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", ...(csrf ? { "X-CSRF-Token": csrf } : {}) },
+    body: JSON.stringify({ field, value, hours }),
+  });
+  if (!r.ok) throw new Error(String(r.status));
+  const url = URL.createObjectURL(await r.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "forensik-paket.zip";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ForensicsPage({ canSettings }: { canSettings: boolean }) {
   const { t } = useTranslation();
   const [field, setField] = useState("user.name");
@@ -79,6 +93,7 @@ export default function ForensicsPage({ canSettings }: { canSettings: boolean })
   const run = useMutation({
     mutationFn: () => api<Result>("POST", "/api/ai/forensics", { field, value, hours, test: testMode }),
   });
+  const exporting = useMutation({ mutationFn: () => exportPackage(field, value, hours, getCsrf()) });
   const r = run.data;
   return (
     <div className="max-w-4xl">
@@ -95,9 +110,10 @@ export default function ForensicsPage({ canSettings }: { canSettings: boolean })
           <div><label className="label" htmlFor="f-h">{t("ai.hours")}</label><input id="f-h" className="input w-24" type="number" min={1} max={720} value={hours} onChange={(e) => setHours(Number(e.target.value))} /></div>
           <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={testMode} onChange={(e) => setTestMode(e.target.checked)} />{t("ai.test_mode")}</label>
           <button className="btn" disabled={!value || run.isPending} onClick={() => run.mutate()}>{t("ai.analyze")}</button>
+          <button className="btn-secondary" disabled={!value || exporting.isPending} onClick={() => exporting.mutate()}>{t("ai.export")}</button>
         </div>
       </section>
-      <ErrorBox error={run.error} />
+      <ErrorBox error={run.error ?? exporting.error} />
       {run.isPending && <p className="text-sm text-slate-600">{t("ai.running")}</p>}
       {r?.request && (
         <section className="card mb-3">

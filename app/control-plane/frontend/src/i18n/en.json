@@ -459,6 +459,7 @@
     "hours": "Hours",
     "test_mode": "Test mode (show request only)",
     "analyze": "Analyze",
+    "export": "Export evidence package (signed)",
     "running": "Analysis running …",
     "request_preview": "Request sent (pseudonymized)",
     "events": "{{count}} events analyzed",
@@ -513,6 +514,11 @@
     "disable": "Disable now",
     "active": "Access active until {{until}} (from {{from}}).",
     "inactive": "Support access is disabled."
+  },
+  "privacy": {
+    "title": "Privacy mode",
+    "intro": "Optional. User names are shown as pseudonyms to analysts, auditors and management; administrators and privacy approvers see cleartext. Every change is logged.",
+    "enable": "Enable privacy mode"
   },
   "retention": {
     "title": "Retention per category",

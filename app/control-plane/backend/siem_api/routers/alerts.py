@@ -42,6 +42,8 @@ def list_alerts(request: Request, hours: int = Query(168, ge=1, le=2160), status
         raise error(status.HTTP_503_SERVICE_UNAVAILABLE, "opensearch_unavailable") from exc
     rows = [_row(h) for h in resp.get("hits", {}).get("hits", [])]
     rows.sort(key=lambda r: (r["status"] != "open", al.SEVERITIES.index(r["severity"]) * -1 if r["severity"] in al.SEVERITIES else 0))
+    if request.app.state.privacy.masked_for(ctx.permissions):
+        request.app.state.privacy.alerts(rows)
     return {"alerts": rows, "engine": request.app.state.alert_engine.last}
 
 

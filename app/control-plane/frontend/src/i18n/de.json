@@ -459,6 +459,7 @@
     "hours": "Stunden",
     "test_mode": "Testmodus (nur Anfrage anzeigen)",
     "analyze": "Analysieren",
+    "export": "Beweispaket exportieren (signiert)",
     "running": "Analyse läuft …",
     "request_preview": "Gesendete Anfrage (pseudonymisiert)",
     "events": "{{count}} Ereignisse ausgewertet",
@@ -513,6 +514,11 @@
     "disable": "Jetzt sperren",
     "active": "Zugang aktiv bis {{until}} (von {{from}}).",
     "inactive": "Der Support-Zugang ist gesperrt."
+  },
+  "privacy": {
+    "title": "Datenschutzmodus",
+    "intro": "Optional. Benutzernamen werden für Analysten, Auditoren und das Management als Pseudonym angezeigt; Administratoren und Datenschutz-Freigeber sehen Klartext. Jede Änderung wird protokolliert.",
+    "enable": "Datenschutzmodus aktivieren"
   },
   "retention": {
     "title": "Aufbewahrung je Kategorie",

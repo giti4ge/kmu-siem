@@ -80,4 +80,7 @@ def timeline(request: Request, hours: int = Query(24, ge=1, le=720), q: str | No
     except OpenSearchUnavailable as exc:
         raise error(status.HTTP_503_SERVICE_UNAVAILABLE, "opensearch_unavailable") from exc
     hits = resp.get("hits", {}).get("hits", [])
-    return {"hours": hours, "changes": pair_changes(hits), "truncated": len(hits) >= limit}
+    rows = pair_changes(hits)
+    if request.app.state.privacy.masked_for(ctx.permissions):
+        request.app.state.privacy.changes(rows)
+    return {"hours": hours, "changes": rows, "truncated": len(hits) >= limit}

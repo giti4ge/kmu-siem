@@ -171,3 +171,20 @@ def test_setup_checks(app, settings):
     by = {i["id"]: i for i in items}
     assert by["notify"]["ok"] is False and by["devices"]["ok"] is False and by["backup"]["ok"] is False
     assert all(i["link"].startswith("/") for i in items) and by["fortigate"]["optional"] is True
+
+
+def test_privacy_masking(tmp_path):
+    from siem_api.privacy import Privacy
+    p = Privacy(tmp_path, b"k" * 32)
+    assert not p.masked_for({"alerts:read"})  # Standard: aus
+    p.set_enabled(True)
+    assert p.masked_for({"alerts:read"}) and not p.masked_for({"system:write"}) and not p.masked_for({"privacy:approve"})
+    a = p.pseudo("Mueller")
+    assert a == p.pseudo("mueller") and a.startswith("user_") and "ueller" not in a
+    rows = [{"group_by": "user.name", "group": "mueller", "summary": "x mueller y", "sample": "raw mueller"}]
+    p.alerts(rows)
+    assert "mueller" not in str(rows) and rows[0]["sample"] == ""
+    ch = [{"actor": "mueller", "member": "meier", "object": "meier", "object_class": "user"}]
+    p.changes(ch)
+    assert "mueller" not in str(ch) and "meier" not in str(ch)
+    assert p.counts([{"key": "mueller", "count": 3}])[0]["key"].startswith("user_")

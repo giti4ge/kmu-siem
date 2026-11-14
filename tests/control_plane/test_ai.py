@@ -144,3 +144,27 @@ def test_api_requires_login(app):
     c = TestClient(app)
     assert c.get("/api/ai").status_code in (401, 403)
     assert c.post("/api/ai/forensics", json={"field": "user.name", "value": "x"}).status_code in (401, 403)
+
+
+def test_forensic_package_roundtrip_and_tamper():
+    import io
+    import zipfile
+
+    from siem_api import forensic_export as fx
+    key = b"s" * 32
+    events = [{"_index": "siem-windows-2026.11.14", "_id": "1", "_source": {"user": {"name": "mueller"}, "message": "x"}}]
+    data, digest = fx.build(events, {"field": "user.name", "value": "mueller"}, key)
+    assert len(digest) == 64
+    ok = fx.verify(data, key)
+    assert ok["ok"] and ok["events"] == 1
+    assert not fx.verify(data, b"x" * 32)["ok"]  # fremder Schlüssel
+    # Manipulation der Ereignisse
+    src = zipfile.ZipFile(io.BytesIO(data))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("events.jsonl", src.read("events.jsonl") + b"{}\n")
+        z.writestr("manifest.json", src.read("manifest.json"))
+        z.writestr("manifest.sig", src.read("manifest.sig"))
+    bad = fx.verify(buf.getvalue(), key)
+    assert not bad["ok"] and "Hash" in bad["reason"]
+    assert not fx.verify(b"kein zip", key)["ok"]

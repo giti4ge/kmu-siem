@@ -20,6 +20,10 @@ Stand: 2026-11-14 · Bezug: [Spezifikation 2.6.1](spec/SPEC.md)
 | Active Response | FortiGate-IP-Sperre manuell und automatisch (Standard aus) |
 | Reports | Zusammenfassung, CSV, Druck/PDF über den Browser; Rolle Management |
 | Updates | Prüfung auf neue Versionen (GitHub Releases, Kanal stable/beta) |
+| Quellenfreigabe | Typ-Vorschlag, Freigeben und Ignorieren unbekannter Quellen |
+| Support-Zugang | SSH für den Dienstleister: zeitlich begrenzt, Schlüssel und Quelladresse, nur Diagnosebefehle |
+| Datenschutzmodus | Benutzernamen als Pseudonym für Analyst/Auditor/Management (optional) |
+| Forensik-Export | signiertes Beweispaket (Hashliste, Signatur, Nachweis im Audit-Log), Prüffunktion |
 
 ## Bewusst vereinfacht (Abweichung von der Spezifikation)
 
@@ -31,13 +35,12 @@ Stand: 2026-11-14 · Bezug: [Spezifikation 2.6.1](spec/SPEC.md)
 
 ## Offen (noch nicht gebaut)
 
-1. Support-Zugang per SSH (Issue #28) – zeitlich begrenzt, eingeschränkt.
-2. Revisionssicheres Archiv (Write-once, Hash-Kette) und Fall-Verwaltung/Forensik-Export (RFC 3161).
-3. Datenschutzmodus (Pseudonymisierung in der Oberfläche, Vier-Augen-Freigabe) – Schalter aus der Spezifikation 4.13.
-4. Quellenfreigabe (Quarantäne unbekannter Absender mit Ein-Klick-Freigabe).
-5. Phase 4 Rest: LLDP, Geräteprofile, MIB-Import, net-sensor, Discovery-Scanner.
-6. Parser-Editor im Web-UI, Konfigurations-Snapshots von Geräten, Anbindungs-Assistent mit Zertifikaten.
-7. Lasttest mit 150 Endpunkten und Erstinstallation mit echten Geräten (Voraussetzung für „einsatzbereit“).
+1. Revisionssicheres Archiv (Write-once, Hash-Kette), Fall-Verwaltung und externer RFC-3161-Zeitstempel.
+2. Vier-Augen-Freigabe (optional, Standard aus) und Aufdeckung pseudonymisierter Namen mit Freigabe.
+3. Rückwirkende Verarbeitung gepufferter Ereignisse nach der Quellenfreigabe.
+4. Phase 4 Rest: LLDP, Geräteprofile, MIB-Import, net-sensor, Discovery-Scanner.
+5. Parser-Editor im Web-UI, Konfigurations-Snapshots von Geräten, Anbindungs-Assistent mit Zertifikaten.
+6. Lasttest mit 150 Endpunkten und Erstinstallation mit echten Geräten (Voraussetzung für „einsatzbereit“).
 
 ## Voraussetzung für den Einsatz
 
