@@ -1,0 +1,110 @@
+# KMU-SIEM – Synology DSM (Log Center, Protokollversand) → ECS
+# Format (BSD-Syslog, Programmname = DSM-Protokollquelle):
+#   "Connection: User [alice] from [10.0.10.21] logged in successfully via [SMB]."
+#   "WinFileService Event: write, Path: /vol1/Buchhaltung/a.xlsx, File/Folder: File, Size: 12 KB, User: alice, IP: 10.0.10.21"
+#   "System: Volume [Volume 1] was degraded."
+# Format je DSM-Version nicht an echten Proben verifiziert (SPEC R-14) – Unbekanntes bleibt als synology.generic erhalten.
+
+body = string(.message) ?? ""
+an = string(.appname) ?? ""
+raw = if an != "" && !starts_with(body, an) { an + ": " + body } else { body }
+peer_hostname = string(.hostname) ?? null
+syslog_severity = del(.severity)
+syslog_facility = del(.facility)
+del(.hostname)
+del(.appname)
+del(.procid)
+del(.msgid)
+del(.version)
+
+.observer.ip = del(.source_ip)
+.observer.vendor = "Synology"
+.observer.product = "DSM"
+.observer.type = "storage"
+.observer.name = peer_hostname
+.observer.hostname = peer_hostname
+.siem.collector = "vector"
+.siem.pipeline = "synology"
+.siem.category = "infra"
+.event.kind = "event"
+.event.module = "synology"
+.event.dataset = "synology.generic"
+.event.category = ["host"]
+.event.type = ["info"]
+.event.ingested = now()
+.event.original = raw
+.message = raw
+.log.syslog.facility.name = syslog_facility
+.log.syslog.severity.name = syslog_severity
+.log.level = syslog_severity
+
+file = parse_regex(raw, r'(?i)(WinFileService|SMBFileService|FileStation|NFSFileService|AFPFileService|FTPFileService)[:\s]+Event:\s*(?P<op>\w+),\s*Path:\s*(?P<path>.*?),\s*File/Folder:\s*(?P<kind>\w+)(,\s*Size:\s*[^,]+)?,\s*User:\s*(?P<user>[^,]+),\s*IP:\s*(?P<ip>[0-9a-fA-F:.]+)') ?? null
+conn = parse_regex(raw, r'(?i)User \[(?P<user>[^\]]*)\] from \[(?P<ip>[^\]]*)\] (?P<res>logged in successfully|failed to log in|logged out|was signed out|signed in)( via \[(?P<svc>[^\]]*)\])?') ?? null
+hw = parse_regex(raw, r'(?i)(?P<obj>Disk|Drive|Volume|Storage Pool|RAID|Fan|Power supply|UPS|System temperature|Temperature)\b.*?(?P<state>degraded|crashed|failed|failure|abnormal|not healthy|overheat|exceed|on battery|lost|was removed|healthy again|repaired)') ?? null
+backup = parse_regex(raw, r'(?i)(Hyper Backup|Active Backup|Backup task|Snapshot).*?(?P<res>failed|completed|finished|successful|started|partially)') ?? null
+
+if file != null {
+    op = downcase(string(file.op) ?? "access")
+    .event.dataset = "synology.file"
+    .event.category = ["file"]
+    .user.name = string(file.user) ?? null
+    .source.ip = file.ip
+    .file.path = file.path
+    .file.type = downcase(string(file.kind) ?? "file")
+    .event.action = "file-" + op
+    if includes(["delete", "rmdir"], op) {
+        .event.type = ["deletion"]
+    } else if includes(["create", "mkdir"], op) {
+        .event.type = ["creation"]
+    } else if includes(["write", "move", "rename", "set_acl", "setacl"], op) {
+        .event.type = ["change"]
+    } else {
+        .event.type = ["access"]
+    }
+} else if conn != null {
+    .event.dataset = "synology.auth"
+    .event.category = ["authentication"]
+    .user.name = conn.user
+    .source.ip = conn.ip
+    if conn.svc != null { .network.protocol = downcase(string(conn.svc) ?? "") }
+    res = downcase(string(conn.res) ?? "")
+    if res == "failed to log in" {
+        .event.action = "login-failed"
+        .event.outcome = "failure"
+        .event.type = ["start", "denied"]
+    } else if res == "logged out" || res == "was signed out" {
+        .event.action = "logout"
+        .event.type = ["end"]
+    } else {
+        .event.action = "login"
+        .event.outcome = "success"
+        .event.type = ["start", "allowed"]
+    }
+} else if hw != null {
+    st = downcase(string(hw.state) ?? "")
+    .event.dataset = "synology.hardware"
+    .event.category = ["host"]
+    .event.action = "hardware-" + replace(st, " ", "-")
+    .event.reason = string(hw.obj) ?? null
+    if includes(["healthy again", "repaired"], st) {
+        .event.type = ["info"]
+    } else {
+        .event.type = ["error"]
+        .event.severity = 3
+        .siem.hardware_fault = true
+    }
+} else if backup != null {
+    res = downcase(string(backup.res) ?? "")
+    .event.dataset = "synology.backup"
+    .event.category = ["process"]
+    .event.action = "backup-" + res
+    if res == "failed" || res == "partially" {
+        .event.outcome = "failure"
+        .event.type = ["error"]
+    } else if includes(["completed", "finished", "successful"], res) {
+        .event.outcome = "success"
+        .event.type = ["end"]
+    } else {
+        .event.type = ["start"]
+    }
+}

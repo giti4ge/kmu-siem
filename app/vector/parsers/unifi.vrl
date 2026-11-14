@@ -1,0 +1,137 @@
+# KMU-SIEM – Ubiquiti UniFi (Network Controller/UniFi OS und UniFi-Switches) → ECS
+# 1. SIEM-Integration/Remote-Logging des Controllers: Schlüssel-Wert-Paare, z. B.
+#    "UNIFIcategory=System UNIFIsubCategory=Admin UNIFIevent=UNIFIadminLogin UNIFIadmin=alice UNIFIip=10.0.10.21 ..."
+# 2. Klassisches Geräte-Syslog (Switch/AP): hostapd-Zuordnung, sshd/Anmeldung, Port-Link.
+# Format je Controller-Version nicht an echten Proben verifiziert (SPEC R-14) – Unbekanntes bleibt als unifi.generic erhalten.
+# Gerätetyp (unifi_controller | unifi_switch) bestimmt observer.type.
+
+body = string(.message) ?? ""
+an = string(.appname) ?? ""
+raw = if an != "" && !starts_with(body, an) { an + ": " + body } else { body }
+peer_hostname = string(.hostname) ?? null
+dtype = string(.siem.device_type) ?? "unifi_controller"
+syslog_severity = del(.severity)
+syslog_facility = del(.facility)
+del(.hostname)
+del(.appname)
+del(.procid)
+del(.msgid)
+del(.version)
+
+.observer.ip = del(.source_ip)
+.observer.vendor = "Ubiquiti"
+.observer.product = if dtype == "unifi_switch" { "UniFi Switch" } else { "UniFi Network" }
+.observer.type = if dtype == "unifi_switch" { "switch" } else { "controller" }
+.observer.name = peer_hostname
+.observer.hostname = peer_hostname
+.siem.collector = "vector"
+.siem.pipeline = "unifi"
+.siem.category = "network"
+.event.kind = "event"
+.event.module = "unifi"
+.event.dataset = "unifi.generic"
+.event.category = ["network"]
+.event.type = ["info"]
+.event.ingested = now()
+.event.original = raw
+.message = raw
+.log.syslog.facility.name = syslog_facility
+.log.syslog.severity.name = syslog_severity
+.log.level = syslog_severity
+
+# Schlüssel-Wert-Paare (Werte mit Leerzeichen in Anführungszeichen)
+kv = {}
+if contains(raw, "UNIFI") {
+    kv = parse_key_value(raw, accept_standalone_key: false) ?? {}
+}
+cat = downcase(string(kv.UNIFIcategory) ?? "")
+ev = downcase(string(kv.UNIFIevent) ?? "")
+sub = downcase(string(kv.UNIFIsubCategory) ?? "")
+
+if cat != "" || ev != "" {
+    .event.code = string(kv.UNIFIevent) ?? null
+    .message = string(kv.UNIFImessage) ?? raw
+    if kv.UNIFIadmin != null { .user.name = string(kv.UNIFIadmin) ?? null }
+    if kv.UNIFIuser != null && .user.name == null { .user.name = string(kv.UNIFIuser) ?? null }
+    if kv.UNIFIip != null { .source.ip = string(kv.UNIFIip) ?? null }
+    if kv.UNIFIclientMac != null { .source.mac = string(kv.UNIFIclientMac) ?? null }
+    if kv.UNIFIdeviceName != null { .host.name = string(kv.UNIFIdeviceName) ?? null }
+    if kv.UNIFIdeviceModel != null { .observer.product = string(kv.UNIFIdeviceModel) ?? null }
+
+    if match(ev, r'login') || sub == "admin" && match(ev, r'(sign|log)') {
+        .event.dataset = "unifi.auth"
+        .event.category = ["authentication"]
+        if match(ev, r'fail|denied|invalid') {
+            .event.action = "login-failed"
+            .event.outcome = "failure"
+            .event.type = ["start", "denied"]
+        } else if match(ev, r'logout|signout') {
+            .event.action = "logout"
+            .event.type = ["end"]
+        } else {
+            .event.action = "login"
+            .event.outcome = "success"
+            .event.type = ["start", "allowed"]
+        }
+    } else if match(ev, r'config|setting|update|change|adopt|provision|restart|upgrade') || cat == "configuration" {
+        .event.dataset = "unifi.config"
+        .event.category = ["configuration"]
+        .event.type = ["change"]
+        .event.action = "config-change"
+    } else if match(ev, r'connect|assoc|roam|disassoc|disconnect') || cat == "client" {
+        .event.dataset = "unifi.client"
+        .event.category = ["network"]
+        .event.type = if match(ev, r'disconnect|disassoc') { ["end"] } else { ["start"] }
+        .event.action = if match(ev, r'disconnect|disassoc') { "client-disconnect" } else { "client-connect" }
+    } else if match(ev, r'lost|offline|disconnected|down|fail|error') || cat == "alert" {
+        .event.dataset = "unifi.device"
+        .event.type = ["error"]
+        .event.action = "device-event"
+    } else {
+        .event.dataset = "unifi.event"
+    }
+} else {
+    assoc = parse_regex(raw, r'(?i)(?P<iface>\S+): STA (?P<mac>([0-9a-f]{2}:){5}[0-9a-f]{2}) (IEEE 802\.11: )?(?P<what>associated|disassociated|deauthenticated|authenticated)') ?? null
+    sshd_fail = parse_regex(raw, r'(?i)Failed (?P<method>\S+) for (invalid user )?(?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+)') ?? null
+    sshd_ok = parse_regex(raw, r'(?i)Accepted (?P<method>\S+) for (?P<user>\S+) from (?P<ip>[0-9a-fA-F:.]+)') ?? null
+    link = parse_regex(raw, r'(?i)(?P<port>(swp|eth|port)\s?\d+(/\d+)*)\W.*\b(?P<state>link up|link down|up|down)\b') ?? null
+
+    if assoc != null {
+        .event.dataset = "unifi.client"
+        .source.mac = assoc.mac
+        .observer.ingress.interface.name = assoc.iface
+        if assoc.what == "associated" || assoc.what == "authenticated" {
+            .event.action = "client-connect"
+            .event.type = ["start"]
+        } else {
+            .event.action = "client-disconnect"
+            .event.type = ["end"]
+        }
+    } else if sshd_fail != null {
+        .event.dataset = "unifi.auth"
+        .event.category = ["authentication"]
+        .event.action = "login-failed"
+        .event.outcome = "failure"
+        .event.type = ["start", "denied"]
+        .user.name = sshd_fail.user
+        .source.ip = sshd_fail.ip
+    } else if sshd_ok != null {
+        .event.dataset = "unifi.auth"
+        .event.category = ["authentication"]
+        .event.action = "login"
+        .event.outcome = "success"
+        .event.type = ["start", "allowed"]
+        .user.name = sshd_ok.user
+        .source.ip = sshd_ok.ip
+    } else if link != null {
+        .event.dataset = "unifi.link"
+        .observer.ingress.interface.name = link.port
+        if contains(downcase(string(link.state) ?? ""), "up") {
+            .event.action = "port-up"
+            .event.type = ["change", "start"]
+        } else {
+            .event.action = "port-down"
+            .event.type = ["change", "end"]
+        }
+    }
+}

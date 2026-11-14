@@ -274,7 +274,11 @@
       "arubaos": "ArubaOS-Switch",
       "instant_on": "Aruba Instant On",
       "fs_s3900": "FS S3900",
-      "linux": "Linux server"
+      "linux": "Linux server",
+      "unifi_controller": "UniFi Network Controller",
+      "unifi_switch": "UniFi switch",
+      "synology": "Synology NAS (DSM)",
+      "idrac": "Dell iDRAC"
     }
   },
   "unparsed": {

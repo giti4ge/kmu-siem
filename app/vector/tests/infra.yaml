@@ -1,0 +1,248 @@
+# Parser-Tests UniFi, Synology DSM, Dell iDRAC.
+# Fixtures aus dokumentierten Formaten nachgebildet (SPEC R-02/R-14: keine echten Proben).
+
+tests:
+  # ---- Synology ------------------------------------------------------------
+  - name: Synology Anmeldung SMB
+    inputs:
+      - insert_at: synology
+        type: log
+        log_fields: {hostname: nas01, appname: Connection, source_ip: 10.0.10.5, message: "User [alice] from [10.0.10.21] logged in successfully via [SMB]."}
+    outputs:
+      - extract_from: synology
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "infra")
+              assert_eq!(.event.dataset, "synology.auth")
+              assert_eq!(.event.action, "login")
+              assert_eq!(.event.outcome, "success")
+              assert_eq!(.user.name, "alice")
+              assert_eq!(.source.ip, "10.0.10.21")
+              assert_eq!(.network.protocol, "smb")
+              assert_eq!(.observer.vendor, "Synology")
+
+  - name: Synology Anmeldung fehlgeschlagen
+    inputs:
+      - insert_at: synology
+        type: log
+        log_fields: {hostname: nas01, appname: Connection, source_ip: 10.0.10.5, message: "User [admin] from [45.155.205.233] failed to log in via [SSH] due to authorization failure."}
+    outputs:
+      - extract_from: synology
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "login-failed")
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.source.ip, "45.155.205.233")
+
+  - name: Synology Dateizugriff Löschen
+    inputs:
+      - insert_at: synology
+        type: log
+        log_fields: {hostname: nas01, appname: WinFileService, source_ip: 10.0.10.5, message: "Event: delete, Path: /vol1/Buchhaltung/2025/a.xlsx, File/Folder: File, Size: 12.00 KB, User: alice, IP: 10.0.10.21"}
+    outputs:
+      - extract_from: synology
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "synology.file")
+              assert_eq!(.event.action, "file-delete")
+              assert_eq!(.event.type, ["deletion"])
+              assert_eq!(.file.path, "/vol1/Buchhaltung/2025/a.xlsx")
+              assert_eq!(.user.name, "alice")
+              assert_eq!(.source.ip, "10.0.10.21")
+
+  - name: Synology RAID degradiert
+    inputs:
+      - insert_at: synology
+        type: log
+        log_fields: {hostname: nas01, appname: System, source_ip: 10.0.10.5, message: "Volume [Volume 1] was degraded."}
+    outputs:
+      - extract_from: synology
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "synology.hardware")
+              assert_eq!(.event.type, ["error"])
+              assert_eq!(.siem.hardware_fault, true)
+
+  - name: Synology Backup fehlgeschlagen
+    inputs:
+      - insert_at: synology
+        type: log
+        log_fields: {hostname: nas01, appname: Backup, source_ip: 10.0.10.5, message: "Hyper Backup task [Daily] failed."}
+    outputs:
+      - extract_from: synology
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "synology.backup")
+              assert_eq!(.event.action, "backup-failed")
+              assert_eq!(.event.outcome, "failure")
+
+  - name: Synology unbekannte Meldung bleibt erhalten
+    inputs:
+      - insert_at: synology
+        type: log
+        log_fields: {hostname: nas01, appname: System, source_ip: 10.0.10.5, message: "Something else happened."}
+    outputs:
+      - extract_from: synology
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "synology.generic")
+              assert_eq!(.siem.category, "infra")
+
+  # ---- Dell iDRAC ----------------------------------------------------------
+  - name: iDRAC Anmeldung erfolgreich
+    inputs:
+      - insert_at: idrac
+        type: log
+        log_fields: {hostname: idrac-srv01, appname: iDRAC, source_ip: 10.0.99.5, message: "Severity = Informational, Category = Audit, MessageID = USR0030, Message = Successfully logged in using root, from 10.0.10.21 and GUI."}
+    outputs:
+      - extract_from: idrac
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "infra")
+              assert_eq!(.event.dataset, "idrac.auth")
+              assert_eq!(.event.code, "USR0030")
+              assert_eq!(.event.action, "login")
+              assert_eq!(.event.outcome, "success")
+              assert_eq!(.user.name, "root")
+              assert_eq!(.source.ip, "10.0.10.21")
+              assert_eq!(.network.protocol, "gui")
+
+  - name: iDRAC Anmeldung fehlgeschlagen
+    inputs:
+      - insert_at: idrac
+        type: log
+        log_fields: {hostname: idrac-srv01, appname: iDRAC, source_ip: 10.0.99.5, message: "Severity = Warning, Category = Audit, MessageID = USR0031, Message = Unable to log in for admin from 10.0.10.77 using GUI."}
+    outputs:
+      - extract_from: idrac
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "idrac.auth")
+              assert_eq!(.event.action, "login-failed")
+              assert_eq!(.event.outcome, "failure")
+
+  - name: iDRAC Netzteilausfall
+    inputs:
+      - insert_at: idrac
+        type: log
+        log_fields: {hostname: idrac-srv01, appname: iDRAC, source_ip: 10.0.99.5, message: "Severity = Critical, Category = System Health, MessageID = PSU0003, Message = The power supply 2 is lost."}
+    outputs:
+      - extract_from: idrac
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "idrac.hardware")
+              assert_eq!(.event.code, "PSU0003")
+              assert_eq!(.event.severity, 1)
+              assert_eq!(.siem.hardware_fault, true)
+
+  - name: iDRAC unbekannte Meldung bleibt erhalten
+    inputs:
+      - insert_at: idrac
+        type: log
+        log_fields: {hostname: idrac-srv01, appname: iDRAC, source_ip: 10.0.99.5, message: "no id here"}
+    outputs:
+      - extract_from: idrac
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "idrac.generic")
+
+  # ---- UniFi ---------------------------------------------------------------
+  - name: UniFi Admin-Anmeldung fehlgeschlagen
+    inputs:
+      - insert_at: unifi
+        type: log
+        log_fields: {hostname: udm, appname: unifi, source_ip: 10.0.1.1, siem: {device_type: unifi_controller}, message: 'UNIFIcategory=System UNIFIsubCategory=Admin UNIFIevent=UNIFIadminLoginFailed UNIFIadmin=alice UNIFIip=10.0.10.21 UNIFImessage="Admin login failed"'}
+    outputs:
+      - extract_from: unifi
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "network")
+              assert_eq!(.event.dataset, "unifi.auth")
+              assert_eq!(.event.action, "login-failed")
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.user.name, "alice")
+              assert_eq!(.source.ip, "10.0.10.21")
+              assert_eq!(.observer.type, "controller")
+
+  - name: UniFi Konfigurationsänderung
+    inputs:
+      - insert_at: unifi
+        type: log
+        log_fields: {hostname: udm, appname: unifi, source_ip: 10.0.1.1, siem: {device_type: unifi_controller}, message: 'UNIFIcategory=Configuration UNIFIevent=UNIFIsettingUpdate UNIFIadmin=bob UNIFImessage="Firewall rule changed"'}
+    outputs:
+      - extract_from: unifi
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "unifi.config")
+              assert_eq!(.event.type, ["change"])
+              assert_eq!(.user.name, "bob")
+
+  - name: UniFi Switch sshd Fehlversuch
+    inputs:
+      - insert_at: unifi
+        type: log
+        log_fields: {hostname: usw-24, appname: sshd, source_ip: 10.0.1.20, siem: {device_type: unifi_switch}, message: "Failed password for admin from 10.0.10.99 port 5555 ssh2"}
+    outputs:
+      - extract_from: unifi
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.observer.type, "switch")
+              assert_eq!(.event.dataset, "unifi.auth")
+              assert_eq!(.event.outcome, "failure")
+              assert_eq!(.source.ip, "10.0.10.99")
+
+  - name: UniFi AP Client-Zuordnung
+    inputs:
+      - insert_at: unifi
+        type: log
+        log_fields: {hostname: uap-01, appname: hostapd, source_ip: 10.0.1.30, siem: {device_type: unifi_controller}, message: "ath0: STA aa:bb:cc:dd:ee:ff IEEE 802.11: associated"}
+    outputs:
+      - extract_from: unifi
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.action, "client-connect")
+              assert_eq!(.source.mac, "aa:bb:cc:dd:ee:ff")
+
+  - name: UniFi unbekannte Meldung bleibt erhalten
+    inputs:
+      - insert_at: unifi
+        type: log
+        log_fields: {hostname: udm, appname: kernel, source_ip: 10.0.1.1, siem: {device_type: unifi_controller}, message: "something"}
+    outputs:
+      - extract_from: unifi
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "unifi.generic")
+
+  # ---- Auto-Detect ----------------------------------------------------------
+  - name: Auto-Detect Synology, iDRAC, UniFi
+    inputs:
+      - insert_at: detect
+        type: log
+        log_fields: {source_ip: 192.0.2.1, appname: Connection, message: "User [a] from [1.2.3.4] logged in successfully via [SMB]."}
+      - insert_at: detect
+        type: log
+        log_fields: {source_ip: 192.0.2.2, appname: iDRAC, message: "Severity = Critical, Category = System Health, MessageID = PSU0003, Message = x"}
+      - insert_at: detect
+        type: log
+        log_fields: {source_ip: 192.0.2.3, appname: unifi, message: "UNIFIcategory=System UNIFIevent=UNIFIadminLogin"}
+    outputs:
+      - extract_from: detect
+        conditions:
+          - type: vrl
+            source: |
+              assert!(includes(["synology", "idrac", "unifi_controller"], .siem.device_type))

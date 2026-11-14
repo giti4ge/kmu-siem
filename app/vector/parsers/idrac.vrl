@@ -1,0 +1,98 @@
+# KMU-SIEM – Dell iDRAC (Remote-Syslog, UDP) → ECS
+# Format: "... Severity = Critical, Category = System Health, MessageID = PSU0003, Message = The power supply 1 ..."
+# Auch ohne Schlüsselnamen ("USR0030 Successfully logged in using root, from 10.0.0.5 and GUI.") wird die Meldungs-ID erkannt.
+# Format je iDRAC-Generation nicht an echten Proben verifiziert (SPEC R-14).
+
+body = string(.message) ?? ""
+an = string(.appname) ?? ""
+raw = if an != "" && !starts_with(body, an) { an + ": " + body } else { body }
+peer_hostname = string(.hostname) ?? null
+syslog_severity = del(.severity)
+syslog_facility = del(.facility)
+del(.hostname)
+del(.appname)
+del(.procid)
+del(.msgid)
+del(.version)
+
+.observer.ip = del(.source_ip)
+.observer.vendor = "Dell"
+.observer.product = "iDRAC"
+.observer.type = "bmc"
+.observer.name = peer_hostname
+.observer.hostname = peer_hostname
+.siem.collector = "vector"
+.siem.pipeline = "idrac"
+.siem.category = "infra"
+.event.kind = "event"
+.event.module = "idrac"
+.event.dataset = "idrac.generic"
+.event.category = ["host"]
+.event.type = ["info"]
+.event.ingested = now()
+.event.original = raw
+.message = raw
+.log.syslog.facility.name = syslog_facility
+.log.syslog.severity.name = syslog_severity
+.log.level = syslog_severity
+
+kv = parse_regex(raw, r'(?i)Severity\s*=\s*(?P<sev>[A-Za-z]+),\s*Category\s*=\s*(?P<cat>[^,]+),\s*MessageID\s*=\s*(?P<id>[A-Z]{2,5}\d{3,5}),\s*Message\s*=\s*(?P<msg>.*)$') ?? null
+plain = parse_regex(raw, r'\b(?P<id>[A-Z]{2,5}\d{4})\b[:\s-]+(?P<msg>.*)$') ?? null
+
+id = ""
+text = ""
+sev = ""
+if kv != null {
+    id = string(kv.id) ?? ""
+    text = string(kv.msg) ?? ""
+    sev = downcase(string(kv.sev) ?? "")
+    .event.reason = string(kv.cat) ?? null
+    .event.severity = if sev == "critical" { 1 } else if sev == "warning" { 3 } else { 6 }
+} else if plain != null {
+    id = string(plain.id) ?? ""
+    text = string(plain.msg) ?? ""
+}
+
+if id != "" {
+    prefix = replace(id, r'\d+$', "")
+    .event.code = id
+    .message = text
+    is_login = match(text, r'(?i)logged in|log in|logged out|login')
+
+    if is_login {
+        login = parse_regex(text, r'(?i)(?P<res>Successfully logged in|Unable to log in|Login failed|Logged out|logged out)[^,]*?(\s(using|for)\s(?P<user>[^\s,]+))?(,\s*from\s+(?P<ip>[0-9a-fA-F:.]+))?(\s+and\s+(?P<via>\w+))?') ?? null
+        .event.dataset = "idrac.auth"
+        .event.category = ["authentication"]
+        res = downcase(string(login.res) ?? "")
+        if login != null {
+            if login.user != null { .user.name = login.user }
+            if login.ip != null { .source.ip = login.ip }
+            if login.via != null { .network.protocol = downcase(string(login.via) ?? "") }
+        }
+        if res == "unable to log in" || res == "login failed" {
+            .event.action = "login-failed"
+            .event.outcome = "failure"
+            .event.type = ["start", "denied"]
+        } else if res == "logged out" {
+            .event.action = "logout"
+            .event.type = ["end"]
+        } else {
+            .event.action = "login"
+            .event.outcome = "success"
+            .event.type = ["start", "allowed"]
+        }
+    } else if includes(["PSU", "PDR", "FAN", "TMP", "VLT", "CPU", "MEM", "HWC", "STOR", "BAT", "DIM", "SYS", "SEL", "RAC"], prefix) && (sev == "critical" || sev == "warning" || match(text, r'(?i)fail|degrad|lost|removed|critical|exceed|redundan|error|absent')) {
+        .event.dataset = "idrac.hardware"
+        .event.category = ["host"]
+        .event.type = ["error"]
+        .event.action = "hardware-" + downcase(prefix)
+        .siem.hardware_fault = true
+    } else if includes(["CFG", "SUP", "JCP", "LC", "RED", "SWC"], prefix) {
+        .event.dataset = "idrac.config"
+        .event.category = ["configuration"]
+        .event.type = ["change"]
+        .event.action = "config-change"
+    } else {
+        .event.dataset = "idrac.event"
+    }
+}
