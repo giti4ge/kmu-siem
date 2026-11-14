@@ -5,6 +5,7 @@
 | Ich möchte … | Dokument |
 |---|---|
 | wissen, was fertig ist und was noch fehlt | [Projektstand](STATUS.md) |
+| erstmals installieren und Fehler rückmelden | [Erstinstallation](ERSTINSTALLATION.md), [Testcheckliste](TESTCHECKLISTE.md) |
 | verstehen, was das Produkt kann und wie es aufgebaut ist | [Handbuch Kap. 1 – Einführung](handbuch/01-einfuehrung.md), [Kap. 2 – Systemüberblick](handbuch/02-systemueberblick.md) |
 | die Appliance beim Kunden installieren | [Kap. 3 – Installation](handbuch/03-installation.md), [Kap. 4 – Erstkonfiguration](handbuch/04-erstkonfiguration.md) |
 | Geräte und Server anbinden | [Kap. 5 – Quellen anbinden](handbuch/05-quellen-anbinden.md) |
