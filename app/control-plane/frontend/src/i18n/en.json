@@ -94,6 +94,7 @@
     "totp_not_set_up": "Please restart the setup.",
     "sso_unavailable": "Sign-in to Dashboards is currently not possible.",
     "hostd_unavailable": "The host service is not reachable.",
+    "support_invalid": "Invalid input: check key (ed25519/ecdsa/rsa), source address (at least /16) and duration.",
     "invalid_request": "Request rejected.",
     "wec_invalid_settings": "Invalid settings.",
     "wec_invalid_domain": "Invalid domain name (e.g. company.local).",
@@ -501,6 +502,17 @@
     "events": "Events per category",
     "per_day": "Alerts per day",
     "changes": "Recorded changes (Windows, devices): {{count}}"
+  },
+  "support": {
+    "title": "Support access (SSH)",
+    "intro": "Time-limited access for the service provider: key only, from the given address only, read-only diagnostic commands (status, logs, containers). No access to event data, no shell. Expires automatically.",
+    "key": "Public SSH key",
+    "source": "Source address or network (at least /16)",
+    "hours": "Duration (hours)",
+    "enable": "Enable access",
+    "disable": "Disable now",
+    "active": "Access active until {{until}} (from {{from}}).",
+    "inactive": "Support access is disabled."
   },
   "retention": {
     "title": "Retention per category",

@@ -381,3 +381,49 @@ class TestSystemLogs(unittest.TestCase):
             with mock.patch.dict(hostd.LOG_SOURCES, {"install": ("file", str(Path(d) / "fehlt"))}):
                 self.assertEqual(hostd.system_logs({"source": "install"})["lines"], [])
 
+
+KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl dienstleister"
+
+
+class TestSupport(TmpEnv):
+    def sup(self) -> hostd.SupportAccess:
+        return hostd.SupportAccess(Path(self.tmp.name) / "support")
+
+    def test_enable_writes_restricted_key_and_status(self) -> None:
+        s = self.sup()
+        st = s.enable({"key": KEY, "hours": 2, "source": "203.0.113.7"}, "admin@web")
+        self.assertTrue(st["active"])
+        line = s.keys.read_text(encoding="utf-8")
+        self.assertTrue(line.startswith('restrict,from="203.0.113.7/32" ssh-ed25519 '))
+        self.assertEqual(line.count(chr(10)), 1)
+        self.assertEqual(s.keys.stat().st_mode & 0o777, 0o600 if os.name != "nt" else s.keys.stat().st_mode & 0o777)
+        s.disable("admin@web")
+        self.assertFalse(s.status()["active"])
+        self.assertEqual(s.keys.read_text(encoding="utf-8"), "")
+
+    def test_validation(self) -> None:
+        s = self.sup()
+        bad = [({"key": "ssh-ed25519 kurz", "hours": 1, "source": "10.0.0.1"}),
+               ({"key": KEY + chr(10) + "restrict ssh-rsa AAAA", "hours": 1, "source": "10.0.0.1"}),
+               ({"key": KEY, "hours": 0, "source": "10.0.0.1"}), ({"key": KEY, "hours": 100, "source": "10.0.0.1"}),
+               ({"key": KEY, "hours": True, "source": "10.0.0.1"}), ({"key": KEY, "hours": 1, "source": "0.0.0.0/0"}),
+               ({"key": KEY, "hours": 1, "source": "10.0.0.0/8"}), ({"key": KEY, "hours": 1, "source": "egal"})]
+        for p in bad:
+            with self.assertRaises(hostd.HostdError, msg=str(p)):
+                s.enable(p, "a")
+        self.assertFalse(s.keys.exists())
+
+    def test_resume_disables_expired(self) -> None:
+        s = self.sup()
+        s.enable({"key": KEY, "hours": 1, "source": "10.1.0.0/16"}, "a")
+        hostd.atomic_write(s.state, json.dumps({"until": time.time() - 5}))
+        s2 = self.sup()
+        s2.resume()
+        self.assertEqual(s2.keys.read_text(encoding="utf-8"), "")
+        self.assertFalse(s2.status()["active"])
+
+    def test_dispatch_actions_registered(self) -> None:
+        d = hostd.Dispatcher(self.manager(), status=lambda: {}, support=self.sup())
+        r = d.handle({"action": "support.enable", "params": {"key": KEY, "hours": 1, "source": "10.1.2.3"}, "actor": "x"})
+        self.assertTrue(r["ok"] and r["result"]["active"])
+        self.assertTrue(d.handle({"action": "support.disable", "actor": "x"})["ok"])
