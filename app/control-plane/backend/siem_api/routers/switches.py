@@ -44,8 +44,8 @@ def parse(resp: dict[str, Any], now: datetime | None = None) -> list[dict[str, A
         devices.append({
             "ip": b.get("key"), "name": src.get("observer", {}).get("name") or b.get("key"),
             "sys_descr": snmp.get("sys_descr", ""), "uptime_ticks": snmp.get("uptime_ticks", 0), "last_seen": ts,
-            "stale": age > STALE_SECONDS, "ports_total": snmp.get("ports_total", 0), "ports_up": snmp.get("ports_up", 0),
-            "interfaces": snmp.get("interfaces", []),
+            "stale": age > STALE_SECONDS, "ports_total": snmp.get("ports_total", 0),
+            "ports_up": snmp.get("ports_up", 0), "interfaces": snmp.get("interfaces", []),
         })
     return sorted(devices, key=lambda d: str(d["name"]).lower())
 

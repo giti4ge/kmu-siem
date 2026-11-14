@@ -64,7 +64,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(status_code=422, content={"detail": {"error": "validation_failed", "fields": fields}})
 
     for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
-                   logs.router, linux.router, retention.router, sophos_router.router, changes.router, snmp.router, switches.router):
+                   logs.router, linux.router, retention.router, sophos_router.router, changes.router,
+                   snmp.router, switches.router):
         app.include_router(router)
     return app
 
