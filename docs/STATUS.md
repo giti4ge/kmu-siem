@@ -23,7 +23,7 @@ Stand: 2026-11-14 · Bezug: [Spezifikation 2.6.1](spec/SPEC.md)
 | Quellenfreigabe | Typ-Vorschlag, Freigeben und Ignorieren unbekannter Quellen |
 | Support-Zugang | SSH für den Dienstleister: zeitlich begrenzt, Schlüssel und Quelladresse, nur Diagnosebefehle |
 | Datenschutzmodus | Benutzernamen als Pseudonym für Analyst/Auditor/Management (optional) |
-| Revisionssicheres Archiv | Vector schreibt stündliche Dateien (gzip), Siegel mit Hash-Kette und Ed25519, tägliche und manuelle Prüfung, Fehler als Audit-Ereignis (API `/api/archive`) |
+| Revisionssicheres Archiv | Vector schreibt stündliche Dateien (gzip), Siegel mit Hash-Kette und Ed25519, tägliche und manuelle Prüfung, Fehler als Audit-Ereignis (Web-UI Archiv, API `/api/archive`) |
 | Forensik-Export | signiertes Beweispaket (Hashliste, Signatur, Nachweis im Audit-Log), Prüffunktion |
 
 ## Bewusst vereinfacht (Abweichung von der Spezifikation)
@@ -37,7 +37,7 @@ Stand: 2026-11-14 · Bezug: [Spezifikation 2.6.1](spec/SPEC.md)
 
 ## Offen (noch nicht gebaut)
 
-1. Archiv-Rest: Web-UI-Seite, RFC-3161-Zeitstempel, Langzeitziel (SMB/NFS/SFTP/S3), Archiv-Retention, Wiederherstellung in `siem-restore-*`; Fall-Verwaltung mit Write-once-Fallarchiv.
+1. Archiv-Rest: RFC-3161-Zeitstempel, Langzeitziel (SMB/NFS/SFTP/S3), Archiv-Retention, Wiederherstellung in `siem-restore-*`; Fall-Verwaltung mit Write-once-Fallarchiv.
 2. Vier-Augen-Freigabe (optional, Standard aus) und Aufdeckung pseudonymisierter Namen mit Freigabe.
 3. Rückwirkende Verarbeitung gepufferter Ereignisse nach der Quellenfreigabe.
 4. Phase 4 Rest: LLDP, Geräteprofile, MIB-Import, net-sensor, Discovery-Scanner.

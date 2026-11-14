@@ -28,7 +28,8 @@
     "ar": "Active Response",
     "reports": "Reports",
     "devices": "Geräte",
-    "unparsed": "Nicht erkannte Quellen"
+    "unparsed": "Nicht erkannte Quellen",
+    "archive": "Archiv"
   },
   "common": {
     "save": "Speichern",
@@ -165,15 +166,41 @@
     "setup_title": "Einrichtung",
     "setup_intro": "Noch {{count}} erforderliche Schritte offen.",
     "optional": "(optional)",
-    "setup": {"notify": "Benachrichtigung einrichten (E-Mail/Teams)", "devices": "Logquellen eintragen (Geräteliste)", "fortigate": "FortiGate-API anbinden", "windows": "Windows-Server anbinden (Onboarding)", "retention": "Aufbewahrung je Kategorie prüfen", "backup": "Sicherung der Konfiguration läuft", "ai": "KI-Analyse einrichten", "ar": "Active Response einrichten"},
+    "setup": {
+      "notify": "Benachrichtigung einrichten (E-Mail/Teams)",
+      "devices": "Logquellen eintragen (Geräteliste)",
+      "fortigate": "FortiGate-API anbinden",
+      "windows": "Windows-Server anbinden (Onboarding)",
+      "retention": "Aufbewahrung je Kategorie prüfen",
+      "backup": "Sicherung der Konfiguration läuft",
+      "ai": "KI-Analyse einrichten",
+      "ar": "Active Response einrichten"
+    },
     "none": "Keine Daten.",
     "unavailable": "Die Ereignisdatenbank ist derzeit nicht erreichbar; Kennzahlen sind unvollständig.",
     "disk": "Speicherbelegung",
     "new_sources": "Unbekannte Quellen (24 h)",
-    "w": {"setup": "Einrichtung", "areas": "Netzwerkzustand", "alerts": "Offene Alarme", "blocked": "Top-Angreifer (blockiert, 24 h)",
-          "logons": "Fehlgeschlagene Anmeldungen (24 h)", "volume": "Ereignisse je Kategorie (24 h)", "health": "Systemzustand"},
-    "area": {"perimeter": "Perimeter", "windows": "Windows/AD", "servers": "Server", "network": "Netzwerk", "endpoints": "Endpunkte"},
-    "state": {"ok": "in Ordnung", "warn": "Auffälligkeiten", "critical": "kritisch"}
+    "w": {
+      "setup": "Einrichtung",
+      "areas": "Netzwerkzustand",
+      "alerts": "Offene Alarme",
+      "blocked": "Top-Angreifer (blockiert, 24 h)",
+      "logons": "Fehlgeschlagene Anmeldungen (24 h)",
+      "volume": "Ereignisse je Kategorie (24 h)",
+      "health": "Systemzustand"
+    },
+    "area": {
+      "perimeter": "Perimeter",
+      "windows": "Windows/AD",
+      "servers": "Server",
+      "network": "Netzwerk",
+      "endpoints": "Endpunkte"
+    },
+    "state": {
+      "ok": "in Ordnung",
+      "warn": "Auffälligkeiten",
+      "critical": "kritisch"
+    }
   },
   "users": {
     "new": "Neuer Benutzer",
@@ -228,12 +255,10 @@
     "dashboard": "Dashboard",
     "alerts": "Alarme",
     "logs": "Log-Explorer",
-    "assets": "Asset-Center",
-    "switches": "Switch-Ports",
     "assets": "Assets",
+    "switches": "Port-Matrix",
     "sources": "Quellen",
     "rules": "Regeln & Benachrichtigung",
-    "switches": "Port-Matrix",
     "changes": "Change-Audit & FIM",
     "reports": "Reports",
     "archive": "Archiv",
@@ -415,8 +440,17 @@
     "severity": "Schweregrad",
     "threshold": "Schwellwert",
     "enabled": "Aktiv",
-    "st": {"open": "offen", "acknowledged": "bestätigt", "closed": "geschlossen"},
-    "sev": {"low": "niedrig", "medium": "mittel", "high": "hoch", "critical": "kritisch"}
+    "st": {
+      "open": "offen",
+      "acknowledged": "bestätigt",
+      "closed": "geschlossen"
+    },
+    "sev": {
+      "low": "niedrig",
+      "medium": "mittel",
+      "high": "hoch",
+      "critical": "kritisch"
+    }
   },
   "notify": {
     "title": "Benachrichtigung",
@@ -451,7 +485,13 @@
     "limit": "Tageslimit (Tokens)",
     "anonymize": "Pseudonymisierung für den eigenen Endpunkt aktiv",
     "used": "Heute verbraucht: {{count}} Tokens",
-    "prov": {"anthropic": "Anthropic", "gemini": "Google Gemini", "openai": "OpenAI-kompatibel", "azure": "Azure OpenAI", "custom": "Eigener Endpunkt (außerhalb der Appliance)"},
+    "prov": {
+      "anthropic": "Anthropic",
+      "gemini": "Google Gemini",
+      "openai": "OpenAI-kompatibel",
+      "azure": "Azure OpenAI",
+      "custom": "Eigener Endpunkt (außerhalb der Appliance)"
+    },
     "forensics": "KI-Forensik",
     "forensics_intro": "Analysiert zusammengehörige Ereignisse eines Benutzers, Hosts oder einer Adresse. Jede Aussage muss durch Ereignisse belegt sein; unbelegte Aussagen werden verworfen.",
     "pivot": "Suchen nach",
@@ -715,5 +755,40 @@
     "suggestion": "Vorschlag: {{type}} ({{pct}} %)",
     "approve": "Freigeben",
     "ignore": "Ignorieren"
+  },
+  "archive": {
+    "title": "Revisionssicheres Archiv",
+    "intro": "Jedes Ereignis wird zusätzlich in stündliche Archivdateien geschrieben. Abgeschlossene Stunden werden versiegelt (SHA-256, Hash-Kette, Signatur); Veränderungen oder Löschungen werden bei der Prüfung erkannt.",
+    "category": "Kategorie",
+    "files": "Dateien",
+    "size": "Größe",
+    "sealed": "Versiegelt",
+    "last_sealed": "Zuletzt versiegelt",
+    "empty": "Noch keine Archivdateien.",
+    "total": "Gesamt: {{size}}",
+    "verify_title": "Integritätsprüfung",
+    "last_seal": "Letztes Versiegeln",
+    "last_verify": "Letzte Prüfung",
+    "ok": "in Ordnung",
+    "failed": "fehlgeschlagen",
+    "problems": "{{n}} Probleme",
+    "since": "Von",
+    "until": "Bis",
+    "verify": "Jetzt prüfen",
+    "seal": "Jetzt versiegeln",
+    "result_ok": "Archiv unverändert ({{n}} Dateien geprüft).",
+    "result_bad": "{{n}} Probleme gefunden – Archiv möglicherweise manipuliert.",
+    "key_title": "Öffentlicher Schlüssel",
+    "key_intro": "Siegel sind mit {{alg}} signiert. Mit diesem öffentlichen Schlüssel kann ein Dritter die Siegel unabhängig prüfen.",
+    "p": {
+      "file_modified": "Datei verändert",
+      "file_missing": "Datei fehlt",
+      "chain_broken": "Siegelkette unterbrochen",
+      "seal_modified": "Siegel verändert",
+      "signature_invalid": "Signatur ungültig",
+      "unsealed_old": "seit langem nicht versiegelt",
+      "seal_log_corrupt": "Siegelprotokoll beschädigt",
+      "seal_malformed": "Siegel fehlerhaft"
+    }
   }
 }
