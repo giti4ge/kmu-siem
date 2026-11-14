@@ -58,7 +58,24 @@ sources:
     decoding:
       codec: json
 
+  # Sophos Central: die Control-Plane (Host-Netz) liefert bereits ECS-JSON-Zeilen nur über Loopback
+  sophos_in:
+    type: socket
+    mode: tcp
+    address: "127.0.0.1:10601"
+    framing:
+      method: newline_delimited
+    decoding:
+      codec: json
+
 transforms:
+  sophos:
+    type: remap
+    inputs: ["sophos_in"]
+    source: |
+      .event.ingested = now()
+      .siem.collector = "sophos"
+
   # Gerätetyp bestimmen: 1. Geräteliste (Quell-IP → Typ, vom Config-Generator gerendert),
   # 2. Auto-Detect am Inhalt (nur eindeutige Formate), sonst leer → generischer Parser.
   detect:
@@ -194,7 +211,7 @@ transforms:
 sinks:
   opensearch:
     type: elasticsearch
-    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "windows"]
+    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "windows", "sophos"]
     endpoints: ["https://127.0.0.1:9200"]
     api_version: v8
     mode: bulk
