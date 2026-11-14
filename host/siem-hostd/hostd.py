@@ -83,10 +83,10 @@ RATE_LIMITS = {
     "https": "ct state new limit rate 600/minute burst 200 packets",
 }
 # Eingangsschutz je Quelladresse (nur Quellen der Allowlist erreichen diese Regeln):
-# UDP: Pakete pro Sekunde; TCP: neue Verbindungen pro Minute und gleichzeitige Verbindungen.
+# UDP: Pakete pro Sekunde; TCP: neue Verbindungen pro Minute (gleichzeitige Verbindungen begrenzt Vector).
 # Überschreitungen werden verworfen und gezählt (nftables-Zähler), das übrige System bleibt bedienbar.
 UDP_PER_SOURCE_PPS = {"syslog": 2000, "snmptrap": 200}
-TCP_PER_SOURCE = {"syslog": (100, 200), "syslog_tls": (100, 200), "wef": (120, 50), "wef_https": (120, 50)}
+TCP_NEW_PER_MINUTE = {"syslog": 100, "syslog_tls": 100, "wef": 120, "wef_https": 120}
 SNMP_MAX_UDP = 8200  # UDP-Länge inkl. Kopf; SNMP-Traps sind klein
 DEFAULT_V4 = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
 DEFAULT_V6 = ["fc00::/7", "fe80::/10"]
@@ -220,10 +220,9 @@ def render_nft(cfg: dict[str, Any]) -> str:
         v6 = [s for s in sources if ":" in s]
         lines.append(f"    set allow_{name} {{ type ipv4_addr; flags interval; auto-merge{_elements(v4)}; }}")
         lines.append(f"    set allow_{name}6 {{ type ipv6_addr; flags interval; auto-merge{_elements(v6)}; }}")
-    for name in sorted({*UDP_PER_SOURCE_PPS, *TCP_PER_SOURCE}):
+    for name in sorted({*UDP_PER_SOURCE_PPS, *TCP_NEW_PER_MINUTE}):
         for fam, typ in (("4", "ipv4_addr"), ("6", "ipv6_addr")):
             lines.append(f"    set flood_{name}{fam} {{ type {typ}; flags dynamic; size 65535; timeout 1m; }}")
-            lines.append(f"    set conn_{name}{fam} {{ type {typ}; flags dynamic; size 65535; timeout 1m; }}")
     lines += [
         "",
         "    chain input {",
@@ -253,13 +252,11 @@ def render_nft(cfg: dict[str, Any]) -> str:
                     src = f"{ip} saddr @allow_{name}{'' if fam == '4' else '6'}"
                     lines.append(f"        {match} {src} add @flood_{name}{fam}"
                                  f" {{ {ip} saddr limit rate over {pps}/second burst {pps * 2} packets }} counter drop")
-                elif proto == "tcp" and name in TCP_PER_SOURCE:
-                    rate, conns = TCP_PER_SOURCE[name]
+                elif proto == "tcp" and name in TCP_NEW_PER_MINUTE:
+                    rate = TCP_NEW_PER_MINUTE[name]
                     src = f"{ip} saddr @allow_{name}{'' if fam == '4' else '6'}"
                     lines.append(f"        {match} ct state new {src} add @flood_{name}{fam}"
                                  f" {{ {ip} saddr limit rate over {rate}/minute burst {rate} packets }} counter drop")
-                    lines.append(f"        {match} ct state new {src} add @conn_{name}{fam}"
-                                 f" {{ {ip} saddr ct count over {conns} }} counter drop")
             lines.append(f"        {match} ip saddr @allow_{name}{limit} accept")
             lines.append(f"        {match} ip6 saddr @allow_{name}6{limit} accept")
     lines += [

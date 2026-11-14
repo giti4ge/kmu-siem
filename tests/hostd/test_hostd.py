@@ -129,11 +129,11 @@ class TestRender(unittest.TestCase):
     def test_per_source_limits(self) -> None:
         text = hostd.render_nft(hostd.default_config())
         self.assertIn("set flood_syslog4 { type ipv4_addr; flags dynamic; size 65535; timeout 1m; }", text)
-        self.assertIn("set conn_wef6 { type ipv6_addr; flags dynamic; size 65535; timeout 1m; }", text)
         self.assertIn("udp dport 10514 ct status dnat ip saddr @allow_syslog add @flood_syslog4"
                       " { ip saddr limit rate over 2000/second burst 4000 packets } counter drop", text)
-        self.assertIn("tcp dport 5985 ct state new ip6 saddr @allow_wef6 add @conn_wef6"
-                      " { ip6 saddr ct count over 50 } counter drop", text)
+        self.assertIn("tcp dport 5985 ct state new ip6 saddr @allow_wef6 add @flood_wef6"
+                      " { ip6 saddr limit rate over 120/minute burst 120 packets } counter drop", text)
+        self.assertNotIn("ct count", text)
         self.assertIn("udp dport 10162 ct status dnat udp length > 8200 counter drop", text)
         # Grenzwerte stehen vor der jeweiligen Annahmeregel
         drop = text.index("add @flood_syslog4")
