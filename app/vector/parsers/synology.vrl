@@ -38,7 +38,7 @@ del(.version)
 .log.syslog.severity.name = syslog_severity
 .log.level = syslog_severity
 
-file = parse_regex(raw, r'(?i)(WinFileService|SMBFileService|FileStation|NFSFileService|AFPFileService|FTPFileService)\s+Event:\s*(?P<op>\w+),\s*Path:\s*(?P<path>.*?),\s*File/Folder:\s*(?P<kind>\w+)(,\s*Size:\s*[^,]+)?,\s*User:\s*(?P<user>[^,]+),\s*IP:\s*(?P<ip>[0-9a-fA-F:.]+)') ?? null
+file = parse_regex(raw, r'(?i)(WinFileService|SMBFileService|FileStation|NFSFileService|AFPFileService|FTPFileService)[:\s]+Event:\s*(?P<op>\w+),\s*Path:\s*(?P<path>.*?),\s*File/Folder:\s*(?P<kind>\w+)(,\s*Size:\s*[^,]+)?,\s*User:\s*(?P<user>[^,]+),\s*IP:\s*(?P<ip>[0-9a-fA-F:.]+)') ?? null
 conn = parse_regex(raw, r'(?i)User \[(?P<user>[^\]]*)\] from \[(?P<ip>[^\]]*)\] (?P<res>logged in successfully|failed to log in|logged out|was signed out|signed in)( via \[(?P<svc>[^\]]*)\])?') ?? null
 hw = parse_regex(raw, r'(?i)(?P<obj>Disk|Drive|Volume|Storage Pool|RAID|Fan|Power supply|UPS|System temperature|Temperature)\b.*?(?P<state>degraded|crashed|failed|failure|abnormal|not healthy|overheat|exceed|on battery|lost|was removed|healthy again|repaired)') ?? null
 backup = parse_regex(raw, r'(?i)(Hyper Backup|Active Backup|Backup task|Snapshot).*?(?P<res>failed|completed|finished|successful|started|partially)') ?? null
