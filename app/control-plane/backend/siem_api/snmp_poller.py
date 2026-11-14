@@ -26,6 +26,12 @@ IF_COLUMNS = {
     "in_errors": "1.3.6.1.2.1.2.2.1.14", "out_errors": "1.3.6.1.2.1.2.2.1.20",
     "name": "1.3.6.1.2.1.31.1.1.1.1", "speed_mbps": "1.3.6.1.2.1.31.1.1.1.15",
 }
+# FDB: Q-BRIDGE (je VLAN) bevorzugt, BRIDGE-MIB als Rückfall; Bridge-Port → ifIndex über dot1dBasePortIfIndex
+QBRIDGE_FDB_PORT = "1.3.6.1.2.1.17.7.1.2.2.1.2"
+BRIDGE_FDB_PORT = "1.3.6.1.2.1.17.4.3.1.2"
+BRIDGE_PORT_IFINDEX = "1.3.6.1.2.1.17.1.4.1.2"
+FDB_EVERY = 5  # Zyklen (= 5 min bei 60 s)
+MAX_FDB = 4096
 STATUS = {1: "up", 2: "down", 3: "testing", 4: "unknown", 5: "dormant", 6: "notPresent", 7: "lowerLayerDown"}
 
 
@@ -61,6 +67,46 @@ async def collect(session: Session) -> dict[str, Any]:
         })
     return {"sys_descr": str(sysvals.get(SYS["descr"], "")), "sys_name": str(sysvals.get(SYS["name"], "")),
             "uptime_ticks": _int(sysvals.get(SYS["uptime"])), "interfaces": ifaces}
+
+
+def _mac(octets: list[str]) -> str | None:
+    try:
+        vals = [int(o) for o in octets]
+    except ValueError:
+        return None
+    if len(vals) != 6 or any(not 0 <= v <= 255 for v in vals):
+        return None
+    return ":".join(f"{v:02x}" for v in vals)
+
+
+async def collect_fdb(session: Session, ifaces: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """MAC-Adressen je Port/VLAN (nur gelernte Einträge mit gültigem Port)."""
+    port_if = await session.walk(BRIDGE_PORT_IFINDEX)
+    names = {i["index"]: i["name"] for i in ifaces}
+    raw = await session.walk(QBRIDGE_FDB_PORT)
+    qbridge = bool(raw)
+    if not qbridge:
+        raw = await session.walk(BRIDGE_FDB_PORT)
+    entries = []
+    for suffix, bport in raw.items():
+        parts = suffix.split(".")
+        vlan = _int(parts[0]) if qbridge else 0
+        mac = _mac(parts[1:] if qbridge else parts)
+        if_index = _int(port_if.get(str(_int(bport))), _int(bport) if not port_if else 0)
+        if mac is None or if_index <= 0:  # Bridge-Port 0 = „selbst“/nicht gelernt
+            continue
+        entries.append({"mac": mac, "vlan": vlan, "if_index": if_index, "port": names.get(if_index, str(if_index))})
+        if len(entries) >= MAX_FDB:
+            break
+    return sorted(entries, key=lambda e: (e["if_index"], e["vlan"], e["mac"]))
+
+
+def fdb_event(target: dict[str, Any], entries: list[dict[str, Any]], now: datetime) -> dict[str, Any]:
+    ev = _base(target, now)
+    ev["event"].update({"dataset": "snmp.fdb", "action": "fdb"})
+    ev["message"] = f"{target.get('name') or target['ip']}: {len(entries)} MAC-Adressen in der FDB"
+    ev["snmp"] = {"fdb": {"count": len(entries), "entries": entries}}
+    return ev
 
 
 def _base(target: dict[str, Any], now: datetime) -> dict[str, Any]:
@@ -118,6 +164,7 @@ class Tracker:
         self.ports: dict[str, dict[int, str]] = {}
         self.fails: dict[str, int] = {}
         self.alarmed: set[str] = set()
+        self.cycles: dict[str, int] = {}
 
     async def poll_once(self, target: dict[str, Any], session: Session,
                         now: datetime | None = None) -> list[dict[str, Any]]:
@@ -132,6 +179,15 @@ class Tracker:
                 return [failure_event(target, "device-unreachable", now, type(exc).__name__)]
             return []
         out = status_events(target, data, self.ports.get(ip), now)
+        n = self.cycles.get(ip, 0)
+        self.cycles[ip] = n + 1
+        if n % FDB_EVERY == 0:
+            try:
+                fdb = await asyncio.wait_for(collect_fdb(session, data["interfaces"]), 45)
+                if fdb:  # Geräte ohne (lesbare) BRIDGE-MIB liefern keine FDB-Ereignisse
+                    out.append(fdb_event(target, fdb, now))
+            except Exception as exc:  # noqa: BLE001 – Gerät ohne BRIDGE-MIB: Status bleibt gültig
+                log.info("Ziel %s: keine FDB (%s)", ip, type(exc).__name__)
         self.ports[ip] = {i["index"]: i["oper"] for i in data["interfaces"]}
         self.fails[ip] = 0
         if ip in self.alarmed:

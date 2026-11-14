@@ -5,11 +5,12 @@ import { api } from "../api";
 import { ErrorBox } from "./Auth";
 
 type Iface = {
-  index: number; name: string; admin: string; oper: string; speed_mbps: number; in_errors: number; out_errors: number;
+  index: number; name: string; admin: string; oper: string; speed_mbps: number; in_errors: number; out_errors: number; macs: number;
 };
+type Mac = { mac: string; vlan: number; if_index: number; port: string };
 type Device = {
   ip: string; name: string; sys_descr: string; last_seen: string; stale: boolean;
-  ports_total: number; ports_up: number; interfaces: Iface[];
+  ports_total: number; ports_up: number; interfaces: Iface[]; fdb: Mac[];
 };
 
 function portClass(i: Iface): string {
@@ -22,6 +23,7 @@ export default function SwitchesPage() {
   const { t } = useTranslation();
   const q = useQuery({ queryKey: ["switches"], queryFn: () => api<{ devices: Device[] }>("GET", "/api/switches"), refetchInterval: 30000 });
   const [selected, setSelected] = useState<string | null>(null);
+  const [portIdx, setPortIdx] = useState<number | null>(null);
   const devices = q.data?.devices ?? [];
   const dev = devices.find((d) => d.ip === selected) ?? devices[0];
 
@@ -34,7 +36,7 @@ export default function SwitchesPage() {
       {devices.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
           {devices.map((d) => (
-            <button key={d.ip} className={`btn ${dev?.ip === d.ip ? "ring-2 ring-slate-500" : ""}`} onClick={() => setSelected(d.ip)}>
+            <button key={d.ip} className={`btn ${dev?.ip === d.ip ? "ring-2 ring-slate-500" : ""}`} onClick={() => { setSelected(d.ip); setPortIdx(null); }}>
               {d.name} · {d.ports_up}/{d.ports_total}
               {d.stale && <span className="ml-1 text-red-700">{t("switches.stale_short")}</span>}
             </button>
@@ -51,10 +53,11 @@ export default function SwitchesPage() {
             </p>
             <div className="flex flex-wrap gap-1" role="list" aria-label={t("switches.ports")}>
               {dev.interfaces.map((i) => (
-                <div key={i.index} role="listitem" title={`${i.name}: ${t(`switches.state.${i.oper}`, { defaultValue: i.oper })}`}
-                  className={`flex h-9 w-12 items-center justify-center rounded border text-xs ${portClass(i)}`}>
+                <button key={i.index} role="listitem" onClick={() => setPortIdx(portIdx === i.index ? null : i.index)}
+                  title={`${i.name}: ${t(`switches.state.${i.oper}`, { defaultValue: i.oper })} · ${i.macs} ${t("switches.macs")}`}
+                  className={`flex h-9 w-12 items-center justify-center rounded border text-xs ${portClass(i)} ${portIdx === i.index ? "ring-2 ring-slate-600" : ""}`}>
                   {i.name.replace(/^.*?(\d+(\/\d+)*)$/, "$1")}
-                </div>
+                </button>
               ))}
             </div>
             <p className="mt-2 text-xs text-slate-500">{t("switches.legend")}</p>
@@ -64,7 +67,7 @@ export default function SwitchesPage() {
               <thead>
                 <tr className="border-b text-slate-500">
                   <th className="py-1">{t("switches.port")}</th><th>{t("switches.admin")}</th><th>{t("switches.oper")}</th>
-                  <th>{t("switches.speed")}</th><th>{t("switches.errors_in")}</th><th>{t("switches.errors_out")}</th>
+                  <th>{t("switches.speed")}</th><th>{t("switches.macs_col")}</th><th>{t("switches.errors_in")}</th><th>{t("switches.errors_out")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -74,6 +77,7 @@ export default function SwitchesPage() {
                     <td>{t(`switches.state.${i.admin}`, { defaultValue: i.admin })}</td>
                     <td>{t(`switches.state.${i.oper}`, { defaultValue: i.oper })}</td>
                     <td>{i.speed_mbps > 0 ? `${i.speed_mbps} ${t("switches.mbps")}` : "–"}</td>
+                    <td>{i.macs > 8 ? `${i.macs} ${t("switches.uplink_hint")}` : i.macs}</td>
                     <td>{i.in_errors}</td>
                     <td>{i.out_errors}</td>
                   </tr>
@@ -81,6 +85,27 @@ export default function SwitchesPage() {
               </tbody>
             </table>
           </section>
+          {dev.fdb.length > 0 && (
+            <section className="card mt-4 overflow-x-auto">
+              <h2 className="mb-2 font-medium">
+                {t("switches.fdb")}{portIdx !== null ? ` – ${dev.interfaces.find((x) => x.index === portIdx)?.name ?? ""}` : ""}
+              </h2>
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b text-slate-500">
+                    <th className="py-1">{t("switches.mac")}</th><th>{t("switches.vlan")}</th><th>{t("switches.port")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dev.fdb.filter((m) => portIdx === null || m.if_index === portIdx).slice(0, 500).map((m) => (
+                    <tr key={`${m.mac}-${m.vlan}`} className="border-b border-slate-100">
+                      <td className="py-1 font-mono text-xs">{m.mac}</td><td>{m.vlan > 0 ? m.vlan : "–"}</td><td>{m.port}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
         </>
       )}
     </div>

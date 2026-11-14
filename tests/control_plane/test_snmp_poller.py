@@ -16,8 +16,8 @@ KEY = b"k" * 32
 
 
 class FakeSession:
-    def __init__(self, oper=None, fail=False):
-        self.oper, self.fail = oper or {"1": 1, "2": 2}, fail
+    def __init__(self, oper=None, fail=False, fdb=None):
+        self.oper, self.fail, self.fdb = oper or {"1": 1, "2": 2}, fail, fdb or {}
 
     async def get(self, oids):
         if self.fail:
@@ -38,11 +38,31 @@ class FakeSession:
             return {k: str(v) for k, v in self.oper.items()}
         if oid == c["speed_mbps"]:
             return {"1": "1000", "2": "0"}
+        if oid.startswith("1.3.6.1.2.1.17"):
+            return self.fdb.get(oid, {})
         return {"1": "0", "2": "3"}
 
 
 def run(coro):
     return asyncio.run(coro)
+
+
+def test_fdb_qbridge_and_fallback_and_schedule():
+    q = {sp.BRIDGE_PORT_IFINDEX: {"1": "1", "2": "2"},
+         sp.QBRIDGE_FDB_PORT: {"10.0.17.34.1.2.3": "2", "20.0.17.34.1.2.4": "1",
+                               "10.1.2.3": "1", "10.0.0.0.0.0.1": "0"}}  # letzte zwei: ungültige MAC, Port 0
+    entries = run(sp.collect_fdb(FakeSession(fdb=q), [{"index": 1, "name": "Gi1"}, {"index": 2, "name": "Gi2"}]))
+    assert [(e["port"], e["vlan"], e["mac"]) for e in entries] == [
+        ("Gi1", 20, "00:11:22:01:02:04"), ("Gi2", 10, "00:11:22:01:02:03")]
+    # BRIDGE-MIB-Rückfall (kein VLAN) und Zeitplan: FDB im 1. Zyklus, dann erst nach FDB_EVERY Zyklen
+    fb = {sp.BRIDGE_PORT_IFINDEX: {"1": "1"}, sp.BRIDGE_FDB_PORT: {"0.17.34.1.2.3": "1"}}
+    tr = sp.Tracker()
+    first = run(tr.poll_once(TARGET, FakeSession(fdb=fb), NOW))
+    assert [e["event"]["dataset"] for e in first] == ["snmp.device", "snmp.fdb"]
+    assert first[1]["snmp"]["fdb"]["entries"] == [{"mac": "00:11:22:01:02:03", "vlan": 0, "if_index": 1, "port": "Gi1/0/1"}]
+    for _ in range(sp.FDB_EVERY - 1):
+        assert [e["event"]["dataset"] for e in run(tr.poll_once(TARGET, FakeSession(fdb=fb), NOW))] == ["snmp.device"]
+    assert "snmp.fdb" in [e["event"]["dataset"] for e in run(tr.poll_once(TARGET, FakeSession(fdb=fb), NOW))]
 
 
 def test_status_event_and_port_change():

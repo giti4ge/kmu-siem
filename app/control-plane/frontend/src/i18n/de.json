@@ -455,6 +455,12 @@
     "speed": "Geschwindigkeit",
     "errors_in": "Fehler ein",
     "errors_out": "Fehler aus",
+    "macs": "MAC-Adressen",
+    "macs_col": "MACs",
+    "uplink_hint": "(Uplink?)",
+    "fdb": "MAC-Adressen (FDB)",
+    "mac": "MAC-Adresse",
+    "vlan": "VLAN",
     "mbps": "Mbit/s",
     "state": {
       "up": "aktiv",

@@ -26,6 +26,16 @@ def test_parse_sorts_and_marks_stale():
     assert switches.parse({}, NOW) == []
 
 
+def test_fdb_counts_per_port_and_uplink_hint():
+    devs = switches.parse({"aggregations": {"dev": {"buckets": [bucket("10.0.0.2", "2026-11-14T11:59:30Z")]}}}, NOW)
+    entries = [{"mac": "aa:bb:cc:00:00:01", "vlan": 10, "if_index": 2, "port": "2"},
+               {"mac": "aa:bb:cc:00:00:02", "vlan": 10, "if_index": 2, "port": "2"}]
+    fdb_resp = {"aggregations": {"dev": {"buckets": [
+        {"key": "10.0.0.2", "last": {"hits": {"hits": [{"_source": {"snmp": {"fdb": {"entries": entries}}}}]}}}]}}}
+    switches.attach_fdb(devs, switches.parse_fdb(fdb_resp))
+    assert [i["macs"] for i in devs[0]["interfaces"]] == [0, 2] and len(devs[0]["fdb"]) == 2
+
+
 def test_query_filters_poll_events():
     q = switches.build_query(6)
     assert "now-6h" in str(q) and "snmp.device" in str(q) and q["aggs"]["dev"]["terms"]["field"] == "observer.ip"
@@ -35,6 +45,8 @@ def test_api(h, monkeypatch):
     class Stub:
         def search(self, index, body):
             self.index = index
+            if "snmp.fdb" in str(body):
+                return {}
             return {"aggregations": {"dev": {"buckets": [bucket("10.0.0.2", "2026-11-14T11:59:30Z")]}}}
 
     stub = Stub()
