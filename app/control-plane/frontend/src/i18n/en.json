@@ -363,6 +363,9 @@
     "ok": "OK",
     "failed": "Failed",
     "run": "Run now",
+    "diag_title": "Diagnostic package",
+    "diag_intro": "Versions, status and error lines without secrets or event contents; names and addresses are pseudonymized. For the service provider.",
+    "diag_button": "Download diagnostic package",
     "jobs": {
       "guard": "Disk guard",
       "db_backup": "Configuration database backup",
@@ -558,6 +561,7 @@
     "empty": "No unrecognized events in the selected period.",
     "program": "Program",
     "count": "{{count}} events",
-    "last": "last seen"
+    "last": "last seen",
+    "export": "Export sample (pseudonymized)"
   }
 }

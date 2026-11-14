@@ -363,6 +363,9 @@
     "ok": "OK",
     "failed": "Fehler",
     "run": "Jetzt ausführen",
+    "diag_title": "Diagnosepaket",
+    "diag_intro": "Versionen, Status und Fehlerzeilen ohne Geheimnisse und Ereignisinhalte; Namen und Adressen sind pseudonymisiert. Zur Weitergabe an den Dienstleister.",
+    "diag_button": "Diagnosepaket herunterladen",
     "jobs": {
       "guard": "Plattenwächter",
       "db_backup": "Sicherung der Konfigurationsdatenbank",
@@ -558,6 +561,7 @@
     "empty": "Keine nicht erkannten Ereignisse im gewählten Zeitraum.",
     "program": "Programm",
     "count": "{{count}} Ereignisse",
-    "last": "zuletzt"
+    "last": "zuletzt",
+    "export": "Probe exportieren (pseudonymisiert)"
   }
 }

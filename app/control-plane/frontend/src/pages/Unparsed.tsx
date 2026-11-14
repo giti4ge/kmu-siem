@@ -4,6 +4,18 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { ErrorBox } from "./Auth";
 
+async function exportSample(ip: string, program: string) {
+  const r = await api<{ lines: string[] }>("GET", `/api/logs/unparsed/sample?ip=${encodeURIComponent(ip)}&program=${encodeURIComponent(program)}&limit=50`);
+  const url = URL.createObjectURL(new Blob([r.lines.join("
+") + "
+"], { type: "text/plain" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `probe-${program || "unbekannt"}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 type Source = {
   ip: string; program: string; count: number; last_seen: string | null; hostname: string | null; samples: string[];
 };
@@ -39,6 +51,7 @@ export default function UnparsedPage() {
             <span className="text-slate-500">{t("unparsed.count", { count: s.count })}</span>
             {s.last_seen && <span className="text-slate-500">{t("unparsed.last")}: {s.last_seen}</span>}
           </div>
+          <button className="btn-secondary mb-2" onClick={() => exportSample(s.ip, s.program)}>{t("unparsed.export")}</button>
           <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-slate-700">
             {s.samples.join("\n")}
           </pre>

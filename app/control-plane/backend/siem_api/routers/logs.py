@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query, Request, status
+from sqlalchemy.orm import Session as DbSession
 
-from ..deps import Ctx, error, require, state
+from ..anonymizer import Pseudonymizer
+from ..deps import Ctx, error, get_db, require, state
 from ..opensearch import OpenSearchClient, OpenSearchUnavailable
 
 router = APIRouter(tags=["logs"], prefix="/api/logs")
@@ -71,3 +73,31 @@ def volume(request: Request, hours: int = Query(24, ge=1, le=720),
         raise error(status.HTTP_503_SERVICE_UNAVAILABLE, "opensearch_unavailable") from exc
     counts = {b["key"]: b["doc_count"] for b in resp.get("aggregations", {}).get("cat", {}).get("buckets", [])}
     return {"hours": hours, "categories": {c: counts.get(c, 0) for c in CATEGORIES}}
+
+
+SAMPLE_MAX = 50
+
+
+@router.get("/unparsed/sample")
+def unparsed_sample(request: Request, ip: str = Query(max_length=45), program: str = Query("", max_length=64),
+                    limit: int = Query(20, ge=1, le=SAMPLE_MAX), db: DbSession = Depends(get_db),
+                    ctx: Ctx = Depends(require("logs:read"))) -> dict:
+    """Pseudonymisierte Rohzeilen einer nicht erkannten Quelle (Probenexport für neue Parser, Issue #26)."""
+    must: list[dict[str, Any]] = [{"term": {"observer.ip": ip}}]
+    if program:
+        must.append({"term": {"process.name": program}})
+    body = {"size": limit, "sort": [{"@timestamp": "desc"}], "query": {"bool": {"filter": must}},
+            "_source": ["event.original", "host.hostname", "user.name"]}
+    try:
+        resp = client_for(request).search("siem-unparsed-*", body)
+    except OpenSearchUnavailable as exc:
+        raise error(status.HTTP_503_SERVICE_UNAVAILABLE, "opensearch_unavailable") from exc
+    hits = [h.get("_source", {}) for h in resp.get("hits", {}).get("hits", [])]
+    raw = [str(h.get("event", {}).get("original", "")) for h in hits]
+    hosts = sorted({str(h["host"]["hostname"]) for h in hits if h.get("host", {}).get("hostname")})
+    users = sorted({str(h["user"]["name"]) for h in hits if h.get("user", {}).get("name")})
+    pseudo = Pseudonymizer(state(request).settings.secrets_dir / "pseudonyms.json", hosts, users)
+    lines = pseudo.lines([r[:4000] for r in raw if r])
+    state(request).audit.append(db, actor=ctx.user.username, action="logs.sample_export", target=f"{program}",
+                                ip=ctx.ip, details={"lines": len(lines)})
+    return {"lines": lines}

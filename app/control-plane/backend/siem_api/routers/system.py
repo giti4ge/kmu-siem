@@ -5,9 +5,10 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query, Request, status
+from sqlalchemy.orm import Session as DbSession
 
-from .. import __version__, hostd
-from ..deps import Ctx, error, require, state
+from .. import __version__, diagnostics, hostd
+from ..deps import Ctx, error, get_db, require, state
 
 router = APIRouter(tags=["system"])
 
@@ -27,6 +28,17 @@ def health() -> dict:
 @router.get("/api/system/info")
 def system_info(ctx: Ctx = Depends(require("system:read"))) -> dict:
     return {"version": __version__}
+
+
+@router.get("/api/system/diagnostics")
+def diagnostics_package(request: Request, db: DbSession = Depends(get_db), pseudonymize: bool = True,
+                        ctx: Ctx = Depends(require("system:read"))) -> dict:
+    """Diagnosepaket für den Dienstleister (ohne Geheimnisse/Ereignisinhalte, Namen/IPs optional pseudonymisiert)."""
+    st = state(request)
+    pkg = diagnostics.build(st.settings, f"{ctx.user.username}@web", request.app.state.maintenance.state(), pseudonymize)  # noqa: E501
+    st.audit.append(db, actor=ctx.user.username, action="system.diagnostics", target="package", ip=ctx.ip,
+                    details={"pseudonymized": pseudonymize})
+    return pkg
 
 
 @router.get("/api/system/logs")

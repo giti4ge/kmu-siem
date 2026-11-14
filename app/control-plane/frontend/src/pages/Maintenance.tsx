@@ -11,6 +11,16 @@ type Data = {
   keep: { db_backups: number; snapshots: number };
 };
 
+async function downloadDiagnostics() {
+  const pkg = await api<unknown>("GET", "/api/system/diagnostics");
+  const url = URL.createObjectURL(new Blob([JSON.stringify(pkg, null, 2)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `diagnose-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 const JOBS = ["guard", "db_backup", "db_integrity", "snapshot"];
 
 function summary(job: string, d: unknown): string {
@@ -66,6 +76,11 @@ export default function MaintenancePage({ canWrite }: { canWrite: boolean }) {
             })}
           </tbody>
         </table>
+      </section>
+      <section className="card mt-4">
+        <h2 className="mb-1 font-medium">{t("maintenance.diag_title")}</h2>
+        <p className="mb-2 text-sm text-slate-600">{t("maintenance.diag_intro")}</p>
+        <button className="btn" onClick={() => downloadDiagnostics()}>{t("maintenance.diag_button")}</button>
       </section>
     </div>
   );

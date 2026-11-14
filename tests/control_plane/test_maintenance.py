@@ -167,3 +167,28 @@ def test_snmp_rate_limiter():
     t[0] += 1.0
     assert sum(rl.allow("10.0.0.1") for _ in range(50)) == 10  # Nachfüllen mit 10/s
     assert rl.dropped == 70
+
+
+def test_diagnostics_scrub_and_package(tmp_path, monkeypatch):
+    from siem_api import diagnostics, hostd
+    from siem_api.config import Settings
+    lines = ["ok line", "ERROR login password=Geheim123 token: abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGH",
+             "Failed for user=mueller from 192.168.5.5", "-----BEGIN PRIVATE KEY-----\nMIIabc\n-----END PRIVATE KEY----- error"]
+    out = diagnostics.error_lines(lines)
+    joined = " ".join(out)
+    assert "Geheim123" not in joined and "abcdefghijklmnop" not in joined and "MIIabc" not in joined and len(out) == 3
+
+    def fake_call(_sock, action, params, actor, timeout=30.0):
+        if action == "system.status":
+            return {"hostname": "srv-kunde01", "disk": {"used": 1}}
+        return {"lines": ["ERROR connect to 10.1.2.3 password=hunter2-secret failed"]}
+
+    monkeypatch.setattr(hostd, "call", fake_call)
+    st = Settings(db_url="sqlite://", secrets_dir=tmp_path, opensearch_url="https://127.0.0.1:1")
+    pkg = diagnostics.build(st, "t", {}, pseudonymize=True)
+    import json
+    txt = json.dumps(pkg)
+    assert "hunter2" not in txt
+    assert "10.1.2.3" not in txt
+    assert "srv-kunde01" not in txt
+    assert pkg["pseudonymisiert"] is True and "error" in pkg["opensearch"]
