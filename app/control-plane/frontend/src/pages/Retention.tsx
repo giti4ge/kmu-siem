@@ -13,6 +13,27 @@ type Data = {
 
 const gb = (b: number) => (b / 1024 ** 3).toFixed(1);
 
+function PrivacyMode({ canWrite }: { canWrite: boolean }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["privacy"], queryFn: () => api<{ enabled: boolean }>("GET", "/api/retention/privacy") });
+  const set = useMutation({
+    mutationFn: (enabled: boolean) => api<{ enabled: boolean }>("PUT", "/api/retention/privacy", { enabled }),
+    onSuccess: (d) => qc.setQueryData(["privacy"], d),
+  });
+  return (
+    <section className="card mb-4">
+      <h2 className="mb-1 font-medium">{t("privacy.title")}</h2>
+      <p className="mb-2 text-sm text-slate-600">{t("privacy.intro")}</p>
+      <ErrorBox error={q.error ?? set.error} />
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={q.data?.enabled ?? false} disabled={!canWrite || set.isPending} onChange={(e) => set.mutate(e.target.checked)} />
+        {t("privacy.enable")}
+      </label>
+    </section>
+  );
+}
+
 export default function RetentionPage({ canWrite }: { canWrite: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -39,6 +60,7 @@ export default function RetentionPage({ canWrite }: { canWrite: boolean }) {
       <h1 className="mb-1 text-xl font-semibold">{t("retention.title")}</h1>
       <p className="mb-4 text-sm text-slate-600">{t("retention.intro", { min: d?.min_days ?? 7, max: d?.max_days ?? 730 })}</p>
       <ErrorBox error={q.error ?? save.error} />
+      <PrivacyMode canWrite={canWrite} />
       <section className="card mb-4">
         <table className="w-full text-left text-sm">
           <thead>

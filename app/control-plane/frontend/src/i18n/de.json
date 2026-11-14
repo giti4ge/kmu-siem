@@ -514,6 +514,11 @@
     "active": "Zugang aktiv bis {{until}} (von {{from}}).",
     "inactive": "Der Support-Zugang ist gesperrt."
   },
+  "privacy": {
+    "title": "Datenschutzmodus",
+    "intro": "Optional. Benutzernamen werden für Analysten, Auditoren und das Management als Pseudonym angezeigt; Administratoren und Datenschutz-Freigeber sehen Klartext. Jede Änderung wird protokolliert.",
+    "enable": "Datenschutzmodus aktivieren"
+  },
   "retention": {
     "title": "Aufbewahrung je Kategorie",
     "intro": "Aufbewahrungsdauer der Ereignisse je Kategorie ({{min}}–{{max}} Tage). Ältere Indizes werden automatisch gelöscht.",

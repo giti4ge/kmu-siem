@@ -138,3 +138,21 @@ def put_retention(body: RetentionIn, request: Request, db: DbSession = Depends(g
                                     details={"changed": {k: {"from": current.get(k), "to": v}
                                                          for k, v in changed.items()}})
     return _view(policies, per_day, total)
+
+
+class PrivacyIn(BaseModel):
+    enabled: bool
+
+
+@router.get("/privacy")
+def get_privacy(request: Request, ctx: Ctx = Depends(require("privacy:read"))) -> dict:
+    return {"enabled": request.app.state.privacy.enabled()}
+
+
+@router.put("/privacy")
+def put_privacy(body: PrivacyIn, request: Request, db: DbSession = Depends(get_db),
+                ctx: Ctx = Depends(require("privacy:write"))) -> dict:
+    request.app.state.privacy.set_enabled(body.enabled)
+    state(request).audit.append(db, actor=ctx.user.username, action="privacy.set", target="mode", ip=ctx.ip,
+                                details={"enabled": body.enabled})
+    return {"enabled": body.enabled}

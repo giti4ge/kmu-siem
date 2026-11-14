@@ -180,13 +180,14 @@ EXPLAIN_SYSTEM = ("Du bist ein erfahrener Security-Analyst für kleine Unternehm
 
 
 def explain_alert(store: Store, p: Pseudonymizer, alert: dict[str, Any], test: bool = False,
-                  transport: Transport = _post) -> dict[str, Any]:
+                  transport: Transport = _post, reveal: bool = True) -> dict[str, Any]:
     user = p.line(json.dumps({k: alert.get(k) for k in ("rule", "severity", "group", "count", "summary", "description",
                                                         "sample", "mitre")}, ensure_ascii=False))
     p.save()
     if test:
         return {"request": {"system": EXPLAIN_SYSTEM, "user": user}}
-    return {"text": restore(complete(store, EXPLAIN_SYSTEM, user, transport), p),
+    text = complete(store, EXPLAIN_SYSTEM, user, transport)
+    return {"text": restore(text, p) if reveal else text,
             "disclaimer": "KI-gestützte Auswertung, zu prüfen."}
 
 
@@ -251,7 +252,7 @@ def verify(result: dict[str, Any], ids: set[str]) -> dict[str, Any]:
 
 
 def analyze(store: Store, p: Pseudonymizer, events: list[dict[str, Any]], test: bool = False,
-            transport: Transport = _post) -> dict[str, Any]:
+            transport: Transport = _post, reveal: bool = True) -> dict[str, Any]:
     """events: _source-Dokumente in zeitlicher Reihenfolge. Zwei Durchläufe, lokale Prüfung, Rückübersetzung."""
     events = events[:MAX_EVENTS]
     ids = {f"E{i + 1}" for i in range(len(events))}
@@ -272,4 +273,4 @@ def analyze(store: Store, p: Pseudonymizer, events: list[dict[str, Any]], test: 
     first["events"] = len(events)
     first["disclaimer"] = "KI-gestützte Auswertung, zu prüfen. Kein Beweismittel."
     first["event_ids"] = {f"E{i + 1}": e.get("@timestamp") for i, e in enumerate(events)}
-    return _restore_obj(first, p)
+    return _restore_obj(first, p) if reveal else first

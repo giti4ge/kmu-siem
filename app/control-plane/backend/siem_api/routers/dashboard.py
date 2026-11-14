@@ -13,4 +13,7 @@ router = APIRouter(tags=["dashboard"], prefix="/api/dashboard")
 
 @router.get("")
 def get_dashboard(request: Request, ctx: Ctx = Depends(require("dashboard:read"))) -> dict:
-    return dashboard.build(client_for(request), request.app.state.maintenance.state())
+    out = dashboard.build(client_for(request), request.app.state.maintenance.state())
+    if request.app.state.privacy.masked_for(ctx.permissions):
+        out["failed_logons"] = request.app.state.privacy.counts(out["failed_logons"])
+    return out
