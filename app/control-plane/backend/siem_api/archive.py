@@ -10,6 +10,7 @@ Ein externer RFC-3161-Zeitstempel und die Replikation auf ein Langzeitziel sind 
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -159,6 +160,51 @@ class Archive:
             fh.flush()
             os.fsync(fh.fileno())
 
+    # ---- Aufbewahrung ----
+    def prune(self, days: dict[str, int], default: int) -> dict[str, Any]:
+        """Versiegelte Dateien nach Ablauf der Archiv-Retention löschen; jede Löschung wird in der Kette vermerkt."""
+        now = self.clock()
+        removed = 0
+        with self.lock:
+            for cat in self.categories():
+                limit = now - timedelta(days=days.get(cat, default))
+                seals = self.seals(cat)
+                gone = {x["file"] for x in seals if x.get("type") == "prune"}
+                prev = seals[-1]["chain"] if seals else GENESIS
+                seq = seals[-1]["seq"] + 1 if seals else 1
+                for x in seals:
+                    end = slot_end(x["file"])
+                    if x.get("type") == "prune" or x["file"] in gone or end is None or end > limit:
+                        continue
+                    path = self.root / cat / x["file"]
+                    at = now.isoformat(timespec="seconds")
+                    chain = _chain(prev, seq, "prune:" + x["file"], x["sha256"], 0, at)
+                    rec = {"seq": seq, "category": cat, "type": "prune", "file": x["file"], "sha256": x["sha256"],
+                           "bytes": 0, "prev": prev, "sealed_at": at, "chain": chain,
+                           "sig": self.key.sign(chain.encode()).hex()}
+                    self._append(cat, rec)  # erst vermerken, dann löschen (Absturz dazwischen = Datei fehlt nicht)
+                    path.unlink(missing_ok=True)
+                    prev, seq, removed = chain, seq + 1, removed + 1
+        return {"pruned": removed}
+
+    def restore_events(self, cat: str, since: str, until: str):
+        """Prüft die Dateien des Zeitraums und liefert (Datei, Zeilen) – bricht bei Integritätsfehlern ab."""
+        res = self.verify(since, until)
+        bad = [p for p in res["problems"] if p.get("category") == cat and p["problem"] != "unsealed_old"]
+        if bad:
+            raise ValueError("integrity:" + bad[0]["problem"])
+        import gzip
+        out = []
+        for x in self.seals(cat):
+            day = x["file"][:10].replace("/", "-")
+            if x.get("type") == "prune" or day < since or day > until:
+                continue
+            path = self.root / cat / x["file"]
+            if path.is_file():
+                with gzip.open(path, "rt", encoding="utf-8") as fh:
+                    out.append((x["file"], [ln for ln in fh if ln.strip()]))
+        return out
+
     # ---- Prüfen ----
     def verify(self, since: str | None = None, until: str | None = None, pub: Ed25519PublicKey | None = None,
                ) -> dict[str, Any]:
@@ -182,12 +228,15 @@ class Archive:
                     problems.append({"category": cat, "problem": "seal_log_corrupt"})
                     continue
                 prev, n = GENESIS, 0
+                pruned = {x.get("file") for x in seals if x.get("type") == "prune"}
                 for i, s in enumerate(seals, 1):
                     where = {"category": cat, "file": s.get("file"), "seq": s.get("seq")}
                     try:
                         if s["seq"] != i or s["prev"] != prev:
                             problems.append({**where, "problem": "chain_broken"})
-                        if s["chain"] != _chain(s["prev"], s["seq"], s["file"], s["sha256"], s["bytes"],
+                        is_prune = s.get("type") == "prune"
+                        name = ("prune:" if is_prune else "") + s["file"]
+                        if s["chain"] != _chain(s["prev"], s["seq"], name, s["sha256"], s["bytes"],
                                                 s["sealed_at"]):
                             problems.append({**where, "problem": "seal_modified"})
                         try:
@@ -195,6 +244,8 @@ class Archive:
                         except (InvalidSignature, ValueError):
                             problems.append({**where, "problem": "signature_invalid"})
                         prev = s["chain"]
+                        if is_prune or s["file"] in pruned:
+                            continue
                         day = s["file"][:10].replace("/", "-")
                         if (since and day < since) or (until and day > until):
                             continue
@@ -216,7 +267,8 @@ class Archive:
                     if end and now >= end + GRACE + timedelta(hours=2):
                         unsealed += 1
                         problems.append({"category": cat, "file": rel, "problem": "unsealed_old"})
-                cats[cat] = {"seals": len(seals), "files": n, "last": seals[-1]["file"] if seals else None,
+                cats[cat] = {"seals": len(seals) - len(pruned), "files": n,
+                             "last": seals[-1]["file"] if seals else None,
                              "pending": len(pending)}
         return {"ok": not problems, "checked_files": checked, "unsealed": unsealed, "problems": problems[:200],
                 "problem_count": len(problems), "categories": cats, "at": now.isoformat(timespec="seconds")}
@@ -229,7 +281,9 @@ class Archive:
             size = sum((self.root / cat / f).stat().st_size for f in files)
             seals = self.seals(cat)
             total += size
-            cats[cat] = {"files": len(files), "bytes": size, "sealed": len(seals),
+            cats[cat] = {"files": len(files), "bytes": size, "sealed": sum(1 for x in seals if x.get("type") != "prune"
+                                       and (self.root / cat / x["file"]).is_file()),
+                         "pruned": sum(1 for x in seals if x.get("type") == "prune"),
                          "last_sealed": seals[-1]["sealed_at"] if seals else None,
                          "oldest": files[0] if files else None, "newest": files[-1] if files else None}
         return {"categories": cats, "bytes": total, "public_key": public_hex(self.key),
@@ -240,8 +294,11 @@ class Worker(threading.Thread):
     """Versiegelt alle 15 min; tägliche Prüfung im Wartungsfenster. Fehler → Audit-Ereignis (Critical-Alarm)."""
 
     def __init__(self, archive: Archive, state_path: Path,
-                 report: Callable[[str, str, dict[str, Any]], None] | None = None) -> None:
+                 report: Callable[[str, str, dict[str, Any]], None] | None = None,
+                 retention: Any = None, restorer: Any = None) -> None:
         super().__init__(daemon=True, name="archive")
+        self.retention = retention
+        self.restorer = restorer
         self.archive = archive
         self.state_path = state_path
         self.report = report or (lambda *_a: None)
@@ -290,6 +347,21 @@ class Worker(threading.Thread):
                                                          "first": res["problems"][:3]})
         return res
 
+    def run_prune(self) -> dict[str, Any]:
+        if self.retention is None:
+            return {"pruned": 0}
+        cfg = self.retention.get()
+        try:
+            res = self.archive.prune(cfg["days"], cfg["default"])
+        except (OSError, ValueError) as exc:
+            self.report("archive.prune", "failure", {"error": str(exc)[:200]})
+            return {"pruned": 0, "error": str(exc)[:200]}
+        stamp = self.archive.clock().isoformat(timespec="seconds")
+        self._save(prune={"at": stamp, "day": stamp[:10], **res})
+        if res["pruned"]:
+            self.report("archive.prune", "success", res)
+        return res
+
     def run(self) -> None:
         next_seal = 0.0
         while not self.stop.wait(30):
@@ -300,3 +372,8 @@ class Worker(threading.Thread):
             local = now.astimezone()
             if 2 <= local.hour < 4 and self.state().get("verify", {}).get("day") != now.isoformat()[:10]:
                 self.run_verify()
+            if 4 <= local.hour < 5 and self.state().get("prune", {}).get("day") != now.isoformat()[:10]:
+                self.run_prune()
+            if self.restorer is not None:
+                with contextlib.suppress(Exception):  # Ablaufbereinigung darf den Dienst nie beenden
+                    self.restorer.expire()

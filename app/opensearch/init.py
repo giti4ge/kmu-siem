@@ -306,6 +306,9 @@ def security(client: OS, jwt_key_b64: str, kibanaserver_password: str,
                 {"index_patterns": ["siem-*"], "allowed_actions": ["indices:admin/delete"]},
                 {"index_patterns": ["siem-alerts-*", "siem-audit-*"],
                  "allowed_actions": ["crud", "create_index", "indices:admin/mapping/put"]},
+                # Archiv-Wiederherstellung (zeitlich begrenzt, Index wird von der API wieder gelöscht)
+                {"index_patterns": ["siem-restore-*"],
+                 "allowed_actions": ["crud", "create_index", "indices:admin/mapping/put"]},
             ],
         })
         client.request("PUT", "/_plugins/_security/api/rolesmapping/siem_api", {"users": ["siem_api"]})

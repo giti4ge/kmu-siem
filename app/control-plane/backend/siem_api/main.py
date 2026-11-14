@@ -15,6 +15,7 @@ from . import active_response as ar_mod
 from . import ai as ai_mod
 from . import alerts as alerts_mod
 from . import archive as archive_mod
+from . import archive_restore as archive_restore_mod
 from . import fortigate as fortigate_mod
 from . import maintenance as maintenance_mod
 from . import notify as notify_mod
@@ -111,9 +112,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         db_path=Path(db_file) if db_file else None, backup_dir=settings.backup_dir,
         client=OpenSearchClient(settings.opensearch_url, settings.secrets_dir), report=maint_report)
 
-    archive_worker = archive_mod.Worker(
-        archive_mod.Archive(settings.archive_dir, archive_mod.load_or_create_key(settings.secrets_dir / "archive-ed25519.pem")),
-        settings.backup_dir / "archive.json", report=maint_report)
+    archive_obj = archive_mod.Archive(settings.archive_dir,
+                                      archive_mod.load_or_create_key(settings.secrets_dir / "archive-ed25519.pem"))
+    archive_retention = archive_restore_mod.RetentionStore(settings.backup_dir / "archive-retention.json")
+    archive_restorer = archive_restore_mod.Restorer(
+        archive_obj, OpenSearchClient(settings.opensearch_url, settings.secrets_dir, timeout=60),
+        settings.backup_dir / "archive-restore.json", report=maint_report)
+    archive_worker = archive_mod.Worker(archive_obj, settings.backup_dir / "archive.json", report=maint_report,
+                                        retention=archive_retention, restorer=archive_restorer)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):

@@ -35,10 +35,11 @@ class OpenSearchClient:
             ctx = ssl.create_default_context(cafile=str(ca))
         except (OSError, ssl.SSLError) as exc:
             raise OpenSearchUnavailable("CA-Zertifikat fehlt") from exc
-        data = json.dumps(body).encode() if body is not None else None
+        raw_body = isinstance(body, bytes)  # NDJSON (Bulk)
+        data = body if raw_body else json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(self.url + path, data=data, method=method)  # noqa: S310 – feste https-URL
         req.add_header("Authorization", "Basic " + base64.b64encode(f"{user}:{password}".encode()).decode())
-        req.add_header("Content-Type", "application/json")
+        req.add_header("Content-Type", "application/x-ndjson" if raw_body else "application/json")
         try:
             with urllib.request.urlopen(req, context=ctx, timeout=self.timeout) as resp:  # noqa: S310
                 raw = resp.read()

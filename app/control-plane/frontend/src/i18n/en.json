@@ -789,6 +789,21 @@
       "unsealed_old": "unsealed for a long time",
       "seal_log_corrupt": "seal log corrupt",
       "seal_malformed": "seal malformed"
+    },
+    "ret_title": "Archive retention",
+    "ret_intro": "Sealed files are deleted after expiry (nightly); every deletion is recorded in the seal chain. Allowed: {{min}}–{{max}} days.",
+    "ret_default": "Default (days)",
+    "save": "Save",
+    "rest_title": "Restore",
+    "rest_intro": "Loads a period into daily siem-restore-* indices after an integrity check (searchable like live data) and deletes them on expiry.",
+    "rest_days": "Keep (days)",
+    "rest_start": "Restore",
+    "rest_delete": "Delete",
+    "rest_expires": "expires {{at}}",
+    "rs": {
+      "running": "running",
+      "done": "done",
+      "failed": "failed"
     }
   }
 }
