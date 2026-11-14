@@ -10,11 +10,29 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from . import __version__
+from . import fortigate as fortigate_mod
 from .audit import AuditLog
 from .config import Settings, get_settings
 from .db import Database, migrate
 from .deps import AppState
-from .routers import assets, audit, auth, changes, devices, linux, logs, retention, snmp, switches, system, users, wec
+from .routers import (
+    assets,
+    audit,
+    auth,
+    changes,
+    devices,
+    linux,
+    logs,
+    retention,
+    snmp,
+    switches,
+    system,
+    users,
+    wec,
+)
+from .routers import (
+    fortigate as fortigate_router,
+)
 from .routers import sophos as sophos_router
 from .security import rbac
 from .security.keys import KeyRing
@@ -32,20 +50,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # Keine öffentliche API-Dokumentation (Angriffsfläche); intern über Tests/OpenAPI-Export
     sophos_store = Store(settings.secrets_dir, keys.master_key)
     poller = Poller(sophos_store)
+    forti_store = fortigate_mod.Store(settings.secrets_dir, keys.master_key)
+    forti_poller = fortigate_mod.Poller(forti_store)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
         # Sophos-Abruf im Hintergrund (nur wenn aktiviert); in Tests per SIEM_SOPHOS_POLL=0 abschaltbar
         if os.environ.get("SIEM_SOPHOS_POLL", "1") != "0":
             poller.start()
+            forti_poller.start()
         yield
         poller.stop.set()
         poller.trigger.set()
+        forti_poller.stop.set()
+        forti_poller.trigger.set()
 
     app = FastAPI(title="KMU-SIEM API", version=__version__, docs_url=None, redoc_url=None, openapi_url=None,
                   lifespan=lifespan)
     app.state.sophos_store = sophos_store
     app.state.sophos_poller = poller
+    app.state.forti_store = forti_store
+    app.state.forti_poller = forti_poller
     app.state.siem = AppState(settings=settings, db=database, keys=keys,
                               audit=AuditLog(keys.audit_key, keys.audit_head_file))
 
@@ -65,7 +90,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
                    logs.router, linux.router, retention.router, sophos_router.router, changes.router,
-                   snmp.router, switches.router, assets.router):
+                   snmp.router, switches.router, assets.router, fortigate_router.router):
         app.include_router(router)
     return app
 

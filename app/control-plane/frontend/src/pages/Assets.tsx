@@ -6,7 +6,7 @@ import { ErrorBox } from "./Auth";
 
 type Asset = {
   mac: string; switch: string | null; switch_ip: string | null; port: string | null; vlan: string | null;
-  first_seen: string | null; last_seen: string | null;
+  first_seen: string | null; last_seen: string | null; ip: string | null; hostname: string | null;
 };
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -23,7 +23,7 @@ export default function AssetsPage() {
   const rows = useMemo(() => {
     const f = filter.trim().toLowerCase();
     return (q.data?.assets ?? []).filter((a) =>
-      !f || [a.mac, a.switch, a.port, a.vlan].some((v) => (v ?? "").toLowerCase().includes(f)));
+      !f || [a.mac, a.ip, a.hostname, a.switch, a.port, a.vlan].some((v) => (v ?? "").toLowerCase().includes(f)));
   }, [q.data, filter]);
   const fmt = (v: string | null) => (v ? new Date(v).toLocaleString() : "–");
   const isNew = (a: Asset) => !!a.first_seen && Date.now() - new Date(a.first_seen).getTime() < DAY_MS;
@@ -52,7 +52,7 @@ export default function AssetsPage() {
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b text-slate-500">
-                <th className="py-1">{t("assets.mac")}</th><th>{t("assets.switch")}</th><th>{t("assets.port")}</th>
+                <th className="py-1">{t("assets.mac")}</th><th>{t("assets.ip")}</th><th>{t("assets.hostname")}</th><th>{t("assets.switch")}</th><th>{t("assets.port")}</th>
                 <th>{t("assets.vlan")}</th><th>{t("assets.first_seen")}</th><th>{t("assets.last_seen")}</th>
               </tr>
             </thead>
@@ -63,7 +63,7 @@ export default function AssetsPage() {
                     {a.mac}
                     {isNew(a) && <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-700">{t("assets.new")}</span>}
                   </td>
-                  <td>{a.switch ?? "–"}</td><td>{a.port ?? "–"}</td><td>{a.vlan ?? "–"}</td>
+                  <td>{a.ip ?? "–"}</td><td>{a.hostname ?? "–"}</td><td>{a.switch ?? "–"}</td><td>{a.port ?? "–"}</td><td>{a.vlan ?? "–"}</td>
                   <td>{fmt(a.first_seen)}</td><td>{fmt(a.last_seen)}</td>
                 </tr>
               ))}

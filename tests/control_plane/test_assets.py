@@ -24,6 +24,24 @@ def test_parse_orders_by_last_seen_and_tolerates_missing_fields():
     assert assets.parse({}) == []
 
 
+def test_merge_ips_adds_ip_hostname_and_firewall_only_macs():
+    rows = assets.parse(RESP)
+    ip_resp = {"aggregations": {"mac": {"buckets": [
+        {"key": "aa:bb:cc:00:00:01", "first": {"value_as_string": "2026-10-01T00:00:00Z"},
+         "last": {"value_as_string": "2026-11-13T00:00:00Z"},
+         "latest": {"hits": {"hits": [{"_source": {"source": {"ip": "10.0.10.21"}, "host": {"hostname": "pc-mueller"}}}]}}},
+        {"key": "de:ad:be:ef:00:09", "first": {"value_as_string": "2026-11-14T08:00:00Z"},
+         "last": {"value_as_string": "2026-11-14T11:00:00Z"},
+         "latest": {"hits": {"hits": [{"_source": {"source": {"ip": "10.0.10.50"}}}]}}}]}}}
+    merged = {a["mac"]: a for a in assets.merge_ips(rows, ip_resp)}
+    one = merged["aa:bb:cc:00:00:01"]
+    assert one["ip"] == "10.0.10.21" and one["hostname"] == "pc-mueller" and one["first_seen"] == "2026-10-01T00:00:00Z"
+    assert one["last_seen"] == "2026-11-14T09:00:00Z"  # späteres Datum aus der FDB bleibt
+    fw_only = merged["de:ad:be:ef:00:09"]
+    assert fw_only["switch"] is None and fw_only["ip"] == "10.0.10.50" and fw_only["hostname"] is None
+    assert merged["aa:bb:cc:00:00:02"]["ip"] is None
+
+
 def test_query_and_api(h, monkeypatch):
     q = assets.build_query(7)
     assert "now-7d" in str(q) and "asset.mac" in str(q) and q["aggs"]["mac"]["terms"]["field"] == "source.mac"
@@ -31,7 +49,7 @@ def test_query_and_api(h, monkeypatch):
     class Stub:
         def search(self, index, body):
             self.index = index
-            return RESP
+            return {} if "fortigate" in str(body) else RESP
 
     stub = Stub()
     monkeypatch.setattr(assets, "client_for", lambda request: stub)

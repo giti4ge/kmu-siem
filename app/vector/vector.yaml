@@ -58,7 +58,7 @@ sources:
     decoding:
       codec: json
 
-  # Sophos Central: die Control-Plane (Host-Netz) liefert bereits ECS-JSON-Zeilen nur über Loopback
+  # Sophos Central und FortiGate-API: die Control-Plane (Host-Netz) liefert bereits ECS-JSON-Zeilen nur über Loopback
   sophos_in:
     type: socket
     mode: tcp
@@ -90,7 +90,7 @@ transforms:
     inputs: ["sophos_in"]
     source: |
       .event.ingested = now()
-      .siem.collector = "sophos"
+      if !exists(.siem.collector) { .siem.collector = "api" }
 
   # Gerätetyp bestimmen: 1. Geräteliste (Quell-IP → Typ, vom Config-Generator gerendert),
   # 2. Auto-Detect am Inhalt (nur eindeutige Formate), sonst leer → generischer Parser.
