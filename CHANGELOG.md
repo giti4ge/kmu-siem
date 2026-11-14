@@ -10,6 +10,12 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 
 ## [Unreleased]
 
+---
+
+## [0.1.0-rc.1] – 2026-11-15
+
+Erster Release-Kandidat: Funktionsumfang laut Spezifikation 2.6.1 mit den in `docs/STATUS.md` genannten Vereinfachungen. CI und VM-Test (Debian 13, Standard/interactive/resume) grün; nicht mit echten Geräten, Proben oder Last erprobt.
+
 ### Added
 - **Sammelpaket „Rest der Spezifikation“:** Archiv-Erweiterungen (RFC-3161-Zeitstempel, Langzeitziel Verzeichnis/S3 mit Object Lock, Löschsperre bis zur Replikation), Fall-Verwaltung mit Write-once-Fallarchiv, optionales Vier-Augen-Prinzip mit Aufdeckung von Pseudonymen, SNMP-LLDP und Geräteprofile (Hardwarezustand), MIB-Import, Discovery-Scanner, rückwirkende Verarbeitung gepufferter Ereignisse (neue Vector-Quelle `replay_in`, Port 10603 nur Loopback), Parser-Editor (Vector-Transform `custom`, hostd-Aktion `vector.restart`), FortiGate-Konfigurations-Snapshots mit Diff, Anbindungs-Assistent (CA, Konfigurationsausschnitte). Alembic 0003 (Fälle). Neue Web-UI-Seiten: Fälle, Discovery & MIB, Parser-Editor, Anbindung & Snapshots, Freigaben.
 - **Archiv-Retention und Wiederherstellung:** Aufbewahrung je Kategorie (Standard 730 Tage, 30–3650); abgelaufene Dateien löscht die Control-Plane nachts und vermerkt jede Löschung signiert in der Siegelkette, die Prüfung bleibt gültig. Die Wiederherstellung prüft den Zeitraum gegen die Siegel (bei Fehlern Abbruch) und spielt ihn in `siem-restore-<kategorie>-<Tag>` ein; Ablauf Standard 14 Tage, danach automatisch gelöscht. OpenSearch-Rolle `siem_api` darf `siem-restore-*` schreiben. Web-UI: Abschnitte Aufbewahrung und Wiederherstellung auf der Archiv-Seite.
