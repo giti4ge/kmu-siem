@@ -303,7 +303,8 @@
       "unifi_controller": "UniFi Network Controller",
       "unifi_switch": "UniFi switch",
       "synology": "Synology NAS (DSM)",
-      "idrac": "Dell iDRAC"
+      "idrac": "Dell iDRAC",
+      "ikarus": "IKARUS (security.manager, mail.security, web.security)"
     }
   },
   "linux": {

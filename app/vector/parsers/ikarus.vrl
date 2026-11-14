@@ -1,0 +1,100 @@
+# KMU-SIEM – IKARUS (security.manager, mail.security, web.security; Syslog) → ECS
+# Es liegen keine Herstellerproben vor (SPEC R-02/R-14): der Parser erkennt Schlüssel-Wert-Paare
+# (action=, url=, from=, to=, virus=/threat=, user=, client=) und typische Stichwörter. Unbekanntes bleibt als
+# ikarus.generic erhalten und wird über den Bereich „Nicht erkannte Quellen“ nachgeschärft.
+
+body = string(.message) ?? ""
+an = string(.appname) ?? ""
+raw = if an != "" && !starts_with(body, an) { an + ": " + body } else { body }
+peer_hostname = string(.hostname) ?? null
+syslog_severity = del(.severity)
+syslog_facility = del(.facility)
+del(.hostname)
+del(.appname)
+del(.procid)
+del(.msgid)
+del(.version)
+
+lower = downcase(raw)
+product = "security.manager"
+if contains(lower, "mail.security") || contains(lower, "mail security") {
+    product = "mail.security"
+} else if contains(lower, "web.security") || contains(lower, "web security") {
+    product = "web.security"
+}
+
+.observer.ip = del(.source_ip)
+.observer.vendor = "IKARUS"
+.observer.product = product
+.observer.type = "av"
+.observer.name = peer_hostname
+.observer.hostname = peer_hostname
+.siem.collector = "vector"
+.siem.pipeline = "ikarus"
+.siem.category = "av"
+.event.kind = "event"
+.event.module = "ikarus"
+.event.dataset = "ikarus.generic"
+.event.category = ["malware"]
+.event.type = ["info"]
+.event.ingested = now()
+.event.original = raw
+.message = raw
+.log.syslog.facility.name = syslog_facility
+.log.syslog.severity.name = syslog_severity
+.log.level = syslog_severity
+
+kv = parse_key_value(raw, accept_standalone_key: false) ?? {}
+threat = string(kv.virus) ?? string(kv.threat) ?? string(kv.malware) ?? string(kv.signature) ?? null
+if threat == null {
+    m = parse_regex(raw, r'(?i)(?:virus|malware|trojan|threat|infection)\s+(?:found|detected)[:\s]+(?P<name>[A-Za-z0-9_./:\-]+)') ?? null
+    if m != null { threat = string(m.name) ?? null }
+}
+action = downcase(string(kv.action) ?? string(kv.status) ?? string(kv.result) ?? "")
+if action == "" {
+    if match(lower, r'quarantin') {
+        action = "quarantined"
+    } else if match(lower, r'block|denied|reject') {
+        action = "blocked"
+    } else if match(lower, r'delet|remov|clean|disinfect') {
+        action = "cleaned"
+    } else if match(lower, r'allow|pass|deliver') {
+        action = "allowed"
+    }
+}
+
+user = string(kv.user) ?? string(kv.username) ?? null
+if user != null { .user.name = user }
+client = string(kv.client) ?? string(kv.src) ?? string(kv.client_ip) ?? null
+if client != null && is_string(client) { .source.ip = client }
+if kv.file != null { .file.path = string(kv.file) ?? null }
+if threat != null { .threat.indicator.name = threat }
+if action != "" { .event.action = action }
+
+blocked = includes(["blocked", "quarantined", "denied", "rejected", "deleted", "cleaned"], action)
+if blocked {
+    .event.outcome = "success"
+    .event.type = ["denied"]
+}
+
+if product == "web.security" || kv.url != null {
+    .event.dataset = "ikarus.web"
+    .event.category = if threat != null { ["malware", "web"] } else { ["web"] }
+    if kv.url != null {
+        .url.original = string(kv.url) ?? null
+        u = parse_url(string(kv.url) ?? "") ?? null
+        if u != null { .url.domain = u.host }
+    }
+    if kv.category != null { .rule.category = string(kv.category) ?? null }
+    if action == "" { .event.type = ["access"] }
+} else if product == "mail.security" || kv.from != null || kv.to != null {
+    .event.dataset = "ikarus.mail"
+    .event.category = if threat != null { ["malware", "email"] } else { ["email"] }
+    if kv.from != null { .email.from.address = [string(kv.from) ?? ""] }
+    if kv.to != null { .email.to.address = [string(kv.to) ?? ""] }
+    if kv.subject != null { .email.subject = string(kv.subject) ?? null }
+} else if threat != null {
+    .event.dataset = "ikarus.malware"
+    .event.category = ["malware"]
+    if !blocked { .event.type = ["info"] }
+}

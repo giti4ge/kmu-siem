@@ -1,0 +1,63 @@
+# Parser-Tests IKARUS. Fixtures nach Annahme typischer Formate (SPEC R-02/R-14: keine echten Proben).
+
+tests:
+  - name: IKARUS security.manager Fund in Quarantäne
+    inputs:
+      - insert_at: ikarus
+        type: log
+        log_fields: {hostname: av-mgr, appname: security.manager, source_ip: 10.0.5.9, message: 'Virus found: EICAR-Test-File user=mueller file="/srv/share/a.exe" action=quarantined'}
+    outputs:
+      - extract_from: ikarus
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.category, "av")
+              assert_eq!(.event.dataset, "ikarus.malware")
+              assert_eq!(.threat.indicator.name, "EICAR-Test-File")
+              assert_eq!(.event.action, "quarantined")
+              assert_eq!(.user.name, "mueller")
+              assert_eq!(.observer.vendor, "IKARUS")
+
+  - name: IKARUS mail.security Virus blockiert
+    inputs:
+      - insert_at: ikarus
+        type: log
+        log_fields: {hostname: mailgw, appname: mail.security, source_ip: 10.0.5.10, message: 'from=<spam@evil.example> to=<alice@firma.at> subject="Rechnung" virus=Trojan.Gen action=blocked'}
+    outputs:
+      - extract_from: ikarus
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "ikarus.mail")
+              assert_eq!(.event.category, ["malware", "email"])
+              assert_eq!(.threat.indicator.name, "Trojan.Gen")
+              assert_eq!(.event.action, "blocked")
+              assert_eq!(.email.to.address, ["<alice@firma.at>"])
+
+  - name: IKARUS web.security URL blockiert
+    inputs:
+      - insert_at: ikarus
+        type: log
+        log_fields: {hostname: webgw, appname: web.security, source_ip: 10.0.5.11, message: 'client=10.0.10.21 user=bob url=http://malware.example/x.exe category=malware action=blocked'}
+    outputs:
+      - extract_from: ikarus
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "ikarus.web")
+              assert_eq!(.url.domain, "malware.example")
+              assert_eq!(.source.ip, "10.0.10.21")
+              assert_eq!(.event.action, "blocked")
+
+  - name: IKARUS unbekannte Meldung bleibt erhalten
+    inputs:
+      - insert_at: ikarus
+        type: log
+        log_fields: {hostname: av-mgr, appname: security.manager, source_ip: 10.0.5.9, message: "Dienst gestartet"}
+    outputs:
+      - extract_from: ikarus
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.event.dataset, "ikarus.generic")
+              assert_eq!(.siem.category, "av")

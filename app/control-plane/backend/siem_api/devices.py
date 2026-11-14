@@ -9,7 +9,7 @@ from pathlib import Path
 
 # Muss den Typen in app/vector/vector.yaml (transforms.route_device) entsprechen
 DEVICE_TYPES = ("fortigate", "arubaos", "instant_on", "fs_s3900", "linux",
-                "unifi_controller", "unifi_switch", "synology", "idrac")
+                "unifi_controller", "unifi_switch", "synology", "idrac", "ikarus")
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$")
 
 

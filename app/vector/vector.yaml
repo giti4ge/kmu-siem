@@ -21,7 +21,7 @@ api:
   address: "127.0.0.1:8686"
 
 enrichment_tables:
-  # Geräteliste: ip,type (fortigate | arubaos | instant_on | fs_s3900 | linux | unifi_controller | unifi_switch | synology | idrac); wird vom Config-Generator gerendert
+  # Geräteliste: ip,type (fortigate | arubaos | instant_on | fs_s3900 | linux | unifi_controller | unifi_switch | synology | idrac | ikarus); wird vom Config-Generator gerendert
   devices:
     type: file
     file:
@@ -93,6 +93,8 @@ transforms:
               dt = "fortigate"
           } else if contains(msg, "UNIFIcategory=") || contains(msg, "UNIFIevent=") {
               dt = "unifi_controller"
+          } else if includes(["security.manager", "mail.security", "web.security"], an) {
+              dt = "ikarus"
           } else if match(msg, r'MessageID\s*=\s*[A-Z]{2,5}\d{3,5}') {
               dt = "idrac"
           } else if match(an + " " + msg, r'(WinFileService|SMBFileService|FileStation|NFSFileService) Event:') || match(msg, r'User \[[^\]]*\] from \[[^\]]*\] (logged in successfully|failed to log in)') {
@@ -118,6 +120,7 @@ transforms:
       linux: '.siem.device_type == "linux"'
       unifi: 'includes(["unifi_controller", "unifi_switch"], .siem.device_type)'
       synology: '.siem.device_type == "synology"'
+      ikarus: '.siem.device_type == "ikarus"'
       idrac: '.siem.device_type == "idrac"'
 
   fortigate:
@@ -161,6 +164,12 @@ transforms:
     type: remap
     inputs: ["route_device.synology"]
     file: /etc/vector/parsers/synology.vrl
+    drop_on_error: false
+
+  ikarus:
+    type: remap
+    inputs: ["route_device.ikarus"]
+    file: /etc/vector/parsers/ikarus.vrl
     drop_on_error: false
 
   idrac:
@@ -211,7 +220,7 @@ transforms:
 sinks:
   opensearch:
     type: elasticsearch
-    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "windows", "sophos"]
+    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "ikarus", "windows", "sophos"]
     endpoints: ["https://127.0.0.1:9200"]
     api_version: v8
     mode: bulk
