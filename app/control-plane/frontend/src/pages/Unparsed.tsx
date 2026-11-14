@@ -6,9 +6,7 @@ import { ErrorBox } from "./Auth";
 
 async function exportSample(ip: string, program: string) {
   const r = await api<{ lines: string[] }>("GET", `/api/logs/unparsed/sample?ip=${encodeURIComponent(ip)}&program=${encodeURIComponent(program)}&limit=50`);
-  const url = URL.createObjectURL(new Blob([r.lines.join("
-") + "
-"], { type: "text/plain" }));
+  const url = URL.createObjectURL(new Blob([r.lines.join("\n") + "\n"], { type: "text/plain" }));
   const a = document.createElement("a");
   a.href = url;
   a.download = `probe-${program || "unbekannt"}.txt`;
