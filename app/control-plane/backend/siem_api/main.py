@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from . import __version__
+from . import ai as ai_mod
 from . import alerts as alerts_mod
 from . import fortigate as fortigate_mod
 from . import maintenance as maintenance_mod
@@ -20,6 +21,9 @@ from .config import Settings, get_settings
 from .db import Database, migrate
 from .deps import AppState
 from .opensearch import OpenSearchClient
+from .routers import (
+    ai as ai_router,
+)
 from .routers import (
     alerts as alerts_router,
 )
@@ -38,6 +42,7 @@ from .routers import (
     users,
     wec,
 )
+from .routers import dashboard as dashboard_router
 from .routers import (
     fortigate as fortigate_router,
 )
@@ -72,6 +77,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     alert_store = alerts_mod.RuleStore(settings.secrets_dir / "rules.json")
     notify_store = notify_mod.Store(settings.secrets_dir, keys.master_key)
+    ai_store = ai_mod.Store(settings.secrets_dir, keys.master_key)
     alert_engine = alerts_mod.Engine(OpenSearchClient(settings.opensearch_url, settings.secrets_dir), alert_store,
                                      notify=lambda a: notify_mod.dispatch(notify_store, a))
 
@@ -104,6 +110,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.maintenance = maintenance
     app.state.alert_store = alert_store
     app.state.notify_store = notify_store
+    app.state.ai_store = ai_store
     app.state.alert_engine = alert_engine
     app.state.siem = AppState(settings=settings, db=database, keys=keys,
                               audit=AuditLog(keys.audit_key, keys.audit_head_file))
@@ -124,7 +131,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
                    logs.router, linux.router, retention.router, sophos_router.router, changes.router,
-                   snmp.router, maintenance_router.router, alerts_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
+                   snmp.router, maintenance_router.router, alerts_router.router, ai_router.router, dashboard_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
         app.include_router(router)
     return app
 

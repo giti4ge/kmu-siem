@@ -24,6 +24,7 @@
     "maintenance": "Wartung",
     "notifications": "Benachrichtigung",
     "alerts": "Alarme",
+    "forensics": "KI-Forensik",
     "devices": "Geräte",
     "unparsed": "Nicht erkannte Quellen"
   },
@@ -156,7 +157,16 @@
   "dashboard": {
     "welcome": "Willkommen, {{name}}.",
     "coming": "Übersicht über Quellen, Alarme und Systemzustand folgt mit den nächsten Ausbaustufen.",
-    "version": "Version {{version}}"
+    "version": "Version {{version}}",
+    "customize": "Anpassen",
+    "none": "Keine Daten.",
+    "unavailable": "Die Ereignisdatenbank ist derzeit nicht erreichbar; Kennzahlen sind unvollständig.",
+    "disk": "Speicherbelegung",
+    "new_sources": "Unbekannte Quellen (24 h)",
+    "w": {"areas": "Netzwerkzustand", "alerts": "Offene Alarme", "blocked": "Top-Angreifer (blockiert, 24 h)",
+          "logons": "Fehlgeschlagene Anmeldungen (24 h)", "volume": "Ereignisse je Kategorie (24 h)", "health": "Systemzustand"},
+    "area": {"perimeter": "Perimeter", "windows": "Windows/AD", "servers": "Server", "network": "Netzwerk", "endpoints": "Endpunkte"},
+    "state": {"ok": "in Ordnung", "warn": "Auffälligkeiten", "critical": "kritisch"}
   },
   "users": {
     "new": "Neuer Benutzer",
@@ -386,6 +396,8 @@
     "ack": "Bestätigen",
     "close": "Schließen",
     "reopen": "Wieder öffnen",
+    "explain": "Erklären (KI)",
+    "explain_note": "KI-gestützte Auswertung, zu prüfen.",
     "rule": "Regel",
     "severity": "Schweregrad",
     "threshold": "Schwellwert",
@@ -415,6 +427,33 @@
     "test_ok": "Testnachricht gesendet.",
     "saved": "Gespeichert.",
     "last": "Letzter Versand"
+  },
+  "ai": {
+    "settings": "KI-Anbieter",
+    "intro": "Optional. Ereignisdaten werden vor dem Versand pseudonymisiert (Namen, Adressen); die Zuordnung bleibt lokal. Ergebnisse sind Hinweise, keine Beweismittel.",
+    "provider": "Anbieter",
+    "model": "Modell",
+    "base_url": "Endpunkt-URL",
+    "api_key": "API-Schlüssel",
+    "limit": "Tageslimit (Tokens)",
+    "anonymize": "Pseudonymisierung für den eigenen Endpunkt aktiv",
+    "used": "Heute verbraucht: {{count}} Tokens",
+    "prov": {"anthropic": "Anthropic", "gemini": "Google Gemini", "openai": "OpenAI-kompatibel", "azure": "Azure OpenAI", "custom": "Eigener Endpunkt (außerhalb der Appliance)"},
+    "forensics": "KI-Forensik",
+    "forensics_intro": "Analysiert zusammengehörige Ereignisse eines Benutzers, Hosts oder einer Adresse. Jede Aussage muss durch Ereignisse belegt sein; unbelegte Aussagen werden verworfen.",
+    "pivot": "Suchen nach",
+    "value": "Wert",
+    "hours": "Stunden",
+    "test_mode": "Testmodus (nur Anfrage anzeigen)",
+    "analyze": "Analysieren",
+    "running": "Analyse läuft …",
+    "request_preview": "Gesendete Anfrage (pseudonymisiert)",
+    "events": "{{count}} Ereignisse ausgewertet",
+    "initial_access": "Erstzugriff",
+    "timeline": "Zeitlinie",
+    "scope": "Betroffene Systeme und Konten",
+    "gaps": "Lücken",
+    "evidence": "Belege"
   },
   "retention": {
     "title": "Aufbewahrung je Kategorie",

@@ -34,6 +34,11 @@ export default function AlertsPage({ canWrite, canRules }: { canWrite: boolean; 
     mutationFn: (v: { a: Alert; status: string }) => api("POST", `/api/alerts/${v.a.id}/status`, { status: v.status, index: v.a.index }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["alerts"] }),
   });
+  const [explained, setExplained] = useState<Record<string, string>>({});
+  const explain = useMutation({
+    mutationFn: (a: Alert) => api<{ text?: string }>("POST", "/api/ai/explain", { alert_id: a.id, index: a.index }).then((r) => ({ id: a.id, text: r.text ?? "" })),
+    onSuccess: (r) => setExplained((e) => ({ ...e, [r.id]: r.text })),
+  });
   const upd = useMutation({
     mutationFn: (v: { id: string; body: Record<string, unknown> }) => api<{ rules: Rule[] }>("PUT", `/api/alerts/rules/${v.id}`, v.body),
     onSuccess: (d) => qc.setQueryData(["rules"], d),
@@ -46,7 +51,7 @@ export default function AlertsPage({ canWrite, canRules }: { canWrite: boolean; 
         <button className={tab === "alerts" ? "btn" : "btn-secondary"} onClick={() => setTab("alerts")}>{t("alerts.tab_alerts")}</button>
         {canRules && <button className={tab === "rules" ? "btn" : "btn-secondary"} onClick={() => setTab("rules")}>{t("alerts.tab_rules")}</button>}
       </div>
-      <ErrorBox error={q.error ?? set.error ?? upd.error ?? rules.error} />
+      <ErrorBox error={q.error ?? set.error ?? upd.error ?? rules.error ?? explain.error} />
       {tab === "alerts" && (
         <>
           <div className="mb-3 flex items-end gap-2">
@@ -72,10 +77,12 @@ export default function AlertsPage({ canWrite, canRules }: { canWrite: boolean; 
               <p className="mt-1 text-sm text-slate-700">{a.description}</p>
               {a.mitre?.length > 0 && <p className="text-xs text-slate-500">MITRE ATT&amp;CK: {a.mitre.join(", ")}</p>}
               {a.sample && <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-slate-600">{a.sample}</pre>}
+              {explained[a.id] && <p className="mt-2 whitespace-pre-wrap rounded bg-slate-50 p-2 text-sm">{explained[a.id]}<span className="mt-1 block text-xs text-slate-500">{t("alerts.explain_note")}</span></p>}
               {canWrite && (
                 <div className="mt-2 flex gap-2">
                   {a.status === "open" && <button className="btn-secondary" onClick={() => set.mutate({ a, status: "acknowledged" })}>{t("alerts.ack")}</button>}
                   {a.status !== "closed" && <button className="btn-secondary" onClick={() => set.mutate({ a, status: "closed" })}>{t("alerts.close")}</button>}
+                  <button className="btn-secondary" disabled={explain.isPending} onClick={() => explain.mutate(a)}>{t("alerts.explain")}</button>
                   {a.status === "closed" && <button className="btn-secondary" onClick={() => set.mutate({ a, status: "open" })}>{t("alerts.reopen")}</button>}
                 </div>
               )}

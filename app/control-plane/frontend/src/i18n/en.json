@@ -24,6 +24,7 @@
     "maintenance": "Maintenance",
     "notifications": "Notifications",
     "alerts": "Alerts",
+    "forensics": "AI forensics",
     "devices": "Devices",
     "unparsed": "Unrecognized sources"
   },
@@ -156,7 +157,16 @@
   "dashboard": {
     "welcome": "Welcome, {{name}}.",
     "coming": "Overview of sources, alerts and system health follows with the next stages.",
-    "version": "Version {{version}}"
+    "version": "Version {{version}}",
+    "customize": "Customize",
+    "none": "No data.",
+    "unavailable": "The event database is currently unreachable; figures are incomplete.",
+    "disk": "Storage usage",
+    "new_sources": "Unknown sources (24 h)",
+    "w": {"areas": "Network status", "alerts": "Open alerts", "blocked": "Top attackers (blocked, 24 h)",
+          "logons": "Failed logons (24 h)", "volume": "Events per category (24 h)", "health": "System health"},
+    "area": {"perimeter": "Perimeter", "windows": "Windows/AD", "servers": "Servers", "network": "Network", "endpoints": "Endpoints"},
+    "state": {"ok": "OK", "warn": "Anomalies", "critical": "Critical"}
   },
   "users": {
     "new": "New user",
@@ -386,6 +396,8 @@
     "ack": "Acknowledge",
     "close": "Close",
     "reopen": "Reopen",
+    "explain": "Explain (AI)",
+    "explain_note": "AI-assisted analysis, to be verified.",
     "rule": "Rule",
     "severity": "Severity",
     "threshold": "Threshold",
@@ -415,6 +427,33 @@
     "test_ok": "Test message sent.",
     "saved": "Saved.",
     "last": "Last delivery"
+  },
+  "ai": {
+    "settings": "AI provider",
+    "intro": "Optional. Event data is pseudonymized before sending (names, addresses); the mapping stays local. Results are hints, not evidence.",
+    "provider": "Provider",
+    "model": "Model",
+    "base_url": "Endpoint URL",
+    "api_key": "API key",
+    "limit": "Daily limit (tokens)",
+    "anonymize": "Pseudonymization active for the custom endpoint",
+    "used": "Used today: {{count}} tokens",
+    "prov": {"anthropic": "Anthropic", "gemini": "Google Gemini", "openai": "OpenAI-compatible", "azure": "Azure OpenAI", "custom": "Custom endpoint (outside the appliance)"},
+    "forensics": "AI forensics",
+    "forensics_intro": "Analyzes related events of a user, host or address. Every statement must be backed by events; unsupported statements are discarded.",
+    "pivot": "Search by",
+    "value": "Value",
+    "hours": "Hours",
+    "test_mode": "Test mode (show request only)",
+    "analyze": "Analyze",
+    "running": "Analysis running …",
+    "request_preview": "Request sent (pseudonymized)",
+    "events": "{{count}} events analyzed",
+    "initial_access": "Initial access",
+    "timeline": "Timeline",
+    "scope": "Affected systems and accounts",
+    "gaps": "Gaps",
+    "evidence": "Evidence"
   },
   "retention": {
     "title": "Retention per category",

@@ -110,3 +110,23 @@ def test_api_requires_login(app):
     c = TestClient(app)
     for method, path in (("get", "/api/alerts"), ("get", "/api/alerts/rules"), ("put", "/api/alerts/rules/win-log-cleared")):
         assert getattr(c, method)(path).status_code in (401, 403)
+
+
+def test_dashboard_area_status_and_build():
+    from siem_api import dashboard as db
+    assert db.area_status({"firewall": {"high": 1}, "windows": {"low": 2}}) == {
+        "perimeter": "critical", "windows": "warn", "servers": "ok", "network": "ok", "endpoints": "ok"}
+
+    class C:
+        def search(self, index, body):
+            if index == "siem-alerts-*":
+                return {"aggregations": {"sev": {"buckets": [{"key": "high", "doc_count": 3}]},
+                                         "rule": {"buckets": [{"key": "win-bruteforce-ip", "doc_count": 3,
+                                                               "sev": {"buckets": [{"key": "high", "doc_count": 3}]}}]}}}
+            if index == "siem-firewall-*":
+                return {"aggregations": {"s": {"buckets": [{"key": "1.2.3.4", "doc_count": 99}]}}}
+            return {}
+
+    out = db.build(C(), {"guard": {"detail": {"percent": 41.0, "level": "ok"}}})  # type: ignore[arg-type]
+    assert out["alerts"]["open"] == {"high": 3} and out["areas"]["windows"] == "critical"
+    assert out["top_blocked"] == [{"key": "1.2.3.4", "count": 99}] and out["disk"]["percent"] == 41.0
