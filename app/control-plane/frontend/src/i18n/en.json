@@ -26,6 +26,7 @@
     "alerts": "Alerts",
     "forensics": "AI forensics",
     "ar": "Active response",
+    "reports": "Reports",
     "devices": "Devices",
     "unparsed": "Unrecognized sources"
   },
@@ -475,6 +476,21 @@
     "none": "No active blocks.",
     "until": "until",
     "auto_label": "automatic"
+  },
+  "reports": {
+    "title": "Report",
+    "period": "Period",
+    "days": "last {{count}} days",
+    "print": "Print / save as PDF",
+    "csv": "Alerts as CSV",
+    "generated": "Generated: {{at}}",
+    "by_severity": "Alerts by severity",
+    "by_status": "Alerts by status",
+    "top_rules": "Most frequent rules",
+    "top_blocked": "Top sources of blocked connections",
+    "events": "Events per category",
+    "per_day": "Alerts per day",
+    "changes": "Recorded changes (Windows, devices): {{count}}"
   },
   "retention": {
     "title": "Retention per category",

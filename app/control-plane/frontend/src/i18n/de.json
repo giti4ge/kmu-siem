@@ -26,6 +26,7 @@
     "alerts": "Alarme",
     "forensics": "KI-Forensik",
     "ar": "Active Response",
+    "reports": "Reports",
     "devices": "Geräte",
     "unparsed": "Nicht erkannte Quellen"
   },
@@ -475,6 +476,21 @@
     "none": "Keine aktiven Sperren.",
     "until": "bis",
     "auto_label": "automatisch"
+  },
+  "reports": {
+    "title": "Report",
+    "period": "Zeitraum",
+    "days": "letzte {{count}} Tage",
+    "print": "Drucken / als PDF speichern",
+    "csv": "Alarme als CSV",
+    "generated": "Erstellt: {{at}}",
+    "by_severity": "Alarme nach Schweregrad",
+    "by_status": "Alarme nach Status",
+    "top_rules": "Häufigste Regeln",
+    "top_blocked": "Top-Quellen blockierter Verbindungen",
+    "events": "Ereignisse je Kategorie",
+    "per_day": "Alarme je Tag",
+    "changes": "Erfasste Änderungen (Windows, Geräte): {{count}}"
   },
   "retention": {
     "title": "Aufbewahrung je Kategorie",

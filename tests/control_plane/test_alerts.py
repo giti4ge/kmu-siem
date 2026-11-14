@@ -130,3 +130,27 @@ def test_dashboard_area_status_and_build():
     out = db.build(C(), {"guard": {"detail": {"percent": 41.0, "level": "ok"}}})  # type: ignore[arg-type]
     assert out["alerts"]["open"] == {"high": 3} and out["areas"]["windows"] == "critical"
     assert out["top_blocked"] == [{"key": "1.2.3.4", "count": 99}] and out["disk"]["percent"] == 41.0
+
+
+def test_csv_injection_neutralized_and_report_summary():
+    from siem_api import reports as rp
+    out = rp.alerts_csv([{"time": "t", "severity": "high", "status": "open", "rule": "=HYPERLINK(\"x\")", "group": "+1",
+                          "count": 3, "summary": "@cmd", "mitre": ["T1110"]}])
+    lines = out.strip().split("\n")
+    assert "'=HYPERLINK" in lines[1] and ",'+1," in lines[1] and "'@cmd" in lines[1]
+
+    class C:
+        def search(self, index, body):
+            return {"aggregations": {"sev": {"buckets": [{"key": "high", "doc_count": 2}]},
+                                     "day": {"buckets": [{"key_as_string": "2026-11-13T00:00:00.000Z", "doc_count": 2}]}},
+                    "hits": {"total": {"value": 7}}}
+
+    s = rp.summary(C(), 30)  # type: ignore[arg-type]
+    assert s["alerts_by_severity"] == [{"key": "high", "count": 2}] and s["alerts_per_day"][0]["key"] == "2026-11-13"
+    assert s["changes"] == 7
+
+
+def test_management_role_is_reduced():
+    from siem_api.security import rbac
+    perms = set(rbac.BUILTIN_ROLES["management"]["permissions"])
+    assert perms == {"dashboard:read", "reports:read"}
