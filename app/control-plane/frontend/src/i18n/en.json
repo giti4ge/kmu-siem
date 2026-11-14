@@ -25,6 +25,7 @@
     "notifications": "Notifications",
     "alerts": "Alerts",
     "forensics": "AI forensics",
+    "ar": "Active response",
     "devices": "Devices",
     "unparsed": "Unrecognized sources"
   },
@@ -454,6 +455,26 @@
     "scope": "Affected systems and accounts",
     "gaps": "Gaps",
     "evidence": "Evidence"
+  },
+  "ar": {
+    "title": "Active response (FortiGate)",
+    "intro": "Blocks attacker addresses on the FortiGate. Off by default; private networks and the protection list can never be blocked. Blocks expire automatically.",
+    "settings": "Settings",
+    "enabled": "Enable active response",
+    "auto": "Block automatically (selected high-severity rules only, at most 10 per hour)",
+    "group": "Address group",
+    "hours": "Duration (hours)",
+    "token": "API token with write access (address objects)",
+    "protected": "Additional protection list (CIDR, comma-separated)",
+    "hint": "Create the address group \"{{group}}\" on the FortiGate and reference it from a deny policy.",
+    "block_title": "Block address",
+    "ip": "IPv4 address",
+    "block": "Block",
+    "unblock": "Unblock",
+    "active": "Active blocks ({{count}} of {{max}})",
+    "none": "No active blocks.",
+    "until": "until",
+    "auto_label": "automatic"
   },
   "retention": {
     "title": "Retention per category",

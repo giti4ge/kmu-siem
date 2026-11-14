@@ -25,6 +25,7 @@
     "notifications": "Benachrichtigung",
     "alerts": "Alarme",
     "forensics": "KI-Forensik",
+    "ar": "Active Response",
     "devices": "Geräte",
     "unparsed": "Nicht erkannte Quellen"
   },
@@ -454,6 +455,26 @@
     "scope": "Betroffene Systeme und Konten",
     "gaps": "Lücken",
     "evidence": "Belege"
+  },
+  "ar": {
+    "title": "Active Response (FortiGate)",
+    "intro": "Sperrt Angreiferadressen auf der FortiGate. Standardmäßig aus; private Netze und die Schutzliste sind nie sperrbar. Sperren laufen automatisch ab.",
+    "settings": "Einstellungen",
+    "enabled": "Active Response aktivieren",
+    "auto": "Automatisch sperren (nur ausgewählte Regeln mit hohem Schweregrad, höchstens 10 je Stunde)",
+    "group": "Adressgruppe",
+    "hours": "Dauer (Stunden)",
+    "token": "API-Token mit Schreibrecht (Adressobjekte)",
+    "protected": "Zusätzliche Schutzliste (CIDR, Komma-getrennt)",
+    "hint": "Legen Sie auf der FortiGate die Adressgruppe „{{group}}“ an und verweisen Sie mit einer Deny-Regel darauf.",
+    "block_title": "Adresse sperren",
+    "ip": "IPv4-Adresse",
+    "block": "Sperren",
+    "unblock": "Entsperren",
+    "active": "Aktive Sperren ({{count}} von {{max}})",
+    "none": "Keine aktiven Sperren.",
+    "until": "bis",
+    "auto_label": "automatisch"
   },
   "retention": {
     "title": "Aufbewahrung je Kategorie",
