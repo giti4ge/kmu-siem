@@ -21,7 +21,7 @@ api:
   address: "127.0.0.1:8686"
 
 enrichment_tables:
-  # Geräteliste: ip,type (fortigate | arubaos | instant_on | fs_s3900 | linux); wird vom Config-Generator gerendert
+  # Geräteliste: ip,type (fortigate | arubaos | instant_on | fs_s3900 | linux | unifi_controller | unifi_switch | synology | idrac); wird vom Config-Generator gerendert
   devices:
     type: file
     file:
@@ -74,6 +74,12 @@ transforms:
           hn = string(.hostname) ?? ""
           if contains(msg, "devid=") || contains(an, "devid=") || contains(hn, "devid=") {
               dt = "fortigate"
+          } else if contains(msg, "UNIFIcategory=") || contains(msg, "UNIFIevent=") {
+              dt = "unifi_controller"
+          } else if match(msg, r'MessageID\s*=\s*[A-Z]{2,5}\d{3,5}') {
+              dt = "idrac"
+          } else if match(an + " " + msg, r'(WinFileService|SMBFileService|FileStation|NFSFileService) Event:') || match(msg, r'User \[[^\]]*\] from \[[^\]]*\] (logged in successfully|failed to log in)') {
+              dt = "synology"
           } else if starts_with(an, "%") || match(msg, r'^%[A-Z0-9_]+-\d-[A-Z0-9_]+:') {
               dt = "fs_s3900"
           } else if includes(["ports", "FFI", "mgr", "stp", "lacp", "dhcp-snoop", "arp-prot"], an) {
@@ -93,6 +99,9 @@ transforms:
       instant_on: '.siem.device_type == "instant_on"'
       fs_s3900: '.siem.device_type == "fs_s3900"'
       linux: '.siem.device_type == "linux"'
+      unifi: 'includes(["unifi_controller", "unifi_switch"], .siem.device_type)'
+      synology: '.siem.device_type == "synology"'
+      idrac: '.siem.device_type == "idrac"'
 
   fortigate:
     type: remap
@@ -123,6 +132,24 @@ transforms:
     type: remap
     inputs: ["route_device.linux"]
     file: /etc/vector/parsers/linux.vrl
+    drop_on_error: false
+
+  unifi:
+    type: remap
+    inputs: ["route_device.unifi"]
+    file: /etc/vector/parsers/unifi.vrl
+    drop_on_error: false
+
+  synology:
+    type: remap
+    inputs: ["route_device.synology"]
+    file: /etc/vector/parsers/synology.vrl
+    drop_on_error: false
+
+  idrac:
+    type: remap
+    inputs: ["route_device.idrac"]
+    file: /etc/vector/parsers/idrac.vrl
     drop_on_error: false
 
   windows:
@@ -167,7 +194,7 @@ transforms:
 sinks:
   opensearch:
     type: elasticsearch
-    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "windows"]
+    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "windows"]
     endpoints: ["https://127.0.0.1:9200"]
     api_version: v8
     mode: bulk
