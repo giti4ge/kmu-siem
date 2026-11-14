@@ -459,6 +459,7 @@
     "hours": "Stunden",
     "test_mode": "Testmodus (nur Anfrage anzeigen)",
     "analyze": "Analysieren",
+    "export": "Beweispaket exportieren (signiert)",
     "running": "Analyse läuft …",
     "request_preview": "Gesendete Anfrage (pseudonymisiert)",
     "events": "{{count}} Ereignisse ausgewertet",

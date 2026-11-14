@@ -459,6 +459,7 @@
     "hours": "Hours",
     "test_mode": "Test mode (show request only)",
     "analyze": "Analyze",
+    "export": "Export evidence package (signed)",
     "running": "Analysis running …",
     "request_preview": "Request sent (pseudonymized)",
     "events": "{{count}} events analyzed",

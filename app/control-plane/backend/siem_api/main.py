@@ -47,6 +47,7 @@ from .routers import (
     wec,
 )
 from .routers import dashboard as dashboard_router
+from .routers import forensic_export as forensic_export_router
 from .routers import (
     fortigate as fortigate_router,
 )
@@ -159,7 +160,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
                    logs.router, linux.router, retention.router, sophos_router.router, changes.router,
-                   snmp.router, maintenance_router.router, alerts_router.router, support_router.router, updates_router.router, setup_router.router, reports_router.router, ar_router.router, ai_router.router, dashboard_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
+                   snmp.router, maintenance_router.router, alerts_router.router, forensic_export_router.router, support_router.router, updates_router.router, setup_router.router, reports_router.router, ar_router.router, ai_router.router, dashboard_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
         app.include_router(router)
     return app
 
