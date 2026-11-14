@@ -139,3 +139,85 @@ def test_api_auth_and_status(app, h, settings):
     assert c.post("/api/archive/verify", json={"since": "morgen"}).status_code == 422
     assert c.post("/api/archive/verify", json={}).json()["ok"] is True
     assert c.post("/api/archive/seal").json()["ok"] is True
+
+
+def test_prune_keeps_chain_valid(arch: ar.Archive) -> None:
+    make(arch.root, "firewall", "05", [{"a": 1}])
+    arch.seal()
+    arch.clock.now = T0 + timedelta(days=40)
+    assert arch.prune({}, 30) == {"pruned": 1}
+    assert not (arch.root / "firewall/2026/11/14/05.jsonl.gz").exists()
+    res = arch.verify()
+    assert res["ok"], res["problems"]
+    assert arch.prune({}, 30) == {"pruned": 0}
+    st = arch.status()["categories"]["firewall"]
+    assert st["files"] == 0 and st["pruned"] == 1
+
+
+def test_prune_respects_retention_and_tamper_of_prune_record(arch: ar.Archive) -> None:
+    make(arch.root, "firewall", "05", [{"a": 1}])
+    make(arch.root, "windows", "05", [{"a": 1}])
+    arch.seal()
+    arch.clock.now = T0 + timedelta(days=40)
+    assert arch.prune({"windows": 365}, 30) == {"pruned": 1}
+    assert (arch.root / "windows/2026/11/14/05.jsonl.gz").exists()
+    log = arch.root / "_seals" / "firewall.jsonl"
+    lines = log.read_text().splitlines()
+    log.write_text(lines[0] + "\n")  # Löschvermerk entfernt → Datei fehlt unerklärt
+    assert any(p["problem"] == "file_missing" for p in arch.verify()["problems"])
+
+
+class FakeOS:
+    def __init__(self) -> None:
+        self.calls: list[tuple] = []
+
+    def request(self, method, path, body=None):
+        self.calls.append((method, path, body))
+        return {"errors": False} if path == "/_bulk" else {}
+
+
+def test_restore_indexes_and_expires(arch: ar.Archive, tmp_path: Path) -> None:
+    from siem_api.archive_restore import Restorer
+    make(arch.root, "firewall", "05", [{"a": 1}, {"a": 2}])
+    arch.seal()
+    fos = FakeOS()
+    r = Restorer(arch, fos, tmp_path / "r.json")
+    item = r.start("firewall", "2026-11-14", "2026-11-14", 14, "adm", background=False)
+    done = r.list()[0]
+    assert done["status"] == "done" and done["events"] == 2 and done["indices"] == ["siem-restore-firewall-2026.11.14"]
+    assert fos.calls[0][2].count(b"\n") == 4
+    assert r.expire() == 0
+    r._update(item["id"], expires="2000-01-01T00:00:00+00:00")
+    assert r.expire() == 1 and r.list() == []
+    assert ("DELETE", "/siem-restore-firewall-2026.11.14", None) in fos.calls
+
+
+def test_restore_refused_on_tampered_archive(arch: ar.Archive, tmp_path: Path) -> None:
+    from siem_api.archive_restore import Restorer
+    f = make(arch.root, "firewall", "05", [{"a": 1}])
+    arch.seal()
+    f.write_bytes(b"x")
+    fos = FakeOS()
+    r = Restorer(arch, fos, tmp_path / "r.json")
+    r.start("firewall", "2026-11-14", "2026-11-14", 14, "adm", background=False)
+    assert r.list()[0]["status"] == "failed" and "integrity" in r.list()[0]["error"] and not fos.calls
+
+
+def test_restore_validation_and_busy(arch: ar.Archive, tmp_path: Path) -> None:
+    from siem_api.archive_restore import Restorer
+    make(arch.root, "firewall", "05", [{"a": 1}])
+    r = Restorer(arch, FakeOS(), tmp_path / "r.json")
+    with pytest.raises(ValueError):
+        r.start("../x", "2026-11-14", "2026-11-14", 14, "a", background=False)
+    with pytest.raises(ValueError):
+        r.start("firewall", "2026-11-15", "2026-11-14", 14, "a", background=False)
+
+
+def test_api_retention_and_restores(app, h):
+    h.create_user("adm2", ["system-admin"])
+    c = h.login("adm2")
+    assert c.get("/api/archive/retention").json()["default"] == 730
+    assert c.put("/api/archive/retention", json={"default": 10, "days": {}}).status_code == 422
+    assert c.put("/api/archive/retention", json={"default": 365, "days": {"windows": 730}}).json()["days"] == {"windows": 730}
+    assert c.get("/api/archive/restores").json() == []
+    assert c.post("/api/archive/restores", json={"category": "firewall", "since": "2026-11-14", "until": "2026-11-14"}).status_code == 422

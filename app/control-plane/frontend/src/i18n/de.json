@@ -789,6 +789,21 @@
       "unsealed_old": "seit langem nicht versiegelt",
       "seal_log_corrupt": "Siegelprotokoll beschädigt",
       "seal_malformed": "Siegel fehlerhaft"
+    },
+    "ret_title": "Archiv-Aufbewahrung",
+    "ret_intro": "Versiegelte Dateien werden nach Ablauf gelöscht (nachts); jede Löschung wird in der Siegelkette vermerkt. Erlaubt: {{min}}–{{max}} Tage.",
+    "ret_default": "Standard (Tage)",
+    "save": "Speichern",
+    "rest_title": "Wiederherstellung",
+    "rest_intro": "Spielt einen Zeitraum nach Integritätsprüfung in tägliche Indizes siem-restore-* ein (durchsuchbar wie Live-Daten) und löscht sie nach Ablauf.",
+    "rest_days": "Aufbewahren (Tage)",
+    "rest_start": "Wiederherstellen",
+    "rest_delete": "Löschen",
+    "rest_expires": "läuft ab {{at}}",
+    "rs": {
+      "running": "läuft",
+      "done": "fertig",
+      "failed": "fehlgeschlagen"
     }
   }
 }
