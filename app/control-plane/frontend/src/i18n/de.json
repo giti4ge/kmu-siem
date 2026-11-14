@@ -691,6 +691,11 @@
     "program": "Programm",
     "count": "{{count}} Ereignisse",
     "last": "zuletzt",
-    "export": "Probe exportieren (pseudonymisiert)"
+    "export": "Probe exportieren (pseudonymisiert)",
+    "type": "Gerätetyp",
+    "name": "Name",
+    "suggestion": "Vorschlag: {{type}} ({{pct}} %)",
+    "approve": "Freigeben",
+    "ignore": "Ignorieren"
   }
 }

@@ -691,6 +691,11 @@
     "program": "Program",
     "count": "{{count}} events",
     "last": "last seen",
-    "export": "Export sample (pseudonymized)"
+    "export": "Export sample (pseudonymized)",
+    "type": "Device type",
+    "name": "Name",
+    "suggestion": "Suggestion: {{type}} ({{pct}} %)",
+    "approve": "Approve",
+    "ignore": "Ignore"
   }
 }

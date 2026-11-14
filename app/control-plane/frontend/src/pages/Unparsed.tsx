@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
@@ -16,10 +16,23 @@ async function exportSample(ip: string, program: string) {
 
 type Source = {
   ip: string; program: string; count: number; last_seen: string | null; hostname: string | null; samples: string[];
+  suggestion: { type: string; confidence: number } | null;
 };
 
-export default function UnparsedPage() {
+const TYPES = ["fortigate", "arubaos", "instant_on", "fs_s3900", "linux", "unifi_controller", "unifi_switch", "synology", "idrac", "ikarus"];
+
+export default function UnparsedPage({ canWrite }: { canWrite: boolean }) {
   const { t } = useTranslation();
+  const qc = useQueryClient();
+  const [pick, setPick] = useState<Record<string, { type: string; name: string }>>({});
+  const approve = useMutation({
+    mutationFn: (v: { ip: string; name: string; type: string }) => api("POST", "/api/devices", v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["unparsed"] }),
+  });
+  const ignore = useMutation({
+    mutationFn: (ip: string) => api("POST", "/api/logs/unparsed/ignore", { ip }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["unparsed"] }),
+  });
   const [hours, setHours] = useState(24);
   const q = useQuery({
     queryKey: ["unparsed", hours],
@@ -38,7 +51,7 @@ export default function UnparsedPage() {
         </div>
         <button className="btn-secondary" onClick={() => q.refetch()}>{t("syslog.refresh")}</button>
       </div>
-      <ErrorBox error={q.error} />
+      <ErrorBox error={q.error ?? approve.error ?? ignore.error} />
       {q.data && q.data.sources.length === 0 && <p className="card text-sm text-slate-600">{t("unparsed.empty")}</p>}
       {q.data?.sources.map((s) => (
         <div key={`${s.ip}|${s.program}`} className="card mb-3">
@@ -50,6 +63,20 @@ export default function UnparsedPage() {
             {s.last_seen && <span className="text-slate-500">{t("unparsed.last")}: {s.last_seen}</span>}
           </div>
           <button className="btn-secondary mb-2" onClick={() => exportSample(s.ip, s.program)}>{t("unparsed.export")}</button>
+          {canWrite && (
+            <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
+              <select className="input" aria-label={t("unparsed.type")} value={(pick[s.ip] ?? { type: s.suggestion?.type ?? "linux" }).type}
+                onChange={(e) => setPick({ ...pick, [s.ip]: { name: pick[s.ip]?.name ?? s.hostname ?? s.ip, type: e.target.value } })}>
+                {TYPES.map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+              <input className="input w-48" aria-label={t("unparsed.name")} value={pick[s.ip]?.name ?? s.hostname ?? s.ip}
+                onChange={(e) => setPick({ ...pick, [s.ip]: { type: pick[s.ip]?.type ?? s.suggestion?.type ?? "linux", name: e.target.value } })} />
+              {s.suggestion && <span className="text-xs text-slate-500">{t("unparsed.suggestion", { type: s.suggestion.type, pct: s.suggestion.confidence })}</span>}
+              <button className="btn" disabled={approve.isPending}
+                onClick={() => approve.mutate({ ip: s.ip, name: pick[s.ip]?.name ?? s.hostname ?? s.ip, type: pick[s.ip]?.type ?? s.suggestion?.type ?? "linux" })}>{t("unparsed.approve")}</button>
+              <button className="btn-secondary" disabled={ignore.isPending} onClick={() => ignore.mutate(s.ip)}>{t("unparsed.ignore")}</button>
+            </div>
+          )}
           <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all font-mono text-xs text-slate-700">
             {s.samples.join("\n")}
           </pre>
