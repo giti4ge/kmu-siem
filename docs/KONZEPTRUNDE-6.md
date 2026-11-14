@@ -11,6 +11,13 @@ Dieses Dokument ordnet jeden Punkt der Liste dem Ist-Stand und der Roadmap zu un
 - **Exchange-Logs:** Roadmap, derzeit nicht umsetzen.
 - **Poseidon, PA Filesight, Shelly:** Formate werden erst im Betrieb gelernt (Backlog).
 
+**Abschluss der Runde (2026-11-14):**
+- **Forensik:** gerichtsverwertbar (ADR-23).
+- **KI:** externe Anbieter plus Google Gemini plus eigener Modell-Endpunkt außerhalb der Appliance, kein Modell auf der Appliance (ADR-24).
+- **Rolle Management:** ja, Standardkennzahlen.
+- **Blöcke B, C, D, H:** Vorgaben übernommen (Freigabe ohne Vier-Augen, Wartung nachts mit E-Mail + Dashboard, Parser-Editor nur Admin/Dienstleister, Skriptverteilung manuell + GPO-Hinweis).
+- **Ergebnis:** Spezifikation 2.6.0 (Abschnitte 4.15, 4.16, Roadmap 10.3), ADR-23 – ADR-25. Nächster Schritt: Rückkopplungspaket, dann Phase 5.
+
 ## 1. Zuordnung der Punkte
 
 Legende Stand: ✅ vorhanden · 🟡 teilweise · 🔲 offen · ➕ neu (nicht in Spezifikation 2.5.0)

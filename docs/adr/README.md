@@ -31,3 +31,6 @@ Architekturentscheidungen werden als einzelne, unveränderliche Dokumente festge
 | [0020](0020-installation-install-sh.md) | Auslieferung ausschließlich per install.sh | Akzeptiert | 2026-11-13 |
 | [0021](0021-updates-github.md) | Updates direkt über GitHub Releases + GHCR | Akzeptiert | 2026-11-13 |
 | [0022](0022-mib-import-und-geraeteklassen.md) | SNMP-MIB-Import im Web-UI, erweiterbare Geräteklassen | Akzeptiert | 2026-11-13 |
+| [0023](0023-forensik-gerichtsverwertbar.md) | Forensik auf Gerichtsverwertbarkeit ausgelegt | Akzeptiert | 2026-11-14 |
+| [0024](0024-ki-anbieter-beweisbindung.md) | KI-Anbieter (inkl. Gemini, eigener Endpunkt) und Beweisbindung | Akzeptiert | 2026-11-14 |
+| [0025](0025-quellenfreigabe-korrelation-management.md) | Quellenfreigabe, Korrelation, Rolle Management | Akzeptiert | 2026-11-14 |

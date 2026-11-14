@@ -13,6 +13,7 @@ Versionierung der Spezifikation nach [VERSIONIERUNG.md](../VERSIONIERUNG.md#2-sp
 
 | 2.4.0 | 2026-11-13 | Kundenentscheidung (Runde 5) | Versions-, Funktions- und Content-Updates direkt über GitHub Releases + GHCR (Abschnitt 4.14.0); separates Distributions-Repository; Zugangstoken je Kunde; Offline-Signatur bleibt Vertrauensanker (CI erstellt nur Entwürfe); Bootstrap-Installation von GitHub; Auswahl bestimmter Versionen im UI/CLI; ADR-21, R-12, R-13 | [SPEC.md](SPEC.md) |
 | 2.5.0 | 2026-11-13 | Kundenentscheidung (Runde 7) | Weitere Quellen: Ubiquiti UniFi (Controller, Switches), Synology NAS, Dell iDRAC (Abschnitt 4.6a, neue Kategorie `infra`); SNMP-MIB-Verwaltung mit Import von Hersteller-MIBs (Abschnitt 4.6b); Phasen 3/4 erweitert; ADR-22, R-14 | [SPEC.md](SPEC.md) |
+| 2.6.0 | 2026-11-14 | Kundenentscheidung (Konzeptrunde 6) | Quellenfreigabe, Korrelation, gerichtsverwertbare Forensik, KI-Forensik mit Beweisbindung, Gemini und eigener Modell-Endpunkt, Rolle Management, Threat-Dashboard, Wartung/Diagnose, Parser-Editor, Anbindungs-Assistent (Abschnitte 4.15, 4.16); Roadmap 10.3; ADR-23 – ADR-25, R-15, R-16 | [SPEC.md](SPEC.md) |
 
 > **Einstufung 2.3.0 als MINOR:** Die Architektur der Appliance bleibt unverändert, nur der Auslieferungsweg ändert sich. Die Spezifikation war zu diesem Zeitpunkt noch nicht freigegeben.
 

@@ -2,7 +2,7 @@
 
 | Dokument-Version | Stand | Status | Ersetzt |
 |---|---|---|---|
-| **2.5.0** | 2026-11-13 | **Freigegeben** (2026-11-13) | [SPEC-v1.md](SPEC-v1.md) (1.0.0) |
+| **2.6.0** | 2026-11-14 | **Freigegeben** (2026-11-14) | [SPEC-v1.md](SPEC-v1.md) (1.0.0) |
 
 **Änderungshistorie:** siehe [SPEC-HISTORY.md](SPEC-HISTORY.md). Den detaillierten Vergleich v1 ↔ v2 enthält [SPEC-DIFF-v1-v2.md](SPEC-DIFF-v1-v2.md).
 
@@ -403,7 +403,7 @@ Hersteller-spezifische Traps und OIDs sollen ohne Programmierung nutzbar werden.
 
 ### 4.12 KI-Bridge (optional)
 
-- Nur externe APIs (OpenAI-kompatibel, Anthropic, Azure OpenAI); Standard **aus**.
+- Externe APIs (OpenAI-kompatibel, Anthropic, Azure OpenAI, **Google Gemini**) und optional ein **eigener Modell-Endpunkt außerhalb der Appliance** (OpenAI-kompatibel, z. B. Ollama/vLLM auf einem Server des Kunden); auf der Appliance läuft **kein** Modell (ADR-24). Standard **aus**. Der Anonymizer gilt für externe Anbieter verpflichtend, für den eigenen Endpunkt abschaltbar.
 - **Anonymizer verpflichtend**:
   - IPs, Hostnamen, Benutzernamen, E-Mail-Adressen, Domänen und MACs werden durch konsistente Platzhalter ersetzt (z. B. `HOST_07`).
   - Die Zuordnungstabelle bleibt lokal; die Antwort wird lokal zurückübersetzt.
@@ -534,6 +534,30 @@ Versions- und Funktionsupdates sowie Content-Pakete bezieht die Appliance **dire
 - Modi im UI: Auto (Stable, im Wartungsfenster), Manuell, Kanal Stable/Beta.
 - Release-Signing-Key offline beim Dienstleister; mehrere öffentliche Schlüssel für Rotation.
 - Proxy-Unterstützung für alle Downloads.
+
+### 4.15 Quellenfreigabe, Korrelation, Forensik (ab 2.6.0)
+
+**Quellenfreigabe.** Unbekannte Syslog-/SNMP-Absender und neue Assets erhalten den Zustand „wartet auf Freigabe“ und werden bis dahin nur in `siem-unparsed-*` (kurze Aufbewahrung) gehalten. Das UI schlägt Typ, Name und Vertrauen aus dem Auto-Detect vor; Ein-Klick-Freigabe legt den Geräteeintrag an, wird im Audit-Log protokolliert und verarbeitet gepufferte Ereignisse nachträglich. Ablehnen sperrt die Quelle (Drop mit Zähler). Hinweis im Dashboard, optional E-Mail/Teams. Vier-Augen-Freigabe nur über den optionalen Schalter aus 4.13 (Standard aus).
+
+**Korrelation.** Schlüssel (`user.name/id`, `host.name`, `source/destination.ip`, `process.entity_id`, `session.id`, `siem.case.id`) werden bei der Aufnahme normalisiert (Domänenkonto `user@domain`; Hostname ↔ IP aus DHCP/DNS/ARP). Die Verfolgungsansicht („Pivot“) zeigt zu einem Ereignis alle zusammengehörigen Ereignisse quellenübergreifend und zeitlich sortiert. **Fälle (Cases)** bündeln Ereignisse, Notizen und Beweise.
+
+**Forensik (gerichtsverwertbar, ADR-23).**
+- Export als **signiertes Paket** (JSON-Lines/CSV/Rohdaten) mit Hashliste (SHA-256), Filter/Zeitraum, Erzeuger, Zeitstempel nach **RFC 3161** (Zeitstempeldienst konfigurierbar), optional verschlüsselt.
+- Lückenlose **Zugriffsprotokolle** (Beweiskette) über die Audit-HMAC-Kette; Fall-Daten werden in ein **Write-once-Archiv** (4.9) übernommen und unterliegen einer eigenen Aufbewahrung (Standard 12 Monate ab Fallschluss, einstellbar, Vorrang vor der Kategorien-Retention, Löschprotokoll; Abstimmung mit dem Datenschutzmodus 4.13).
+- **Import** von Rohdaten in `siem-import-<fall>` mit unveränderlicher Herkunftskennzeichnung, gemeinsam mit Live-Daten durchsuchbar.
+- Geräte-**Konfigurations-Snapshots** (täglich, soweit abrufbar) mit Diff und einheitlicher Änderungsansicht.
+- Grenze: Die Appliance liefert Beweismittel mit Integritätsnachweis; die Gerichtsverwertbarkeit im Einzelfall bleibt eine rechtliche Bewertung (Hinweis in Handbuch und Report). KI-Ergebnisse sind **nur Hinweise**, nie Beweismittel.
+
+**KI-Forensik (4.12, ADR-24).** Die Vorfallsanalyse arbeitet mit Beweisbindung: Die KI erhält nur ausgewählte, korrelierte Ereignisse mit IDs und liefert eine strukturierte Zeitlinie, in der jede Aussage auf Ereignis-IDs verweist; Aussagen ohne gültige ID werden verworfen oder als „Vermutung“ markiert. Die Appliance prüft zitierte Ereignisse und Felder lokal, führt einen zweiten unabhängigen Durchlauf aus und markiert Widersprüche und Datenlücken. Pseudonymisierung wie in 4.12 plus Schwärzung von Freitext; ein Testmodus zeigt die gesendete Anfrage. Der Report (PDF/CSV) enthält Zeitlinie, Erstzugriff, betroffene Systeme/Konten, Belege, Lücken und den Hinweis „KI-gestützte Auswertung, zu prüfen“. Szenario Verschlüsselung: Massenänderungen (FIM), gelöschte Schattenkopien/Protokolle (1102/104), vorherige Anmeldungen, laterale Bewegung (4624 Typ 3/10), neue Dienste/Tasks; Rückwärtsverfolgung zum frühesten Auslöser.
+
+### 4.16 Bedienung, Rollen, Betrieb (ab 2.6.0)
+
+- **Startseiten je Rolle:** Admin (Betrieb, Quellen), Analyst (Alarme, Threat-Sicht), neue Rolle **Management** (reduzierte Sicht: Ampelstatus, offene Alarme nach Schweregrad, 30-Tage-Trend, Monatsreport; Kennzahlen anpassbar).
+- **Threat-Dashboard:** Ampel je Bereich (Perimeter, Windows/AD, Server, Netzwerk, Endpunkte), Top-Angreifer-IPs, Anmelde-Anomalien, neue Geräte, Hardware-/Wartungsprobleme. Widgets je Benutzer ein-/ausblendbar und anordenbar (Config-DB), Standardlayout je Rolle. **Feature-Katalog** mit Direktlinks zur Einrichtung.
+- **Leitprinzipien:** Assistenten statt Formulare; Fehlertexte mit Lösungsvorschlag; „Warum/Wie beheben?“ an Warnungen.
+- **Wartung:** nächtliches Fenster (Standard 02:00–04:00): Config-DB-Backup (`VACUUM INTO`), wöchentliche Integritätsprüfung, Backup-Rotation, Snapshot-Bereinigung, Plattenwächter; Zeitplan und letzter Lauf im UI; Fehler → E-Mail + Dashboard-Hinweis. **Diagnosepaket** (anonymisierte Logs, Versionen, Konfiguration ohne Geheimnisse) per Klick.
+- **Eigene Parser/Regeln:** Parser-Editor im UI (Beispielzeile → Vorschlag → ECS-Zuordnung → Test gegen Proben, versioniert, VRL-Sandbox ohne Dateizugriff) nur für Admin/Dienstleister. ECS bleibt Datenmodell; OCSF-Export optional; Sigma-Mapping; MITRE-ATT&CK-Zuordnung je Regel.
+- **Anbindungs-Assistent („Skript-Bakery“):** je Rolle (DC, Exchange, Member, Client, Linux) signiertes Paket aus Skript, Zertifikaten (interne CA) und Prüfsumme; Check-in-Rückmeldung („angebunden/wartet“); `-WhatIf` und Rücknahmeskript. Verteilung manuell, Hinweise für GPO/Intune im Handbuch.
 
 ---
 
@@ -701,6 +725,9 @@ Ausführliche Einzeldokumente: [docs/adr/](../adr/README.md).
 | ADR-20 | Auslieferung ausschließlich per `install.sh` auf frischer Debian-13-VM, keine OVA/VHDX | Kundenvorgabe; hypervisorunabhängig, kleinere Artefakte, kein Image-Build; Reparatur und Nachhärtung über denselben Weg (`--repair`) |
 | ADR-21 | Updates und Content direkt über GitHub Releases + GHCR, separates Distributions-Repository, Signatur offline | Kein eigener Update-Server nötig; Trennung von Quellcode und Artefakten; Vertrauen über Offline-Signatur statt über GitHub |
 | ADR-22 | SNMP-MIB-Import im Web-UI (pysmi, Sandbox), keine Hersteller-MIBs im Lieferumfang; neue Geräteklassen über Muster Parser + Profil | Neue Gerätetypen ohne Architekturänderung nutzbar; Lizenzrisiko vermieden; Parser führt keinen Code aus |
+| ADR-23 | Forensik auf Gerichtsverwertbarkeit ausgelegt: signierte Pakete, RFC-3161-Zeitstempel, Write-once-Fallarchiv, lückenlose Zugriffsprotokolle | Auftraggeberanforderung; Rechtsbewertung im Einzelfall bleibt beim Anwender |
+| ADR-24 | KI: externe Anbieter inkl. Gemini plus optionaler eigener Modell-Endpunkt außerhalb der Appliance; Beweisbindung gegen Halluzination | Auftraggeber; kein Modellbetrieb auf der Appliance (RAM/GPU); ersetzt „nur externe KI“ aus ADR-12 teilweise |
+| ADR-25 | Quellenfreigabe (Quarantäne unbekannter Absender), Korrelationsschlüssel, Rolle Management | Kontrolle über neue Quellen und Datenschutz; Grundlage für Alert-Engine und Verfolgungsansicht |
 
 ---
 
@@ -753,6 +780,8 @@ Ausführliche Einzeldokumente: [docs/adr/](../adr/README.md).
 | R-12 | Abhängigkeit von GitHub (Verfügbarkeit, Rate-Limits, Kontosperre) | Updates sind nicht zeitkritisch; Retry/Backoff; manueller Paket-Upload im Web-UI als Ausweichweg; Distributions-Repository bei Bedarf umziehbar (Quelle konfigurierbar) |
 | R-13 | Zugangstoken auf Kundensystem wird kompromittiert | Token je Kunde, read-only, nur Distributions-Repository, widerrufbar; Quellcode in getrenntem Repository; Signatur verhindert manipulierte Updates |
 | R-14 | Log-/SNMP-Format von UniFi, Synology, iDRAC je Version unterschiedlich; Hersteller-MIBs teils fehlerhaft | Parser nach Herstellerdoku mit „Unparsed“-Fallback; Verifikation mit realen Geräten; MIB-Import meldet Fehler konkret |
+| R-15 | Gerichtsverwertbarkeit hängt von Organisation und Einzelfall ab, nicht nur von Technik | Hinweis im Handbuch/Report, Beweiskette technisch lückenlos, Rechtsberatung empfohlen |
+| R-16 | KI-Aussagen können falsch sein | Beweisbindung, lokale Prüfung, zweiter Durchlauf, Kennzeichnung „zu prüfen“; nie als Beweis |
 
 ---
 
@@ -778,3 +807,9 @@ Diese Erweiterungen sind fachlich bestätigt, werden aber erst später umgesetzt
 **Vorkehrungen bereits in dieser Version:**
 - Die Vector-Konfiguration ist in Quelle, Verarbeitung und Senke modularisiert.
 - Die Herkunft eines Events wird über `observer.*` und ein eigenes Feld `siem.collector` nachvollziehbar mitgeführt.
+
+### 10.3 Multisite, Exchange und weitere Anbindungen (Stand Konzeptrunde 6)
+
+- **Multisite/SOC-Sammeldashboard:** zurückgestellt; der Auftraggeber hat eine andere Idee und bespricht sie später. Vorkehrungen aus 10.2 bleiben.
+- **Exchange-Logs:** nicht in dieser Version.
+- **Backlog nach Version 1.0 (nach Kundenpriorität, mit Beispieldaten):** CrowdStrike, HP iLO, APC-USV (über MIB-Import), Poseidon, PA Filesight, Shelly (Formate werden im Betrieb gelernt); Module supporti, Threat Intelligence, Add-ons (GLPI, Checkmk).
