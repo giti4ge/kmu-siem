@@ -45,6 +45,8 @@ class Settings:
     opensearch_url: str = field(default_factory=lambda: os.environ.get("SIEM_OPENSEARCH_URL", "https://127.0.0.1:9200"))
     # Sicherungen der Config-DB und Zustand der Wartungsjobs
     backup_dir: Path = field(default_factory=lambda: Path(os.environ.get("SIEM_BACKUP_DIR", "/data/backups")))
+    # Revisionssicheres Archiv (von Vector geschrieben, hier versiegelt und geprüft)
+    archive_dir: Path = field(default_factory=lambda: Path(os.environ.get("SIEM_ARCHIVE_DIR", "/data/archive")))
     # Anzeigename des TOTP-Ausstellers in Authenticator-Apps
     totp_issuer: str = field(default_factory=lambda: os.environ.get("SIEM_TOTP_ISSUER", "KMU-SIEM"))
 

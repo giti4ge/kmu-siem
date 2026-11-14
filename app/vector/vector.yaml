@@ -250,7 +250,27 @@ transforms:
       .siem.category = "unparsed"
       if .process.name == "siem-selftest" { .siem.category = "system" }
 
+  # Revisionssicheres Archiv (Spec 4.14a): stündliche Dateien nach Aufnahmezeit; versiegelt vom Container siem-api
+  archive_prep:
+    type: remap
+    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "ikarus", "windows", "sophos", "snmp"]
+    source: |
+      .siem.archive_slot = format_timestamp!(now(), "%Y/%m/%d/%H", "UTC")
+
 sinks:
+  archive:
+    type: file
+    inputs: ["archive_prep"]
+    base_dir: /archive
+    path: "/archive/{{ siem.category }}/{{ siem.archive_slot }}.jsonl.gz"
+    compression: gzip
+    idle_timeout_secs: 60
+    encoding:
+      codec: json
+    buffer:
+      type: disk
+      max_size: 1073741824
+      when_full: block
   opensearch:
     type: elasticsearch
     inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "ikarus", "windows", "sophos", "snmp"]

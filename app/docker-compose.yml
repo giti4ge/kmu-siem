@@ -68,6 +68,7 @@ services:
       - ${SIEM_DATA}/secrets/pki/vector:/etc/vector/certs:ro
       - ${SIEM_DATA}/secrets/vector:/etc/vector/secrets:ro
       - ${SIEM_DATA}/vector-buffer:/var/lib/vector
+      - ${SIEM_DATA}/archive:/archive
     tmpfs:
       - /tmp
 
@@ -88,6 +89,7 @@ services:
       - ${SIEM_DATA}/secrets/control-plane:/data/secrets
       - ${SIEM_DATA}/openwec/conf:/data/openwec
       - ${SIEM_DATA}/vector-config:/data/vector-config
+      - ${SIEM_DATA}/archive:/data/archive
       - /run/siem:/run/siem
     tmpfs:
       - /tmp
