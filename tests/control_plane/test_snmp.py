@@ -17,7 +17,7 @@ def test_config_encrypted_and_secret_kept(tmp_path):
     snmp_config.save(tmp_path, KEY, ["public-comm1"], USERS)
     raw = snmp_config.config_path(tmp_path).read_text()
     assert "authpass123" not in raw and "public-comm1" not in raw
-    assert snmp_config.view(tmp_path) == {"communities": 1, "v3_users": [{"user": "siem", "auth_proto": "sha", "priv_proto": "aes128", "engine_id": ""}]}
+    assert snmp_config.view(tmp_path) == {"communities": 1, "targets": [], "v3_users": [{"user": "siem", "auth_proto": "sha", "priv_proto": "aes128", "engine_id": ""}]}
     snmp_config.save(tmp_path, KEY, None, [dict(USERS[0], auth_key=None, priv_key=None)])  # Schlüssel bleiben
     rt = snmp_config.load_runtime(tmp_path, KEY)
     assert rt["communities"] == ["public-comm1"] and rt["v3_users"][0]["auth_key"] == "authpass123"

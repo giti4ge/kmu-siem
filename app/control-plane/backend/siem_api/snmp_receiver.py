@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from . import snmp_config
+from . import snmp_config, snmp_poller
 
 log = logging.getLogger("siem.snmp")
 LISTEN = ("0.0.0.0", 10162)  # noqa: S104 – Trap-Port, Zugriff über nftables begrenzt
@@ -83,7 +83,8 @@ def send_to_vector(event: dict[str, Any], addr: tuple[str, int] = VECTOR_ADDR) -
 
 
 async def run(secrets_dir: Path, master_key: bytes, listen: tuple[str, int] = LISTEN, send=send_to_vector,
-              watch_seconds: float = 10.0, stop: asyncio.Event | None = None) -> None:
+              watch_seconds: float = 10.0, stop: asyncio.Event | None = None,
+              poll_interval: float = snmp_poller.POLL_SECONDS) -> None:
     from pysnmp.carrier.asyncio.dgram import udp
     from pysnmp.entity import config, engine
     from pysnmp.entity.rfc3413 import ntfrcv
@@ -126,6 +127,7 @@ async def run(secrets_dir: Path, master_key: bytes, listen: tuple[str, int] = LI
     stop = stop or asyncio.Event()
     log.info("SNMP-Trap-Empfänger auf %s:%s (%d Communities, %d v3-Benutzer)", listen[0], listen[1],
              len(cfg["communities"]), len(cfg["v3_users"]))
+    poll_task = asyncio.create_task(snmp_poller.run(cfg, send, stop, interval=poll_interval))
     while not stop.is_set():
         try:
             await asyncio.wait_for(stop.wait(), watch_seconds)
@@ -133,6 +135,8 @@ async def run(secrets_dir: Path, master_key: bytes, listen: tuple[str, int] = LI
             if (path.stat().st_mtime if path.exists() else 0) != start_mtime:
                 log.info("Konfiguration geändert – Neustart")
                 break
+    stop.set()
+    await poll_task
     eng.close_dispatcher() if hasattr(eng, "close_dispatcher") else eng.closeDispatcher()
 
 

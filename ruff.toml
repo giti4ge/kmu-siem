@@ -13,6 +13,7 @@ ignore = [
 "app/control-plane/backend/siem_api/wec.py" = ["E501"]  # PowerShell-Vorlage und XPath-Abfragen
 "app/control-plane/backend/siem_api/linux_onboarding.py" = ["E501"]  # Shell-Vorlage
 "app/control-plane/backend/siem_api/sophos.py" = ["E501"]  # API-Pfade und Feldlisten
+"app/control-plane/backend/siem_api/snmp_config.py" = ["E501"]  # Zuordnung verschlüsselter Felder
 
 [lint.flake8-bugbear]
 # FastAPI-Abhängigkeiten in Standardwerten sind das vorgesehene Muster

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import os
 import re
@@ -15,6 +16,7 @@ AUTH_PROTOS = ("sha", "sha256")
 PRIV_PROTOS = ("none", "aes128", "aes256")
 _USER = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
 _ENGINE_ID = re.compile(r"^(0x)?([0-9A-Fa-f]{2}){5,32}$")
+_TNAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$")
 _COMMUNITY = re.compile(r"^[A-Za-z0-9._@!#%^*+=-]{8,64}$")
 MAX_ENTRIES = 50
 
@@ -57,11 +59,15 @@ def view(secrets_dir: Path) -> dict[str, Any]:
     """Ohne Geheimnisse: Anzahl Communities, v3-Benutzer mit Protokollen."""
     d = _read(secrets_dir)
     return {"communities": len(d.get("communities", [])),
+            "targets": [{"ip": t["ip"], "name": t.get("name", ""), "version": t["version"], "user": t.get("user", ""),
+                         "category": t.get("category", "network"), "has_community": bool(t.get("community"))}
+                        for t in d.get("targets", [])],
             "v3_users": [{"user": u["user"], "auth_proto": u["auth_proto"], "priv_proto": u["priv_proto"],
                           "engine_id": u.get("engine_id", "")} for u in d.get("v3_users", [])]}
 
 
-def save(secrets_dir: Path, master_key: bytes, communities: list[str] | None, v3_users: list[dict[str, Any]]) -> None:
+def save(secrets_dir: Path, master_key: bytes, communities: list[str] | None, v3_users: list[dict[str, Any]],
+         targets: list[dict[str, Any]] | None = None) -> None:
     """``communities=None`` lässt die vorhandenen unverändert; v3-Benutzer ohne Schlüssel behalten ihren alten."""
     old = _read(secrets_dir)
     if len(v3_users) > MAX_ENTRIES or (communities and len(communities) > MAX_ENTRIES):
@@ -99,12 +105,56 @@ def save(secrets_dir: Path, master_key: bytes, communities: list[str] | None, v3
         users.append(entry)
     if len({u["user"] for u in users}) != len(users):
         raise SnmpConfigError("snmp_invalid_user")
-    _write(secrets_dir, {"communities": enc_comm, "v3_users": users})
+    enc_targets = old.get("targets", []) if targets is None else _targets(master_key, targets, users, old)
+    _write(secrets_dir, {"communities": enc_comm, "v3_users": users, "targets": enc_targets})
+
+
+def _targets(master_key: bytes, targets: list[dict[str, Any]], users: list[dict[str, Any]],
+             old: dict[str, Any]) -> list[dict[str, Any]]:
+    if len(targets) > 500:
+        raise SnmpConfigError("snmp_too_many")
+    prev = {t["ip"]: t for t in old.get("targets", [])}
+    names = {u["user"] for u in users}
+    out, seen = [], set()
+    for t in targets:
+        try:
+            ip = str(ipaddress.ip_address(str(t.get("ip", "")).strip()))
+        except ValueError as exc:
+            raise SnmpConfigError("snmp_invalid_target") from exc
+        name = str(t.get("name") or "")
+        version, category = t.get("version"), t.get("category", "network")
+        if ip in seen or (name and not _TNAME.match(name)) or version not in ("v2c", "v3")                 or category not in ("network", "infra"):
+            raise SnmpConfigError("snmp_invalid_target")
+        seen.add(ip)
+        entry: dict[str, Any] = {"ip": ip, "name": name, "version": version, "category": category}
+        if version == "v3":
+            if t.get("user") not in names:
+                raise SnmpConfigError("snmp_invalid_target")
+            entry["user"] = t["user"]
+        else:
+            comm = t.get("community")
+            if comm:
+                if not _COMMUNITY.match(comm):
+                    raise SnmpConfigError("snmp_invalid_community")
+                entry["community"] = _enc(master_key, comm, f"snmp.target.{ip}")
+            elif prev.get(ip, {}).get("community"):
+                entry["community"] = prev[ip]["community"]
+            else:
+                raise SnmpConfigError("snmp_invalid_community")
+        out.append(entry)
+    return out
 
 
 def load_runtime(secrets_dir: Path, master_key: bytes) -> dict[str, Any]:
     d = _read(secrets_dir)
+    targets = []
+    for t in d.get("targets", []):
+        item = {k: v for k, v in t.items() if k != "community"}
+        if t.get("community"):
+            item["community"] = _dec(master_key, t["community"], f"snmp.target.{t['ip']}")
+        targets.append(item)
     return {
+        "targets": targets,
         "communities": [_dec(master_key, c, "snmp.community") for c in d.get("communities", [])],
         "v3_users": [{"user": u["user"], "auth_proto": u["auth_proto"], "priv_proto": u["priv_proto"],
                       "engine_id": u.get("engine_id", ""),

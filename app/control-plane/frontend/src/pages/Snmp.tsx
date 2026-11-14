@@ -5,7 +5,9 @@ import { api } from "../api";
 import { ErrorBox } from "./Auth";
 
 type User = { user: string; auth_proto: "sha" | "sha256"; priv_proto: "none" | "aes128" | "aes256"; engine_id: string };
-type View = { communities: number; v3_users: User[] };
+type Target = { ip: string; name: string; version: "v2c" | "v3"; user: string; category: "network" | "infra"; has_community?: boolean };
+type TRow = Target & { community: string };
+type View = { communities: number; v3_users: User[]; targets: Target[] };
 type Row = User & { auth_key: string; priv_key: string };
 
 const blank = (): Row => ({ user: "", auth_proto: "sha", priv_proto: "aes128", auth_key: "", priv_key: "", engine_id: "" });
@@ -16,10 +18,14 @@ export default function SnmpPage({ canWrite }: { canWrite: boolean }) {
   const q = useQuery({ queryKey: ["snmp"], queryFn: () => api<View>("GET", "/api/snmp") });
   const [communities, setCommunities] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
+  const [targets, setTargets] = useState<TRow[]>([]);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (q.data) setRows(q.data.v3_users.map((u) => ({ ...u, auth_key: "", priv_key: "" })));
+    if (q.data) {
+      setRows(q.data.v3_users.map((u) => ({ ...u, auth_key: "", priv_key: "" })));
+      setTargets(q.data.targets.map((x) => ({ ...x, community: "" })));
+    }
   }, [q.data]);
 
   const save = useMutation({
@@ -27,10 +33,18 @@ export default function SnmpPage({ canWrite }: { canWrite: boolean }) {
       api<View>("PUT", "/api/snmp", {
         communities: communities.trim() ? communities.split("\n").map((x) => x.trim()).filter(Boolean) : null,
         v3_users: rows.map((r) => ({ ...r, auth_key: r.auth_key || null, priv_key: r.priv_key || null })),
+        targets: targets.map((x) => ({
+          ip: x.ip.trim(), name: x.name.trim(), version: x.version, category: x.category,
+          user: x.version === "v3" ? x.user : null, community: x.version === "v2c" ? x.community || null : null,
+        })),
       }),
     onSuccess: (d) => { setSaved(true); setCommunities(""); qc.setQueryData(["snmp"], d); },
     onError: () => setSaved(false),
   });
+  const setT = (i: number, patch: Partial<TRow>) => {
+    setSaved(false);
+    setTargets(targets.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  };
   const set = (i: number, patch: Partial<Row>) => {
     setSaved(false);
     setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -80,6 +94,49 @@ export default function SnmpPage({ canWrite }: { canWrite: boolean }) {
         ))}
         {canWrite && <button className="btn" onClick={() => setRows([...rows, blank()])}>{t("snmp.add_user")}</button>}
         <p className="mt-2 text-xs text-slate-500">{t("snmp.keys_hint")}</p>
+      </section>
+      <section className="card mb-4">
+        <h2 className="mb-2 font-medium">{t("snmp.targets")}</h2>
+        <p className="mb-2 text-sm text-slate-600">{t("snmp.targets_text")}</p>
+        {targets.map((x, i) => (
+          <div key={i} className="mb-2 grid gap-2 md:grid-cols-6">
+            <input className="input" aria-label={t("snmp.ip")} placeholder={t("snmp.ip")} value={x.ip} disabled={!canWrite}
+              onChange={(e) => setT(i, { ip: e.target.value })} />
+            <input className="input" aria-label={t("snmp.name")} placeholder={t("snmp.name")} value={x.name} disabled={!canWrite}
+              onChange={(e) => setT(i, { name: e.target.value })} />
+            <select className="input" aria-label={t("snmp.version")} value={x.version} disabled={!canWrite}
+              onChange={(e) => setT(i, { version: e.target.value as Target["version"] })}>
+              <option value="v3">{t("snmp.v3_short")}</option>
+              <option value="v2c">{t("snmp.v2c_short")}</option>
+            </select>
+            {x.version === "v3" ? (
+              <select className="input" aria-label={t("snmp.user")} value={x.user} disabled={!canWrite}
+                onChange={(e) => setT(i, { user: e.target.value })}>
+                <option value="">{t("snmp.choose_user")}</option>
+                {rows.filter((r) => r.user).map((r) => <option key={r.user} value={r.user}>{r.user}</option>)}
+              </select>
+            ) : (
+              <input className="input" type="password" autoComplete="off" aria-label={t("snmp.community")}
+                placeholder={x.has_community ? t("snmp.community_set") : t("snmp.community")} value={x.community}
+                disabled={!canWrite} onChange={(e) => setT(i, { community: e.target.value })} />
+            )}
+            <select className="input" aria-label={t("snmp.category")} value={x.category} disabled={!canWrite}
+              onChange={(e) => setT(i, { category: e.target.value as Target["category"] })}>
+              <option value="network">{t("snmp.cat_network")}</option>
+              <option value="infra">{t("snmp.cat_infra")}</option>
+            </select>
+            {canWrite && (
+              <button className="btn" onClick={() => { setSaved(false); setTargets(targets.filter((_, j) => j !== i)); }}>
+                {t("common.delete")}
+              </button>
+            )}
+          </div>
+        ))}
+        {canWrite && (
+          <button className="btn" onClick={() => setTargets([...targets, { ip: "", name: "", version: "v3", user: "", category: "network", community: "" }])}>
+            {t("snmp.add_target")}
+          </button>
+        )}
       </section>
       {canWrite && (
         <div className="flex items-center gap-3">
