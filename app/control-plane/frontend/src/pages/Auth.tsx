@@ -8,7 +8,8 @@ export function ErrorBox({ error }: { error: unknown }) {
   const { t } = useTranslation();
   if (!error) return null;
   const key = error instanceof ApiError ? error.key : "unknown";
-  return <div className="error">{t(`errors.${key}`, { defaultValue: t("errors.unknown") })}</div>;
+  const id = error instanceof ApiError ? error.approvalId : undefined;
+  return <div className="error">{t(`errors.${key}`, { defaultValue: t("errors.unknown"), id })}</div>;
 }
 
 function Centered({ title, children }: { title: string; children: ReactNode }) {

@@ -5,7 +5,7 @@ import { api } from "../api";
 import { ErrorBox } from "./Auth";
 
 type User = { user: string; auth_proto: "sha" | "sha256"; priv_proto: "none" | "aes128" | "aes256"; engine_id: string };
-type Target = { ip: string; name: string; version: "v2c" | "v3"; user: string; category: "network" | "infra"; has_community?: boolean };
+type Target = { ip: string; name: string; version: "v2c" | "v3"; user: string; category: "network" | "infra"; has_community?: boolean; profile?: string; custom_oids?: { name: string; oid: string }[] };
 type TRow = Target & { community: string };
 type View = { communities: number; v3_users: User[]; targets: Target[] };
 type Row = User & { auth_key: string; priv_key: string };
@@ -34,7 +34,7 @@ export default function SnmpPage({ canWrite }: { canWrite: boolean }) {
         communities: communities.trim() ? communities.split("\n").map((x) => x.trim()).filter(Boolean) : null,
         v3_users: rows.map((r) => ({ ...r, auth_key: r.auth_key || null, priv_key: r.priv_key || null })),
         targets: targets.map((x) => ({
-          ip: x.ip.trim(), name: x.name.trim(), version: x.version, category: x.category,
+          ip: x.ip.trim(), name: x.name.trim(), version: x.version, category: x.category, profile: x.profile ?? "generic", custom_oids: x.custom_oids ?? [],
           user: x.version === "v3" ? x.user : null, community: x.version === "v2c" ? x.community || null : null,
         })),
       }),
@@ -120,6 +120,10 @@ export default function SnmpPage({ canWrite }: { canWrite: boolean }) {
                 placeholder={x.has_community ? t("snmp.community_set") : t("snmp.community")} value={x.community}
                 disabled={!canWrite} onChange={(e) => setT(i, { community: e.target.value })} />
             )}
+            <select className="input" aria-label={t("snmp.profile")} value={x.profile ?? "generic"} disabled={!canWrite}
+              onChange={(e) => setT(i, { profile: e.target.value })}>
+              {["generic", "synology", "idrac", "aruba", "custom"].map((p) => <option key={p} value={p}>{t(`snmp.profiles.${p}`)}</option>)}
+            </select>
             <select className="input" aria-label={t("snmp.category")} value={x.category} disabled={!canWrite}
               onChange={(e) => setT(i, { category: e.target.value as Target["category"] })}>
               <option value="network">{t("snmp.cat_network")}</option>

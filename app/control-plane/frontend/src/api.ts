@@ -12,7 +12,7 @@ export function getCsrf() {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, public key: string) {
+  constructor(public status: number, public key: string, public approvalId?: string) {
     super(key);
   }
 }
@@ -29,7 +29,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
   });
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status, data?.detail?.error ?? `http_${res.status}`);
+  if (!res.ok) throw new ApiError(res.status, data?.detail?.error ?? `http_${res.status}`, data?.detail?.approval_id);
   return data as T;
 }
 

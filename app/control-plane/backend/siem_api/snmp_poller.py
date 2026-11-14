@@ -13,6 +13,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any, Protocol
 
+from . import snmp_profiles as profiles
+
 log = logging.getLogger("siem.snmp.poll")
 
 POLL_SECONDS = 60
@@ -177,6 +179,29 @@ def status_events(target: dict[str, Any], data: dict[str, Any], previous: dict[i
     return out
 
 
+def lldp_event(target: dict[str, Any], neighbors: list[dict[str, str]], now: datetime) -> dict[str, Any]:
+    ev = _base(target, now)
+    ev["event"].update({"dataset": "snmp.lldp", "action": "lldp"})
+    ev["message"] = f"{target.get('name') or target['ip']}: {len(neighbors)} LLDP-Nachbarn"
+    ev["snmp"] = {"lldp": {"count": len(neighbors), "neighbors": neighbors}}
+    return ev
+
+
+def hardware_event(target: dict[str, Any], values: dict[str, dict[str, Any]], now: datetime) -> dict[str, Any]:
+    worst = "critical" if any(v["state"] == "critical" for v in values.values()) else (
+        "warn" if any(v["state"] == "warn" for v in values.values()) else "ok")
+    ev = _base(target, now)
+    ev["siem"]["category"] = target.get("category", "network")
+    action = {"critical": "hardware-critical", "warn": "hardware-warning", "ok": "hardware-ok"}[worst]
+    ev["event"].update({"dataset": "snmp.hardware", "action": action, "category": ["host"],
+                        "type": ["info"] if worst == "ok" else ["error"]})
+    ev["log"] = {"level": {"critical": "error", "warn": "warning", "ok": "info"}[worst]}
+    bad = ", ".join(f"{k}={v['value']}" for k, v in values.items() if v["state"] in ("warn", "critical"))
+    ev["message"] = f"{target.get('name') or target['ip']}: Hardware " + (bad if bad else "in Ordnung")
+    ev["snmp"] = {"hardware": {k: v for k, v in values.items()}, "profile": target.get("profile", "generic")}
+    return ev
+
+
 def failure_event(target: dict[str, Any], action: str, now: datetime, reason: str = "") -> dict[str, Any]:
     ev = _base(target, now)
     ev["event"].update({"dataset": "snmp.device", "action": action,
@@ -198,6 +223,8 @@ class Tracker:
         self.alarmed: set[str] = set()
         self.cycles: dict[str, int] = {}
         self.known: dict[str, dict[tuple[str, int], tuple[int, float]]] = {}
+        self.hw: dict[str, dict[str, str]] = {}
+        self.lldp: dict[str, str] = {}
 
     async def poll_once(self, target: dict[str, Any], session: Session,
                         now: datetime | None = None) -> list[dict[str, Any]]:
@@ -222,12 +249,41 @@ class Tracker:
                     out.extend(asset_events(target, fdb, self.known.setdefault(ip, {}), now))
             except Exception as exc:  # noqa: BLE001 – Gerät ohne BRIDGE-MIB: Status bleibt gültig
                 log.info("Ziel %s: keine FDB (%s)", ip, type(exc).__name__)
+        out.extend(await self._profile(target, session, now))
+        if n % FDB_EVERY == 0:
+            try:
+                nb = await asyncio.wait_for(profiles.collect_lldp(session), 45)
+                sig = repr(sorted((x["local_port"], x["remote_name"], x["remote_port"]) for x in nb))
+                if nb and (self.lldp.get(ip) != sig or n % (FDB_EVERY * 12) == 0):
+                    self.lldp[ip] = sig
+                    out.append(lldp_event(target, nb, now))
+            except Exception as exc:  # noqa: BLE001 – Gerät ohne LLDP-MIB
+                log.info("Ziel %s: kein LLDP (%s)", ip, type(exc).__name__)
         self.ports[ip] = {i["index"]: i["oper"] for i in data["interfaces"]}
         self.fails[ip] = 0
         if ip in self.alarmed:
             self.alarmed.discard(ip)
             out.append(failure_event(target, "device-recovered", now))
         return out
+
+
+    async def _profile(self, target: dict[str, Any], session: Session, now: datetime) -> list[dict[str, Any]]:
+        """Profilwerte (Hardwarezustand): Ereignis bei Änderung, bei erster Messung und stündlich."""
+        ip = target["ip"]
+        try:
+            vals = await asyncio.wait_for(profiles.collect_profile(session, target.get("profile", "generic"),
+                                                                   target.get("custom_oids")), 45)
+        except Exception as exc:  # noqa: BLE001
+            log.info("Ziel %s: Profil nicht lesbar (%s)", ip, type(exc).__name__)
+            return []
+        if not vals:
+            return []
+        sig = {k: v["state"] + v["value"] for k, v in vals.items()}
+        n = self.cycles.get(ip, 1)
+        if self.hw.get(ip) == sig and n % 60 != 0:
+            return []
+        self.hw[ip] = sig
+        return [hardware_event(target, vals, now)]
 
 
 class PysnmpSession:

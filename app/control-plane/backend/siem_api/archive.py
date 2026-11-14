@@ -161,7 +161,8 @@ class Archive:
             os.fsync(fh.fileno())
 
     # ---- Aufbewahrung ----
-    def prune(self, days: dict[str, int], default: int) -> dict[str, Any]:
+    def prune(self, days: dict[str, int], default: int,
+              can_prune: Callable[[str, str], bool] | None = None) -> dict[str, Any]:
         """Versiegelte Dateien nach Ablauf der Archiv-Retention löschen; jede Löschung wird in der Kette vermerkt."""
         now = self.clock()
         removed = 0
@@ -176,6 +177,8 @@ class Archive:
                     end = slot_end(x["file"])
                     if x.get("type") == "prune" or x["file"] in gone or end is None or end > limit:
                         continue
+                    if can_prune is not None and not can_prune(cat, x["file"]):
+                        continue  # noch nicht auf dem Langzeitziel bestätigt
                     path = self.root / cat / x["file"]
                     at = now.isoformat(timespec="seconds")
                     chain = _chain(prev, seq, "prune:" + x["file"], x["sha256"], 0, at)
@@ -295,9 +298,13 @@ class Worker(threading.Thread):
 
     def __init__(self, archive: Archive, state_path: Path,
                  report: Callable[[str, str, dict[str, Any]], None] | None = None,
-                 retention: Any = None, restorer: Any = None) -> None:
+                 retention: Any = None, restorer: Any = None, config: Any = None,
+                 replicator: Any = None, on_daily: Callable[[], None] | None = None) -> None:
         super().__init__(daemon=True, name="archive")
         self.retention = retention
+        self.config = config
+        self.replicator = replicator
+        self.on_daily = on_daily
         self.restorer = restorer
         self.archive = archive
         self.state_path = state_path
@@ -339,6 +346,13 @@ class Worker(threading.Thread):
             res = {"ok": False, "problems": [{"problem": "verify_error", "error": str(exc)[:200]}],
                    "problem_count": 1, "checked_files": 0, "categories": {}, "unsealed": 0,
                    "at": self.archive.clock().isoformat(timespec="seconds")}
+        if self.config is not None:
+            from . import archive_ext
+            extra = archive_ext.verify_stamps(self.archive)
+            if extra:
+                res["problems"] = (res["problems"] + extra)[:200]
+                res["problem_count"] += len(extra)
+                res["ok"] = False
         if not since and not until:
             self._save(verify={"at": res["at"], "ok": res["ok"], "checked_files": res["checked_files"],
                                "problem_count": res["problem_count"], "day": res["at"][:10]})
@@ -347,17 +361,45 @@ class Worker(threading.Thread):
                                                          "first": res["problems"][:3]})
         return res
 
+    def run_replicate(self) -> dict[str, Any]:
+        if self.replicator is None:
+            return {"replicated": 0}
+        try:
+            res = self.replicator.run()
+        except (OSError, ValueError) as exc:
+            res = {"replicated": 0, "failed": 1, "error": str(exc)[:120]}
+        stamp = self.archive.clock().isoformat(timespec="seconds")
+        self._save(replicate={"at": stamp, **res})
+        if res.get("failed"):
+            self.report("archive.replicate", "failure", {"failed": res["failed"], "error": res.get("error", "")})
+        return res
+
+    def run_stamp(self) -> dict[str, Any]:
+        if self.config is None:
+            return {"stamped": 0}
+        from . import archive_ext
+        res = archive_ext.stamp_all(self.archive, self.config)
+        stamp = self.archive.clock().isoformat(timespec="seconds")
+        self._save(stamp={"at": stamp, "day": stamp[:10], **res})
+        if res.get("error"):
+            self.report("archive.timestamp", "failure", {"error": res["error"]})
+        return res
+
     def run_prune(self) -> dict[str, Any]:
         if self.retention is None:
             return {"pruned": 0}
         cfg = self.retention.get()
         try:
-            res = self.archive.prune(cfg["days"], cfg["default"])
+            can = self.replicator.is_replicated if self.replicator and self.replicator.enabled() else None
+            res = self.archive.prune(cfg["days"], cfg["default"], can)
         except (OSError, ValueError) as exc:
             self.report("archive.prune", "failure", {"error": str(exc)[:200]})
             return {"pruned": 0, "error": str(exc)[:200]}
         stamp = self.archive.clock().isoformat(timespec="seconds")
         self._save(prune={"at": stamp, "day": stamp[:10], **res})
+        if self.on_daily is not None:
+            with contextlib.suppress(Exception):  # Fall-Bereinigung darf die Archivpflege nie stoppen
+                self.on_daily()
         if res["pruned"]:
             self.report("archive.prune", "success", res)
         return res
@@ -369,9 +411,12 @@ class Worker(threading.Thread):
             if now.timestamp() >= next_seal:
                 next_seal = now.timestamp() + SEAL_INTERVAL
                 self.run_seal()
+                self.run_replicate()
             local = now.astimezone()
             if 2 <= local.hour < 4 and self.state().get("verify", {}).get("day") != now.isoformat()[:10]:
                 self.run_verify()
+            if 1 <= local.hour < 2 and self.state().get('stamp', {}).get('day') != now.isoformat()[:10]:
+                self.run_stamp()
             if 4 <= local.hour < 5 and self.state().get("prune", {}).get("day") != now.isoformat()[:10]:
                 self.run_prune()
             if self.restorer is not None:

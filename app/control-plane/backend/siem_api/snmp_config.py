@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from . import snmp_profiles as profiles
 from .security import crypto
 
 AUTH_PROTOS = ("sha", "sha256")
@@ -18,6 +19,7 @@ _USER = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
 _ENGINE_ID = re.compile(r"^(0x)?([0-9A-Fa-f]{2}){5,32}$")
 _TNAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$")
 _COMMUNITY = re.compile(r"^[A-Za-z0-9._@!#%^*+=-]{8,64}$")
+_OID = re.compile(r"^\d+(\.\d+){3,40}$")
 MAX_ENTRIES = 50
 
 
@@ -60,7 +62,8 @@ def view(secrets_dir: Path) -> dict[str, Any]:
     d = _read(secrets_dir)
     return {"communities": len(d.get("communities", [])),
             "targets": [{"ip": t["ip"], "name": t.get("name", ""), "version": t["version"], "user": t.get("user", ""),
-                         "category": t.get("category", "network"), "has_community": bool(t.get("community"))}
+                         "category": t.get("category", "network"), "has_community": bool(t.get("community")),
+                         "profile": t.get("profile", "generic"), "custom_oids": t.get("custom_oids", [])}
                         for t in d.get("targets", [])],
             "v3_users": [{"user": u["user"], "auth_proto": u["auth_proto"], "priv_proto": u["priv_proto"],
                           "engine_id": u.get("engine_id", "")} for u in d.get("v3_users", [])]}
@@ -126,7 +129,13 @@ def _targets(master_key: bytes, targets: list[dict[str, Any]], users: list[dict[
         if ip in seen or (name and not _TNAME.match(name)) or version not in ("v2c", "v3")                 or category not in ("network", "infra"):
             raise SnmpConfigError("snmp_invalid_target")
         seen.add(ip)
-        entry: dict[str, Any] = {"ip": ip, "name": name, "version": version, "category": category}
+        profile = t.get("profile") or "generic"
+        custom = [{"name": str(c["name"])[:40], "oid": str(c["oid"])} for c in (t.get("custom_oids") or [])][:20]
+        if profile not in profiles.PROFILES or any(not _OID.match(c["oid"]) or not _TNAME.match(c["name"])
+                                                     for c in custom):
+            raise SnmpConfigError("snmp_invalid_target")
+        entry: dict[str, Any] = {"ip": ip, "name": name, "version": version, "category": category,
+                                 "profile": profile, "custom_oids": custom}
         if version == "v3":
             if t.get("user") not in names:
                 raise SnmpConfigError("snmp_invalid_target")

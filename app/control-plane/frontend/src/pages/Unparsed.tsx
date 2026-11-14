@@ -27,7 +27,11 @@ export default function UnparsedPage({ canWrite }: { canWrite: boolean }) {
   const [pick, setPick] = useState<Record<string, { type: string; name: string }>>({});
   const approve = useMutation({
     mutationFn: (v: { ip: string; name: string; type: string }) => api("POST", "/api/devices", v),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["unparsed"] }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["unparsed"] });
+      // Gepufferte Ereignisse der Quelle rückwirkend verarbeiten (nach dem Neuladen von Vector)
+      setTimeout(() => api("POST", "/api/logs/unparsed/replay", { ip: v.ip }).finally(() => qc.invalidateQueries({ queryKey: ["unparsed"] })).catch(() => undefined), 4000);
+    },
   });
   const ignore = useMutation({
     mutationFn: (ip: string) => api("POST", "/api/logs/unparsed/ignore", { ip }),

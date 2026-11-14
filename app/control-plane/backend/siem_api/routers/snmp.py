@@ -23,6 +23,11 @@ class V3User(BaseModel):
     engine_id: str | None = Field(default=None, max_length=66)
 
 
+class CustomOid(BaseModel):
+    name: str = Field(max_length=40)
+    oid: str = Field(max_length=200)
+
+
 class Target(BaseModel):
     ip: str = Field(max_length=45)
     name: str = Field(default="", max_length=64)
@@ -30,6 +35,8 @@ class Target(BaseModel):
     user: str | None = Field(default=None, max_length=32)
     community: str | None = Field(default=None, max_length=64)
     category: Literal["network", "infra"] = "network"
+    profile: str = Field(default="generic", max_length=16)
+    custom_oids: list[CustomOid] = Field(default_factory=list, max_length=20)
 
 
 class SnmpIn(BaseModel):
@@ -38,6 +45,12 @@ class SnmpIn(BaseModel):
     # None = vorhandene Communities beibehalten; Liste = ersetzen
     communities: list[str] | None = Field(default=None, max_length=50)
     v3_users: list[V3User] = Field(default_factory=list, max_length=50)
+
+
+@router.get("/profiles")
+def get_profiles(ctx: Ctx = Depends(require("sources:read"))) -> list[dict]:
+    from ..snmp_profiles import PROFILES
+    return [{"id": k, "label": v["label"], "values": sorted(v["scalars"])} for k, v in PROFILES.items()]
 
 
 @router.get("")

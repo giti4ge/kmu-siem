@@ -306,6 +306,11 @@ def security(client: OS, jwt_key_b64: str, kibanaserver_password: str,
                 {"index_patterns": ["siem-*"], "allowed_actions": ["indices:admin/delete"]},
                 {"index_patterns": ["siem-alerts-*", "siem-audit-*"],
                  "allowed_actions": ["crud", "create_index", "indices:admin/mapping/put"]},
+                # Rückwirkende Verarbeitung: Originale aus siem-unparsed-* nach erneutem Einspielen entfernen
+                {"index_patterns": ["siem-unparsed-*"],
+                 "allowed_actions": ["indices:data/write/delete", "indices:data/write/delete/byquery",
+                                     "indices:data/write/bulk*", "indices:data/read/scroll*",
+                                     "indices:data/read/search*"]},
                 # Archiv-Wiederherstellung (zeitlich begrenzt, Index wird von der API wieder gelöscht)
                 {"index_patterns": ["siem-restore-*"],
                  "allowed_actions": ["crud", "create_index", "indices:admin/mapping/put"]},

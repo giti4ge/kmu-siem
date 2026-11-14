@@ -152,3 +152,25 @@ def unparsed_sample(request: Request, ip: str = Query(max_length=45), program: s
     state(request).audit.append(db, actor=ctx.user.username, action="logs.sample_export", target=f"{program}",
                                 ip=ctx.ip, details={"lines": len(lines)})
     return {"lines": lines}
+
+
+@router.post("/unparsed/replay")
+def replay_unparsed(body: IgnoreIn, request: Request, db: DbSession = Depends(get_db),
+                    ctx: Ctx = Depends(require("sources:write"))) -> dict:
+    """Gepufferte Ereignisse einer inzwischen freigegebenen Quelle erneut verarbeiten (Spec 4.16)."""
+    from ..models import Device
+    from ..replay import replay_source, send
+    try:
+        ip = str(ipaddress.ip_address(body.ip.strip()))
+    except ValueError as exc:
+        raise error(400, "invalid_request") from exc
+    if db.query(Device).filter_by(ip=ip).first() is None:
+        raise error(409, "replay_needs_device")
+    try:
+        res = replay_source(client_for(request), ip, getattr(request.app.state, "replay_sender", None) or send)
+    except OpenSearchUnavailable as exc:
+        raise error(status.HTTP_503_SERVICE_UNAVAILABLE, "opensearch_unavailable") from exc
+    except OSError as exc:
+        raise error(status.HTTP_503_SERVICE_UNAVAILABLE, "replay_unavailable") from exc
+    state(request).audit.append(db, actor=ctx.user.username, action="source.replay", target=ip, ip=ctx.ip, details=res)
+    return res

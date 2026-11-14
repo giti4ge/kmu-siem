@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,12 +15,19 @@ from . import __version__
 from . import active_response as ar_mod
 from . import ai as ai_mod
 from . import alerts as alerts_mod
+from . import approvals as approvals_mod
 from . import archive as archive_mod
+from . import archive_ext as archive_ext_mod
 from . import archive_restore as archive_restore_mod
+from . import cases as cases_mod
+from . import custom_parsers as custom_parsers_mod
+from . import discovery as discovery_mod
 from . import fortigate as fortigate_mod
 from . import maintenance as maintenance_mod
+from . import mibs as mibs_mod
 from . import notify as notify_mod
 from . import privacy as privacy_mod
+from . import snapshots as snapshots_mod
 from . import updates as updates_mod
 from .audit import AuditLog
 from .config import Settings, get_settings
@@ -32,6 +40,7 @@ from .routers import (
 from .routers import (
     alerts as alerts_router,
 )
+from .routers import approvals as approvals_router
 from .routers import ar as ar_router
 from .routers import archive as archive_router
 from .routers import (
@@ -49,15 +58,20 @@ from .routers import (
     users,
     wec,
 )
+from .routers import cases as cases_router
 from .routers import dashboard as dashboard_router
+from .routers import discovery as discovery_router
 from .routers import forensic_export as forensic_export_router
 from .routers import (
     fortigate as fortigate_router,
 )
 from .routers import maintenance as maintenance_router
 from .routers import notify as notify_router
+from .routers import onboarding as onboarding_router
+from .routers import parsers as parsers_router
 from .routers import reports as reports_router
 from .routers import setup as setup_router
+from .routers import snapshots as snapshots_router
 from .routers import sophos as sophos_router
 from .routers import support as support_router
 from .routers import updates as updates_router
@@ -92,6 +106,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     ai_store = ai_mod.Store(settings.secrets_dir, keys.master_key)
     update_store = updates_mod.Store(settings.secrets_dir, keys.master_key)
     privacy = privacy_mod.Privacy(settings.secrets_dir, keys.master_key)
+    approvals = approvals_mod.Store(settings.secrets_dir / "approvals.json")
+    parser_store = custom_parsers_mod.Store(settings.vector_dir)
+    with contextlib.suppress(OSError):
+        parser_store.ensure_default()
+    snapshot_store = snapshots_mod.Store(settings.backup_dir / "snapshots" / "fortigate")
+    scanner = discovery_mod.Scanner(settings.backup_dir / "discovery.json")
+    scanner.recover()
+    mib_store = mibs_mod.Store(settings.secrets_dir / "mibs")
     ar_store = ar_mod.Store(settings.secrets_dir, keys.master_key)
     ar_expirer = ar_mod.Expirer(ar_store, forti_store)
 
@@ -118,8 +140,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     archive_restorer = archive_restore_mod.Restorer(
         archive_obj, OpenSearchClient(settings.opensearch_url, settings.secrets_dir, timeout=60),
         settings.backup_dir / "archive-restore.json", report=maint_report)
+    archive_config = archive_ext_mod.Config(settings.secrets_dir / "archive-target.json", keys.master_key)
+    archive_repl = archive_ext_mod.Replicator(archive_obj, archive_config, settings.longterm_dir,
+                                              settings.backup_dir / "archive-replicated.txt")
+    def snapshot_daily() -> None:
+        from .routers import snapshots as snap_router
+        try:
+            res = snap_router.take_now(app)
+        except (snapshots_mod.SnapshotError, fortigate_mod.FortiError):
+            return
+        if res.get("changed") and not res.get("first"):
+            maint_report("snapshot.changed", "success", {"name": res["name"], "added": res["added"],
+                                                          "removed": res["removed"]})
+
+    def purge_cases() -> None:
+        with database.sessionmaker() as sess:
+            for cid in cases_mod.purge_expired(sess, settings.archive_dir):
+                app.state.siem.audit.append(sess, actor="system", action="case.purged", target=str(cid),
+                                            outcome="success", ip="", details={})
+
     archive_worker = archive_mod.Worker(archive_obj, settings.backup_dir / "archive.json", report=maint_report,
-                                        retention=archive_retention, restorer=archive_restorer)
+                                        retention=archive_retention, restorer=archive_restorer,
+                                        config=archive_config, replicator=archive_repl,
+                                        on_daily=lambda: (purge_cases(), snapshot_daily()))
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
@@ -154,6 +197,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.ai_store = ai_store
     app.state.update_store = update_store
     app.state.privacy = privacy
+    app.state.approvals = approvals
+    app.state.scanner = scanner
+    app.state.snapshots = snapshot_store
+    app.state.parsers = parser_store
+    app.state.mibs = mib_store
     app.state.ar_store = ar_store
     app.state.alert_engine = alert_engine
     app.state.siem = AppState(settings=settings, db=database, keys=keys,
@@ -175,7 +223,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
                    logs.router, linux.router, retention.router, sophos_router.router, changes.router,
-                   snmp.router, maintenance_router.router, alerts_router.router, forensic_export_router.router, archive_router.router, support_router.router, updates_router.router, setup_router.router, reports_router.router, ar_router.router, ai_router.router, dashboard_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
+                   snmp.router, maintenance_router.router, alerts_router.router, forensic_export_router.router, archive_router.router, approvals_router.router, cases_router.router, discovery_router.router, parsers_router.router, onboarding_router.router, snapshots_router.router, support_router.router, updates_router.router, setup_router.router, reports_router.router, ar_router.router, ai_router.router, dashboard_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
         app.include_router(router)
     return app
 

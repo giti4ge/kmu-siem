@@ -47,6 +47,8 @@ class Settings:
     backup_dir: Path = field(default_factory=lambda: Path(os.environ.get("SIEM_BACKUP_DIR", "/data/backups")))
     # Revisionssicheres Archiv (von Vector geschrieben, hier versiegelt und geprüft)
     archive_dir: Path = field(default_factory=lambda: Path(os.environ.get("SIEM_ARCHIVE_DIR", "/data/archive")))
+    # Langzeitziel-Verzeichnis (vom Host eingehängt, z. B. NFS/SMB)
+    longterm_dir: Path = field(default_factory=lambda: Path(os.environ.get("SIEM_LONGTERM_DIR", "/data/longterm")))
     # Anzeigename des TOTP-Ausstellers in Authenticator-Apps
     totp_issuer: str = field(default_factory=lambda: os.environ.get("SIEM_TOTP_ISSUER", "KMU-SIEM"))
 
