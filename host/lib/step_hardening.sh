@@ -233,6 +233,15 @@ KexAlgorithms sntrup761x25519-sha512@openssh.com,mlkem768x25519-sha256,curve2551
 Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com
 MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com
 HostKeyAlgorithms ssh-ed25519,rsa-sha2-512,rsa-sha2-256
+
+# Support-Zugang: Schlüssel setzt nur siem-hostd (zeitlich begrenzt), nur Allowlist-Befehle, kein Terminal
+Match User siem-support
+    AuthorizedKeysFile ${SIEM_ROOT}/data/hostd/support/authorized_keys
+    ForceCommand /usr/local/sbin/siem-support-shell
+    PermitTTY no
+    AllowTcpForwarding no
+    X11Forwarding no
+    PasswordAuthentication no
 EOF
     rc=$?
     (( rc <= 1 )) || return 1

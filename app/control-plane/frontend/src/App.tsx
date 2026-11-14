@@ -154,7 +154,7 @@ function Shell({ me }: { me: Me }) {
             {can("assets:read") && <Route path="/assets" element={<AssetsPage />} />}
             {can("switches:read") && <Route path="/switches" element={<SwitchesPage />} />}
             {can("changes:read") && <Route path="/changes" element={<ChangesPage />} />}
-            {can("logs:read") && <Route path="/sources/unparsed" element={<UnparsedPage />} />}
+            {can("logs:read") && <Route path="/sources/unparsed" element={<UnparsedPage canWrite={can("sources:write")} />} />}
             <Route path="/account" element={<PasswordPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

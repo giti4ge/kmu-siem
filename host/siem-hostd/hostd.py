@@ -29,6 +29,7 @@ import ipaddress
 import json
 import logging
 import os
+import re
 import secrets
 import select
 import shutil
@@ -604,14 +605,110 @@ def vector_reload() -> dict[str, Any]:
     return {"reloaded": True}
 
 
+SUPPORT_DIR = Path(os.environ.get("SIEM_SUPPORT_DIR", str(DATA_DIR / "support")))
+SUPPORT_MAX_HOURS = 72
+_SSH_KEY = re.compile(r"^(ssh-ed25519|ecdsa-sha2-nistp(?:256|384|521)|ssh-rsa|sk-ssh-ed25519@openssh\.com) "
+                      r"[A-Za-z0-9+/=]{40,2000}(?: [A-Za-z0-9@._:-]{1,64})?$")
+
+
+class SupportAccess:
+    """Zeitlich begrenzter SSH-Zugang für den Dienstleister (Benutzer siem-support, nur Allowlist-Befehle).
+
+    sshd liest die Schlüssel für diesen Benutzer ausschließlich aus ``support/authorized_keys`` (siehe SSH-Härtung);
+    ohne Eintrag ist der Zugang gesperrt. Ablauf wird per Timer und nach einem Neustart des Dienstes durchgesetzt.
+    """
+
+    def __init__(self, directory: Path = SUPPORT_DIR) -> None:
+        self.dir = directory
+        self.keys = directory / "authorized_keys"
+        self.state = directory / "state.json"
+        self.timer: threading.Timer | None = None
+        self.lock = threading.Lock()
+
+    def _read(self) -> dict[str, Any]:
+        try:
+            data = json.loads(self.state.read_text("utf-8"))
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def status(self) -> dict[str, Any]:
+        st = self._read()
+        until = float(st.get("until", 0))
+        active = until > time.time() and self.keys.exists() and self.keys.stat().st_size > 0
+        return {"active": active, "until": until if active else None, "from": st.get("from") if active else None,
+                "by": st.get("by") if active else None, "max_hours": SUPPORT_MAX_HOURS}
+
+    def enable(self, params: dict[str, Any], actor: str) -> dict[str, Any]:
+        key = str(params.get("key", "")).strip()
+        hours = params.get("hours", 4)
+        source = str(params.get("source", "")).strip()
+        if not _SSH_KEY.match(key):
+            raise HostdError("Öffentlicher SSH-Schlüssel ungültig (eine Zeile, ed25519/ecdsa/rsa)")
+        if not isinstance(hours, int) or isinstance(hours, bool) or not 1 <= hours <= SUPPORT_MAX_HOURS:
+            raise HostdError(f"Dauer muss zwischen 1 und {SUPPORT_MAX_HOURS} Stunden liegen")
+        try:
+            net = ipaddress.ip_network(source, strict=False)
+        except ValueError as exc:
+            raise HostdError("Quelladresse (IP oder Netz) erforderlich") from exc
+        if net.prefixlen == 0 or (net.version == 4 and net.prefixlen < 16):
+            raise HostdError("Quellnetz zu groß (mindestens /16)")
+        until = time.time() + hours * 3600
+        with self.lock:
+            self.dir.mkdir(parents=True, exist_ok=True)
+            os.chmod(self.dir, 0o700)
+            line = f'restrict,from="{net}" {key}\n'
+            atomic_write(self.keys, line, 0o600)
+            atomic_write(self.state, json.dumps({"until": until, "from": str(net), "by": actor}), 0o600)
+            self._arm(hours * 3600)
+        audit("support.enable", actor, True, f"{net} {hours}h")
+        return self.status()
+
+    def disable(self, actor: str = "system", reason: str = "manuell") -> dict[str, Any]:
+        with self.lock:
+            if self.timer:
+                self.timer.cancel()
+                self.timer = None
+            atomic_write(self.keys, "", 0o600)
+            atomic_write(self.state, json.dumps({"until": 0}), 0o600)
+        audit("support.disable", actor, True, reason)
+        return self.status()
+
+    def _arm(self, seconds: float) -> None:
+        if self.timer:
+            self.timer.cancel()
+        self.timer = threading.Timer(seconds, self._expire)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def _expire(self) -> None:
+        self.disable("system", "abgelaufen")
+
+    def resume(self) -> None:
+        """Nach Dienststart: abgelaufenen Zugang sperren, laufenden weiter begrenzen."""
+        st = self._read()
+        until = float(st.get("until", 0))
+        if self.keys.exists() and self.keys.stat().st_size > 0:
+            if until <= time.time():
+                self.disable("system", "abgelaufen (Neustart)")
+            else:
+                with self.lock:
+                    self._arm(until - time.time())
+
+
 class Dispatcher:
-    def __init__(self, fw: FirewallManager, status: Callable[[], dict[str, Any]] | None = None) -> None:
+    def __init__(self, fw: FirewallManager, status: Callable[[], dict[str, Any]] | None = None,
+                 support: SupportAccess | None = None) -> None:
         self.fw = fw
+        self.support = support or SupportAccess()
         self.status = status or (lambda: system_status(fw))
         self.actions: dict[str, Callable[[dict[str, Any], str], Any]] = {
             "system.status": lambda p, a: self.status(),
             "system.logs": lambda p, a: system_logs(p),
             "vector.reload": lambda p, a: vector_reload(),
+            "support.status": lambda p, a: self.support.status(),
+            "support.enable": lambda p, a: self.support.enable(p, a),
+            "support.disable": lambda p, a: self.support.disable(a),
             "firewall.show": lambda p, a: self.fw.show(),
             "firewall.apply": lambda p, a: self.fw.apply(p.get("config"), a, p.get("timeout")),
             "firewall.confirm": lambda p, a: self.fw.confirm(p.get("token"), a),
@@ -701,7 +798,9 @@ class HostdServer(socketserver.ThreadingMixIn, _UnixServerBase):
 def serve() -> int:
     fw = FirewallManager()
     fw.resume()
-    server = HostdServer(SOCKET_PATH, Dispatcher(fw))
+    support = SupportAccess()
+    support.resume()
+    server = HostdServer(SOCKET_PATH, Dispatcher(fw, support=support))
     log.info("siem-hostd bereit auf %s", SOCKET_PATH)
     try:
         server.serve_forever()

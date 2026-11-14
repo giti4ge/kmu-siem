@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { ErrorBox } from "./Auth";
@@ -42,6 +43,42 @@ function Updates({ canWrite }: { canWrite: boolean }) {
         </div>
       ) : d?.config.last_check ? <p className="text-sm text-slate-600">{t("maintenance.upd_uptodate")}</p> : null}
       {canWrite && <button className="btn-secondary mt-2" disabled={check.isPending} onClick={() => check.mutate()}>{t("maintenance.upd_check")}</button>}
+    </section>
+  );
+}
+
+type Sup = { active: boolean; until: number | null; from: string | null; by: string | null; max_hours: number };
+
+function Support({ canWrite }: { canWrite: boolean }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["support"], queryFn: () => api<Sup>("GET", "/api/support"), refetchInterval: 30000 });
+  const [key, setKey] = useState("");
+  const [hours, setHours] = useState(4);
+  const [source, setSource] = useState("");
+  const done = (d: Sup) => qc.setQueryData(["support"], d);
+  const enable = useMutation({ mutationFn: () => api<Sup>("POST", "/api/support/enable", { key, hours, source }), onSuccess: (d) => { done(d); setKey(""); } });
+  const disable = useMutation({ mutationFn: () => api<Sup>("POST", "/api/support/disable"), onSuccess: done });
+  const d = q.data;
+  return (
+    <section className="card mt-4">
+      <h2 className="mb-1 font-medium">{t("support.title")}</h2>
+      <p className="mb-2 text-sm text-slate-600">{t("support.intro")}</p>
+      <ErrorBox error={q.error ?? enable.error ?? disable.error} />
+      {d?.active ? (
+        <div className="rounded bg-yellow-50 p-2 text-sm">
+          {t("support.active", { until: new Date((d.until ?? 0) * 1000).toLocaleString(), from: d.from })}
+          {canWrite && <button className="btn-secondary ml-3" disabled={disable.isPending} onClick={() => disable.mutate()}>{t("support.disable")}</button>}
+        </div>
+      ) : canWrite && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2"><label className="label" htmlFor="sp-k">{t("support.key")}</label><textarea id="sp-k" className="input font-mono text-xs" rows={2} value={key} onChange={(e) => setKey(e.target.value)} /></div>
+          <div><label className="label" htmlFor="sp-s">{t("support.source")}</label><input id="sp-s" className="input" value={source} onChange={(e) => setSource(e.target.value)} /></div>
+          <div><label className="label" htmlFor="sp-h">{t("support.hours")}</label><input id="sp-h" className="input w-24" type="number" min={1} max={d?.max_hours ?? 72} value={hours} onChange={(e) => setHours(Number(e.target.value))} /></div>
+          <div><button className="btn" disabled={!key || !source || enable.isPending} onClick={() => enable.mutate()}>{t("support.enable")}</button></div>
+        </div>
+      )}
+      {!d?.active && !canWrite && <p className="text-sm text-slate-500">{t("support.inactive")}</p>}
     </section>
   );
 }
@@ -108,6 +145,7 @@ export default function MaintenancePage({ canWrite }: { canWrite: boolean }) {
         <button className="btn" onClick={() => downloadDiagnostics()}>{t("maintenance.diag_button")}</button>
       </section>
       <Updates canWrite={canWrite} />
+      <Support canWrite={canWrite} />
     </div>
   );
 }

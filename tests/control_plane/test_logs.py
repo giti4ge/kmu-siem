@@ -51,3 +51,11 @@ def test_opensearch_down_and_permissions(h, monkeypatch):
     assert h.login("ana").get("/api/logs/unparsed").json()["detail"]["error"] == "opensearch_unavailable"
     h.create_user("rep", ["report-recipient"])
     assert h.login("rep").get("/api/logs/unparsed").status_code == 403
+
+
+def test_suggest_type():
+    from siem_api.routers.logs import suggest_type
+    assert suggest_type("sshd", ["Failed password"])["type"] == "linux"
+    s = suggest_type("", ['date=2026 devid="FG1" logid="1"'])
+    assert s["type"] == "fortigate" and s["confidence"] >= 80
+    assert suggest_type("unbekannt", ["nichts"]) is None

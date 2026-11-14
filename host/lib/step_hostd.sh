@@ -21,6 +21,15 @@ exec /usr/bin/python3 -I $SIEM_ROOT/host/siem-hostd/hostd.py "\$@"
 EOF
     rc1=$?; (( rc1 <= 1 )) || return 1
 
+    # Support-Zugang (Spec/ADR-26): Benutzer ohne Kennwort, nur über die Allowlist-Shell; Schlüssel setzt siem-hostd
+    install -m 0755 "$SIEM_ROOT/host/siem-hostd/support-shell.sh" /usr/local/sbin/siem-support-shell || return 1
+    getent group "$SIEM_SSH_GROUP" >/dev/null || run_cmd "Gruppe $SIEM_SSH_GROUP" groupadd --system "$SIEM_SSH_GROUP" || return 1
+    if ! id siem-support >/dev/null 2>&1; then
+        run_cmd "Benutzer siem-support" useradd --system --no-create-home --home-dir /nonexistent --shell /bin/sh             -G "$HOSTD_GROUP,${SIEM_SSH_GROUP}" siem-support || return 1
+    fi
+    passwd -l siem-support >/dev/null 2>&1 || true
+    install -d -m 0700 "$SIEM_ROOT/data/hostd/support" || return 1
+
     write_file "$HOSTD_UNIT" 0644 <<EOF
 # Von install.sh verwaltet
 [Unit]

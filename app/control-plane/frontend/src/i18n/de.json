@@ -94,6 +94,7 @@
     "totp_not_set_up": "Bitte die Einrichtung neu starten.",
     "sso_unavailable": "Anmeldung an Dashboards derzeit nicht möglich.",
     "hostd_unavailable": "Der Host-Dienst ist nicht erreichbar.",
+    "support_invalid": "Eingabe ungültig: Schlüssel (ed25519/ecdsa/rsa), Quelladresse (mindestens /16) und Dauer prüfen.",
     "invalid_request": "Anfrage abgelehnt.",
     "wec_invalid_settings": "Ungültige Einstellungen.",
     "wec_invalid_domain": "Ungültiger Domänenname (z. B. firma.local).",
@@ -502,6 +503,17 @@
     "per_day": "Alarme je Tag",
     "changes": "Erfasste Änderungen (Windows, Geräte): {{count}}"
   },
+  "support": {
+    "title": "Support-Zugang (SSH)",
+    "intro": "Zeitlich begrenzter Zugang für den Dienstleister: nur Schlüssel, nur von der angegebenen Adresse, nur lesende Diagnosebefehle (Status, Protokolle, Container). Kein Zugriff auf Ereignisdaten, keine Shell. Läuft automatisch ab.",
+    "key": "Öffentlicher SSH-Schlüssel",
+    "source": "Quelladresse oder -netz (mindestens /16)",
+    "hours": "Dauer (Stunden)",
+    "enable": "Zugang aktivieren",
+    "disable": "Jetzt sperren",
+    "active": "Zugang aktiv bis {{until}} (von {{from}}).",
+    "inactive": "Der Support-Zugang ist gesperrt."
+  },
   "retention": {
     "title": "Aufbewahrung je Kategorie",
     "intro": "Aufbewahrungsdauer der Ereignisse je Kategorie ({{min}}–{{max}} Tage). Ältere Indizes werden automatisch gelöscht.",
@@ -691,6 +703,11 @@
     "program": "Programm",
     "count": "{{count}} Ereignisse",
     "last": "zuletzt",
-    "export": "Probe exportieren (pseudonymisiert)"
+    "export": "Probe exportieren (pseudonymisiert)",
+    "type": "Gerätetyp",
+    "name": "Name",
+    "suggestion": "Vorschlag: {{type}} ({{pct}} %)",
+    "approve": "Freigeben",
+    "ignore": "Ignorieren"
   }
 }
