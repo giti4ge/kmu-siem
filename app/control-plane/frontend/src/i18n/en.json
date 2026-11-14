@@ -17,6 +17,7 @@
     "syslog": "System log",
     "windows": "Windows integration",
     "linux": "Linux onboarding",
+    "retention": "Retention",
     "devices": "Devices",
     "unparsed": "Unrecognized sources"
   },
@@ -95,6 +96,9 @@
     "wec_keytab_principal": "The keytab does not contain the expected principal HTTP/<FQDN>@<REALM>.",
     "wec_not_configured": "Please save domain and FQDN first.",
     "wec_storage_unavailable": "The configuration could not be saved.",
+    "retention_unknown_category": "Unknown category.",
+    "retention_out_of_range": "Retention outside the allowed range.",
+    "retention_exceeds_storage": "The estimated storage need exceeds the available space.",
     "linux_invalid_server": "Invalid server address.",
     "linux_ca_unavailable": "The appliance CA certificate is not available.",
     "device_invalid_ip": "Invalid IP address.",
@@ -294,6 +298,30 @@
     "download": "Download script",
     "step2": "2. Run on the server",
     "step2_text": "Run as root. The script installs rsyslog with the TLS module, stores the CA certificate, sets up forwarding and sends a test message. Then add the server under Devices with type “Linux server” or wait for auto-detection."
+  },
+  "retention": {
+    "title": "Retention per category",
+    "intro": "How long events are kept per category ({{min}}–{{max}} days). Older indices are deleted automatically.",
+    "category": "Category",
+    "days": "Days",
+    "daily": "Avg. daily volume",
+    "mb_day": "MB/day",
+    "estimate": "Estimated storage need: {{needed}} GB of {{total}} GB available.",
+    "saved": "Saved.",
+    "cat": {
+      "firewall": "Firewall",
+      "windows": "Windows",
+      "linux": "Linux",
+      "network": "Network",
+      "edr": "EDR",
+      "av": "Antivirus",
+      "asset": "Assets",
+      "infra": "Infrastructure",
+      "alerts": "Alerts",
+      "audit": "Audit",
+      "system": "System",
+      "unparsed": "Unrecognized"
+    }
   },
   "unparsed": {
     "title": "Unrecognized sources",

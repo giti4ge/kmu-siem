@@ -17,6 +17,7 @@
     "syslog": "System-Protokoll",
     "windows": "Windows-Anbindung",
     "linux": "Linux-Anbindung",
+    "retention": "Aufbewahrung",
     "devices": "Geräte",
     "unparsed": "Nicht erkannte Quellen"
   },
@@ -95,6 +96,9 @@
     "wec_keytab_principal": "Die Keytab enthält nicht den erwarteten Prinzipal HTTP/<FQDN>@<REALM>.",
     "wec_not_configured": "Bitte zuerst Domäne und FQDN speichern.",
     "wec_storage_unavailable": "Die Konfiguration konnte nicht gespeichert werden.",
+    "retention_unknown_category": "Unbekannte Kategorie.",
+    "retention_out_of_range": "Aufbewahrung außerhalb des zulässigen Bereichs.",
+    "retention_exceeds_storage": "Der geschätzte Speicherbedarf überschreitet den verfügbaren Platz.",
     "linux_invalid_server": "Ungültige Serveradresse.",
     "linux_ca_unavailable": "Das CA-Zertifikat der Appliance ist nicht verfügbar.",
     "device_invalid_ip": "Ungültige IP-Adresse.",
@@ -294,6 +298,30 @@
     "download": "Skript herunterladen",
     "step2": "2. Auf dem Server ausführen",
     "step2_text": "Als root ausführen. Das Skript installiert rsyslog mit TLS-Modul, hinterlegt das CA-Zertifikat, richtet die Weiterleitung ein und sendet eine Testmeldung. Danach den Server unter Geräte mit Typ „Linux-Server“ eintragen oder auf automatische Erkennung warten."
+  },
+  "retention": {
+    "title": "Aufbewahrung je Kategorie",
+    "intro": "Aufbewahrungsdauer der Ereignisse je Kategorie ({{min}}–{{max}} Tage). Ältere Indizes werden automatisch gelöscht.",
+    "category": "Kategorie",
+    "days": "Tage",
+    "daily": "Ø Tagesvolumen",
+    "mb_day": "MB/Tag",
+    "estimate": "Geschätzter Speicherbedarf: {{needed}} GB von {{total}} GB verfügbar.",
+    "saved": "Gespeichert.",
+    "cat": {
+      "firewall": "Firewall",
+      "windows": "Windows",
+      "linux": "Linux",
+      "network": "Netzwerk",
+      "edr": "EDR",
+      "av": "Virenschutz",
+      "asset": "Assets",
+      "infra": "Infrastruktur",
+      "alerts": "Alarme",
+      "audit": "Audit",
+      "system": "System",
+      "unparsed": "Nicht erkannt"
+    }
   },
   "unparsed": {
     "title": "Nicht erkannte Quellen",

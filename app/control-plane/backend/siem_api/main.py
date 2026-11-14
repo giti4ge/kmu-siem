@@ -11,7 +11,7 @@ from .audit import AuditLog
 from .config import Settings, get_settings
 from .db import Database, migrate
 from .deps import AppState
-from .routers import audit, auth, devices, linux, logs, system, users, wec
+from .routers import audit, auth, devices, linux, logs, retention, system, users, wec
 from .security import rbac
 from .security.keys import KeyRing
 
@@ -43,7 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         fields = [{"loc": list(e.get("loc", ())), "type": e.get("type")} for e in exc.errors()]
         return JSONResponse(status_code=422, content={"detail": {"error": "validation_failed", "fields": fields}})
 
-    for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router, logs.router, linux.router):
+    for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router, logs.router, linux.router, retention.router):
         app.include_router(router)
     return app
 
