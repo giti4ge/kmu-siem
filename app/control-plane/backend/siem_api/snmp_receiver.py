@@ -94,12 +94,15 @@ async def run(secrets_dir: Path, master_key: bytes, listen: tuple[str, int] = LI
     for i, community in enumerate(cfg["communities"]):
         config.add_v1_system(eng, f"c{i}", community)
     protos = snmp_config.protocol_objects()
+    from pysnmp.proto.rfc1902 import OctetString
+
     for u in cfg["v3_users"]:
         auth = protos["auth"][u["auth_proto"]]
-        if u["priv_proto"] == "none":
-            config.add_v3_user(eng, u["user"], auth, u["auth_key"])
-        else:
-            config.add_v3_user(eng, u["user"], auth, u["auth_key"], protos["priv"][u["priv_proto"]], u["priv_key"])
+        keys = (auth, u["auth_key"]) if u["priv_proto"] == "none" else (
+            auth, u["auth_key"], protos["priv"][u["priv_proto"]], u["priv_key"])
+        config.add_v3_user(eng, u["user"], *keys)  # Informs: Empfänger ist autoritativ
+        if u["engine_id"]:  # v3-Traps: Engine-ID des Senders ist vorab nötig
+            config.add_v3_user(eng, u["user"], *keys, securityEngineId=OctetString(hexValue=u["engine_id"]))
 
     # Sicherheitsmodell/-name je Absenderadresse merken (v2c = Modell 2, v3 = Modell 3); Observer und Callback
     # laufen direkt nacheinander im selben Event-Loop-Durchlauf

@@ -17,7 +17,7 @@ def test_config_encrypted_and_secret_kept(tmp_path):
     snmp_config.save(tmp_path, KEY, ["public-comm1"], USERS)
     raw = snmp_config.config_path(tmp_path).read_text()
     assert "authpass123" not in raw and "public-comm1" not in raw
-    assert snmp_config.view(tmp_path) == {"communities": 1, "v3_users": [{"user": "siem", "auth_proto": "sha", "priv_proto": "aes128"}]}
+    assert snmp_config.view(tmp_path) == {"communities": 1, "v3_users": [{"user": "siem", "auth_proto": "sha", "priv_proto": "aes128", "engine_id": ""}]}
     snmp_config.save(tmp_path, KEY, None, [dict(USERS[0], auth_key=None, priv_key=None)])  # Schlüssel bleiben
     rt = snmp_config.load_runtime(tmp_path, KEY)
     assert rt["communities"] == ["public-comm1"] and rt["v3_users"][0]["auth_key"] == "authpass123"
@@ -104,3 +104,48 @@ def test_api_never_returns_keys_and_needs_write(h, settings):
     assert c.put("/api/snmp", json={"v3_users": [dict(USERS[0], user="a b")]}).json()["detail"]["error"] == "snmp_invalid_user"
     assert h.login("aud").get("/api/snmp").status_code == 200
     assert h.login("aud").put("/api/snmp", json=body).status_code == 403
+
+
+def test_v3_trap_with_configured_engine_id(tmp_path):
+    pytest.importorskip("pysnmp")
+    from pysnmp.hlapi.v3arch.asyncio import (
+        ContextData,
+        NotificationType,
+        ObjectIdentity,
+        SnmpEngine,
+        UdpTransportTarget,
+        UsmUserData,
+        send_notification,
+        usmAesCfb128Protocol,
+        usmHMACSHAAuthProtocol,
+    )
+    from pysnmp.proto.rfc1902 import OctetString
+    eid = "80001f8880aabbccdd01"
+    snmp_config.save(tmp_path, KEY, [], [dict(USERS[0], engine_id="0x" + eid.upper())])
+    assert snmp_config.view(tmp_path)["v3_users"][0]["engine_id"] == eid
+    port, got = free_port(), []
+
+    async def scenario():
+        stop = asyncio.Event()
+        task = asyncio.create_task(snmp_receiver.run(tmp_path, KEY, ("127.0.0.1", port), send=got.append, stop=stop))
+        await asyncio.sleep(1.0)
+        target = await UdpTransportTarget.create(("127.0.0.1", port))
+        auth = UsmUserData("siem", "authpass123", "privpass123", authProtocol=usmHMACSHAAuthProtocol,
+                           privProtocol=usmAesCfb128Protocol)
+        await send_notification(SnmpEngine(OctetString(hexValue=eid)), auth, target, ContextData(), "trap",
+                                NotificationType(ObjectIdentity("1.3.6.1.6.3.1.1.5.4")))
+        for _ in range(30):
+            if got:
+                break
+            await asyncio.sleep(0.2)
+        stop.set()
+        await task
+
+    asyncio.run(asyncio.wait_for(scenario(), 40))
+    assert len(got) == 1 and got[0]["snmp"]["version"] == "v3" and got[0]["event"]["action"] == "port-up"
+
+
+def test_engine_id_validation(tmp_path):
+    with pytest.raises(snmp_config.SnmpConfigError) as exc:
+        snmp_config.save(tmp_path, KEY, [], [dict(USERS[0], engine_id="xyz")])
+    assert exc.value.code == "snmp_invalid_engine_id"

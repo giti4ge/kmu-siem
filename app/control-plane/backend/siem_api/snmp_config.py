@@ -14,6 +14,7 @@ from .security import crypto
 AUTH_PROTOS = ("sha", "sha256")
 PRIV_PROTOS = ("none", "aes128", "aes256")
 _USER = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
+_ENGINE_ID = re.compile(r"^(0x)?([0-9A-Fa-f]{2}){5,32}$")
 _COMMUNITY = re.compile(r"^[A-Za-z0-9._@!#%^*+=-]{8,64}$")
 MAX_ENTRIES = 50
 
@@ -56,8 +57,8 @@ def view(secrets_dir: Path) -> dict[str, Any]:
     """Ohne Geheimnisse: Anzahl Communities, v3-Benutzer mit Protokollen."""
     d = _read(secrets_dir)
     return {"communities": len(d.get("communities", [])),
-            "v3_users": [{"user": u["user"], "auth_proto": u["auth_proto"], "priv_proto": u["priv_proto"]}
-                         for u in d.get("v3_users", [])]}
+            "v3_users": [{"user": u["user"], "auth_proto": u["auth_proto"], "priv_proto": u["priv_proto"],
+                          "engine_id": u.get("engine_id", "")} for u in d.get("v3_users", [])]}
 
 
 def save(secrets_dir: Path, master_key: bytes, communities: list[str] | None, v3_users: list[dict[str, Any]]) -> None:
@@ -78,7 +79,11 @@ def save(secrets_dir: Path, master_key: bytes, communities: list[str] | None, v3
         if not _USER.match(name) or u.get("auth_proto") not in AUTH_PROTOS or u.get("priv_proto") not in PRIV_PROTOS:
             raise SnmpConfigError("snmp_invalid_user")
         prev = old_users.get(name)
-        entry = {"user": name, "auth_proto": u["auth_proto"], "priv_proto": u["priv_proto"]}
+        engine_id = str(u.get("engine_id") or "").strip()
+        if engine_id and not _ENGINE_ID.match(engine_id):
+            raise SnmpConfigError("snmp_invalid_engine_id")
+        entry = {"user": name, "auth_proto": u["auth_proto"], "priv_proto": u["priv_proto"],
+                 "engine_id": engine_id.lower().removeprefix("0x")}
         for field, ctx in (("auth_key", "snmp.auth"), ("priv_key", "snmp.priv")):
             val = u.get(field)
             if field == "priv_key" and u["priv_proto"] == "none":
@@ -102,6 +107,7 @@ def load_runtime(secrets_dir: Path, master_key: bytes) -> dict[str, Any]:
     return {
         "communities": [_dec(master_key, c, "snmp.community") for c in d.get("communities", [])],
         "v3_users": [{"user": u["user"], "auth_proto": u["auth_proto"], "priv_proto": u["priv_proto"],
+                      "engine_id": u.get("engine_id", ""),
                       "auth_key": _dec(master_key, u["auth_key"], f"snmp.auth.{u['user']}"),
                       "priv_key": (_dec(master_key, u["priv_key"], f"snmp.priv.{u['user']}")
                                    if u.get("priv_key") else "")}

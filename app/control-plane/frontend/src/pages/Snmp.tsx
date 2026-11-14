@@ -4,11 +4,11 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { ErrorBox } from "./Auth";
 
-type User = { user: string; auth_proto: "sha" | "sha256"; priv_proto: "none" | "aes128" | "aes256" };
+type User = { user: string; auth_proto: "sha" | "sha256"; priv_proto: "none" | "aes128" | "aes256"; engine_id: string };
 type View = { communities: number; v3_users: User[] };
 type Row = User & { auth_key: string; priv_key: string };
 
-const blank = (): Row => ({ user: "", auth_proto: "sha", priv_proto: "aes128", auth_key: "", priv_key: "" });
+const blank = (): Row => ({ user: "", auth_proto: "sha", priv_proto: "aes128", auth_key: "", priv_key: "", engine_id: "" });
 
 export default function SnmpPage({ canWrite }: { canWrite: boolean }) {
   const { t } = useTranslation();
@@ -51,7 +51,7 @@ export default function SnmpPage({ canWrite }: { canWrite: boolean }) {
         <h2 className="mb-2 font-medium">{t("snmp.v3")}</h2>
         <p className="mb-2 text-sm text-slate-600">{t("snmp.v3_text")}</p>
         {rows.map((r, i) => (
-          <div key={i} className="mb-2 grid gap-2 md:grid-cols-6">
+          <div key={i} className="mb-3 grid gap-2 md:grid-cols-6">
             <input className="input" aria-label={t("snmp.user")} placeholder={t("snmp.user")} value={r.user} disabled={!canWrite}
               onChange={(e) => set(i, { user: e.target.value })} />
             <select className="input" aria-label={t("snmp.auth")} value={r.auth_proto} disabled={!canWrite}
@@ -69,6 +69,8 @@ export default function SnmpPage({ canWrite }: { canWrite: boolean }) {
             </select>
             <input className="input" type="password" autoComplete="off" aria-label={t("snmp.priv_key")} placeholder={t("snmp.priv_key")}
               value={r.priv_key} disabled={!canWrite || r.priv_proto === "none"} onChange={(e) => set(i, { priv_key: e.target.value })} />
+            <input className="input md:col-span-5 font-mono text-xs" aria-label={t("snmp.engine_id")} placeholder={t("snmp.engine_id")}
+              value={r.engine_id} disabled={!canWrite} onChange={(e) => set(i, { engine_id: e.target.value })} />
             {canWrite && (
               <button className="btn" onClick={() => { setSaved(false); setRows(rows.filter((_, j) => j !== i)); }}>
                 {t("common.delete")}

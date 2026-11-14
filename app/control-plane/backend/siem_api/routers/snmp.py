@@ -20,6 +20,7 @@ class V3User(BaseModel):
     auth_key: str | None = Field(default=None, max_length=128)
     priv_proto: Literal["none", "aes128", "aes256"]
     priv_key: str | None = Field(default=None, max_length=128)
+    engine_id: str | None = Field(default=None, max_length=66)
 
 
 class SnmpIn(BaseModel):
