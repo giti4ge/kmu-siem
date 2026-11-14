@@ -99,7 +99,7 @@ Die Formate sind aus Herstellerdokumentation **nachgebildet** (keine echten Prob
 | Workflow | Auslöser | Inhalt |
 |---|---|---|
 | `ci.yml` | Push auf `main`, Pull Requests | Lint, Unit-Tests (Debian 13), Preflight-Integrationstest |
-| `vm-test.yml` | Pull Requests/Push mit Änderungen an `host/` oder `tests/vm/`, manuell | Frische Debian-13-VM: Preflight, unbeaufsichtigte Installation, Resume, Repair; parallel die Varianten `interactive` (ohne zweite Disk, Proxy, ohne SSH-Schlüssel) und `resume` (Abbruch in jedem Schritt) |
+| `vm-test.yml` | wöchentlich (So 03:00 UTC), bei Tags `v*`, manuell (vor Release und nach Änderungen an `host/`/Container-Stack) | Frische Debian-13-VM: Preflight, unbeaufsichtigte Installation, Resume, Repair; parallel die Varianten `interactive` (ohne zweite Disk, Proxy, ohne SSH-Schlüssel) und `resume` (Abbruch in jedem Schritt) |
 
 Der VM-Test nutzt KVM, sofern der Runner es anbietet. Andernfalls läuft er in Software-Emulation (deutlich langsamer).
 
