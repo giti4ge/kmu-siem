@@ -21,6 +21,7 @@
     "snmp": "SNMP-Traps",
     "sophos": "Sophos Central",
     "retention": "Aufbewahrung",
+    "maintenance": "Wartung",
     "devices": "Geräte",
     "unparsed": "Nicht erkannte Quellen"
   },
@@ -351,6 +352,23 @@
     "download": "Skript herunterladen",
     "step2": "2. Auf dem Server ausführen",
     "step2_text": "Als root ausführen. Das Skript installiert rsyslog mit TLS-Modul, hinterlegt das CA-Zertifikat, richtet die Weiterleitung ein und sendet eine Testmeldung. Danach den Server unter Geräte mit Typ „Linux-Server“ eintragen oder auf automatische Erkennung warten."
+  },
+  "maintenance": {
+    "title": "Wartung",
+    "intro": "Plattenwächter alle 5 Minuten (Warnung ab {{warn}} %, Notbereinigung ab {{emergency}} %); Sicherungen und Snapshots nachts zwischen {{start}}:00 und {{end}}:00 Uhr.",
+    "job": "Job",
+    "last": "Letzter Lauf",
+    "result": "Ergebnis",
+    "never": "noch nicht gelaufen",
+    "ok": "OK",
+    "failed": "Fehler",
+    "run": "Jetzt ausführen",
+    "jobs": {
+      "guard": "Plattenwächter",
+      "db_backup": "Sicherung der Konfigurationsdatenbank",
+      "db_integrity": "Integritätsprüfung (wöchentlich)",
+      "snapshot": "OpenSearch-Snapshot"
+    }
   },
   "retention": {
     "title": "Aufbewahrung je Kategorie",

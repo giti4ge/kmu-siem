@@ -84,6 +84,7 @@ services:
       - "${SIEM_HOSTD_GID:-65534}"
     volumes:
       - ${SIEM_DATA}/config-db:/data/config-db
+      - ${SIEM_DATA}/backups/config-db:/data/backups
       - ${SIEM_DATA}/secrets/control-plane:/data/secrets
       - ${SIEM_DATA}/openwec/conf:/data/openwec
       - ${SIEM_DATA}/vector-config:/data/vector-config

@@ -124,6 +124,8 @@ _app_dirs() {
     install -d -m 0750 -o "$UID_VECTOR" -g "$UID_VECTOR" "$SIEM_ROOT/data/vector-buffer" || return 1
     # Control-Plane: Config-DB und eigene Schlüssel (Master-Key, Audit-Schlüssel)
     install -d -m 0750 -o "$UID_API" -g "$UID_API" "$SIEM_ROOT/data/config-db" || return 1
+    # Sicherungen der Config-DB und Zustand der Wartungsjobs (siem-api)
+    install -d -m 0750 -o "$UID_API" -g "$UID_API" "$SIEM_ROOT/data/backups/config-db" || return 1
     install -d -m 0700 -o "$UID_API" -g "$UID_API" "$SECRETS_DIR/control-plane" || return 1
     # OpenWEC: Konfiguration/Keytab/Subscriptions schreibt die Control-Plane (uid 2100), openwecd liest (gid 2100)
     install -d -m 0750 -o "$UID_API" -g "$UID_API" "$SIEM_ROOT/data/openwec/conf" || return 1

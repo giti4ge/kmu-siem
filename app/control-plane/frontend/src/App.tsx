@@ -12,6 +12,7 @@ import SystemLogPage from "./pages/SystemLog";
 import UnparsedPage from "./pages/Unparsed";
 import UsersPage from "./pages/Users";
 import LinuxPage from "./pages/Linux";
+import MaintenancePage from "./pages/Maintenance";
 import RetentionPage from "./pages/Retention";
 import SophosPage from "./pages/Sophos";
 import ChangesPage from "./pages/Changes";
@@ -51,6 +52,7 @@ const NAV = [
   { to: "/sources/snmp", key: "nav.snmp", perm: "sources:read" },
   { to: "/sources/sophos", key: "nav.sophos", perm: "sources:read" },
   { to: "/system/retention", key: "nav.retention", perm: "privacy:read" },
+  { to: "/system/maintenance", key: "nav.maintenance", perm: "system:read" },
   { to: "/system/users", key: "nav.users", perm: "users:read" },
   { to: "/system/roles", key: "nav.roles", perm: "users:read" },
   { to: "/system/audit", key: "nav.audit", perm: "audit:read" },
@@ -127,6 +129,7 @@ function Shell({ me }: { me: Me }) {
             {can("audit:read") && <Route path="/system/audit" element={<AuditPage />} />}
             {can("system:read") && <Route path="/system/log" element={<SystemLogPage />} />}
             {can("sources:read") && <Route path="/sources/windows" element={<WindowsPage canWrite={can("sources:write")} />} />}
+            {can("system:read") && <Route path="/system/maintenance" element={<MaintenancePage canWrite={can("system:write")} />} />}
             {can("privacy:read") && <Route path="/system/retention" element={<RetentionPage canWrite={can("privacy:write")} />} />}
             {can("sources:read") && <Route path="/sources/fortigate" element={<FortigatePage canWrite={can("sources:write")} />} />}
             {can("sources:read") && <Route path="/sources/snmp" element={<SnmpPage canWrite={can("sources:write")} />} />}
