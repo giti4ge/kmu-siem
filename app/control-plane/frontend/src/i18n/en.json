@@ -367,6 +367,24 @@
       "siem": "SIEM integration API only"
     }
   },
+  "changes": {
+    "title": "Change timeline",
+    "intro": "Who changed what and when: Active Directory, users and groups, GPOs, services, tasks and audit policy. Attribute changes show old → new.",
+    "period": "Period",
+    "hours": "{{count}} h",
+    "search": "Search (user, object, attribute, server)",
+    "privileged_only": "Privileged groups only",
+    "apply": "Apply",
+    "empty": "No changes in this period.",
+    "time": "Time",
+    "actor": "Who",
+    "operation": "Operation",
+    "object": "Object",
+    "change": "Change (old → new)",
+    "host": "Server",
+    "privileged": "privileged",
+    "truncated": "Result truncated – narrow the period or search."
+  },
   "unparsed": {
     "title": "Unrecognized sources",
     "intro": "Events no parser was responsible for. Add the source under \"Devices\" with the right type, or report the format for a new parser.",

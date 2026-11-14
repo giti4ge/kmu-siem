@@ -367,6 +367,24 @@
       "siem": "Nur SIEM-Integrations-API"
     }
   },
+  "changes": {
+    "title": "Änderungs-Timeline",
+    "intro": "Wer hat wann was geändert: Active Directory, Benutzer und Gruppen, GPO, Dienste, Tasks und Audit-Richtlinie. Attributänderungen zeigen alt → neu.",
+    "period": "Zeitraum",
+    "hours": "{{count}} Std.",
+    "search": "Suche (Benutzer, Objekt, Attribut, Server)",
+    "privileged_only": "Nur privilegierte Gruppen",
+    "apply": "Anwenden",
+    "empty": "Keine Änderungen im Zeitraum.",
+    "time": "Zeit",
+    "actor": "Wer",
+    "operation": "Vorgang",
+    "object": "Objekt",
+    "change": "Änderung (alt → neu)",
+    "host": "Server",
+    "privileged": "privilegiert",
+    "truncated": "Ergebnis gekürzt – bitte Zeitraum oder Suche eingrenzen."
+  },
   "unparsed": {
     "title": "Nicht erkannte Quellen",
     "intro": "Ereignisse, für die kein Parser zuständig war. Tragen Sie die Quelle unter „Geräte“ mit dem richtigen Typ ein oder melden Sie das Format für einen neuen Parser.",

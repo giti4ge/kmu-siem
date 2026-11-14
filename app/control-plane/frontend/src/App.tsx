@@ -14,6 +14,7 @@ import UsersPage from "./pages/Users";
 import LinuxPage from "./pages/Linux";
 import RetentionPage from "./pages/Retention";
 import SophosPage from "./pages/Sophos";
+import ChangesPage from "./pages/Changes";
 import WindowsPage from "./pages/Windows";
 
 export function useMe() {
@@ -35,6 +36,7 @@ export function useMe() {
 // Navigation: nur Module anzeigen, für die eine Leseberechtigung besteht
 const NAV = [
   { to: "/", key: "nav.dashboard", perm: "dashboard:read" },
+  { to: "/changes", key: "nav.changes", perm: "changes:read" },
   { to: "/sources/unparsed", key: "nav.unparsed", perm: "logs:read" },
   { to: "/sources/devices", key: "nav.devices", perm: "sources:read" },
   { to: "/sources/windows", key: "nav.windows", perm: "sources:read" },
@@ -121,6 +123,7 @@ function Shell({ me }: { me: Me }) {
             {can("sources:read") && <Route path="/sources/sophos" element={<SophosPage canWrite={can("sources:write")} />} />}
             {can("sources:read") && <Route path="/sources/linux" element={<LinuxPage canWrite={can("sources:write")} />} />}
             {can("sources:read") && <Route path="/sources/devices" element={<DevicesPage canWrite={can("sources:write")} />} />}
+            {can("changes:read") && <Route path="/changes" element={<ChangesPage />} />}
             {can("logs:read") && <Route path="/sources/unparsed" element={<UnparsedPage />} />}
             <Route path="/account" element={<PasswordPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
