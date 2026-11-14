@@ -24,6 +24,13 @@ Stand: 2026-11-14 · Bezug: [Spezifikation 2.6.1](spec/SPEC.md)
 | Support-Zugang | SSH für den Dienstleister: zeitlich begrenzt, Schlüssel und Quelladresse, nur Diagnosebefehle |
 | Datenschutzmodus | Benutzernamen als Pseudonym für Analyst/Auditor/Management (optional) |
 | Revisionssicheres Archiv | Vector schreibt stündliche Dateien (gzip), Siegel mit Hash-Kette und Ed25519, tägliche und manuelle Prüfung, Archiv-Retention je Kategorie (Löschvermerk in der Kette), Wiederherstellung in `siem-restore-*` mit Ablauf, Fehler als Audit-Ereignis (Web-UI Archiv, API `/api/archive`) |
+| Archiv-Erweiterungen | RFC-3161-Zeitstempel (täglich je Kategorie), Replikation auf Verzeichnis (NFS/SMB-Einhängung) oder S3 mit Object Lock, lokal löschen erst nach bestätigter Replikation |
+| Fälle (Cases) | Notizen und Ereignisse als Beweisstücke, Abschluss ins schreibgeschützte Fallarchiv mit signiertem Paket, Aufbewahrung 12 Monate ab Schließung |
+| Vier-Augen-Prinzip | optional (Standard aus) für Archiv-Wiederherstellung, Forensik-Export, kritische Alarme und Aufdeckung von Pseudonymen |
+| SNMP-Erweiterungen | LLDP-Nachbarn, Geräteprofile mit Hardwarezustand (Synology, iDRAC, ArubaOS), MIB-Import (Textparser), Discovery-Scanner |
+| Rückwirkende Verarbeitung | gepufferte „nicht erkannte“ Ereignisse einer freigegebenen Quelle werden erneut eingespielt |
+| Parser-Editor | eigene Regex-Regeln im Web-UI, erzeugen `custom.vrl` (nur aus geprüften Bausteinen) |
+| Snapshots, Anbindung | tägliche FortiGate-Konfigurationssicherung mit Diff; CA-Download und Snippets für TLS-Syslog |
 | Forensik-Export | signiertes Beweispaket (Hashliste, Signatur, Nachweis im Audit-Log), Prüffunktion |
 
 ## Bewusst vereinfacht (Abweichung von der Spezifikation)
@@ -32,17 +39,17 @@ Stand: 2026-11-14 · Bezug: [Spezifikation 2.6.1](spec/SPEC.md)
 - **Updates:** Prüfung und Anzeige; das Einspielen erfolgt mit dem signierten Paket über `install.sh --upgrade`. Kein automatischer Abruf mit Signaturprüfung im Web-UI.
 - **Dashboard-Anpassung:** je Browser (lokal gespeichert), nicht je Benutzer in der Konfigurationsdatenbank.
 - **Regeln:** 16 eingebaute Regeln mit Schwellwert, Schweregrad und Ein/Aus; kein Sigma-Import und keine eigenen Regeln im UI.
+- **MIB-Import:** eigener Textparser statt pysmi-Sandbox (keine Ausführung, keine Abhängigkeit); Textual Conventions und Tabellenindizes werden nicht ausgewertet.
 - **Archiv:** gzip statt zstd (Prüfung mit Python-Standardbibliothek); Dateien sind nicht schreibgeschützt, Manipulation wird aber durch die Siegel erkannt und lokalisiert.
 - **Windows-Skript:** nur per Review und Unit-Test geprüft, nicht an einer echten Domäne.
 
 ## Offen (noch nicht gebaut)
 
-1. Archiv-Rest: RFC-3161-Zeitstempel, Langzeitziel (SMB/NFS/SFTP/S3), Vier-Augen-Freigabe der Wiederherstellung; Fall-Verwaltung mit Write-once-Fallarchiv.
-2. Vier-Augen-Freigabe (optional, Standard aus) und Aufdeckung pseudonymisierter Namen mit Freigabe.
-3. Rückwirkende Verarbeitung gepufferter Ereignisse nach der Quellenfreigabe.
-4. Phase 4 Rest: LLDP, Geräteprofile, MIB-Import, net-sensor, Discovery-Scanner.
-5. Parser-Editor im Web-UI, Konfigurations-Snapshots von Geräten, Anbindungs-Assistent mit Zertifikaten.
-6. Lasttest mit 150 Endpunkten und Erstinstallation mit echten Geräten (Voraussetzung für „einsatzbereit“).
+1. Langzeitziel SFTP und native SMB-Anbindung (derzeit: eingehängtes Verzeichnis oder S3).
+2. net-sensor (passiver Sensor): entfällt vorerst, da Port-Mirroring beim Kunden nicht möglich ist; Roadmap.
+3. Parser-Editor: nur Regex mit benannten Gruppen (kein freies VRL); Konfigurations-Snapshots nur FortiGate (Switches brauchen SSH-Zugriff).
+4. Vollständige Zertifikatsprüfung der Zeitstempel in der App (erfolgt unabhängig mit `openssl ts -verify`).
+5. Lasttest mit 150 Endpunkten und Erstinstallation mit echten Geräten (Voraussetzung für „einsatzbereit“).
 
 ## Voraussetzung für den Einsatz
 

@@ -129,6 +129,36 @@ def api_get(host: str, port: int, path: str, token: str, pin: str, timeout: floa
         conn.close()
 
 
+def api_get_text(host: str, port: int, path: str, token: str, pin: str, timeout: float = 60.0) -> str:
+    """Wie api_get, aber Klartext-Antwort (Konfigurationssicherung); höchstens 20 MB."""
+    ctx = ssl.create_default_context()
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    if pin:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+    conn = http.client.HTTPSConnection(host, port, timeout=timeout, context=ctx)
+    try:
+        conn.connect()
+        if pin:
+            der = conn.sock.getpeercert(binary_form=True) or b""  # type: ignore[union-attr]
+            if not hmac.compare_digest(hashlib.sha256(der).hexdigest(), pin):
+                raise FortiError("fortigate_pin_mismatch")
+        conn.request("GET", path, headers={"Authorization": f"Bearer {token}"})
+        resp = conn.getresponse()
+        body = resp.read(20_000_000)
+        if resp.status in (401, 403):
+            raise FortiError("fortigate_auth_failed")
+        if resp.status != 200:
+            raise FortiError("fortigate_http_error")
+        return body.decode("utf-8", "replace")
+    except ssl.SSLCertVerificationError as exc:
+        raise FortiError("fortigate_tls_untrusted") from exc
+    except (OSError, http.client.HTTPException) as exc:
+        raise FortiError("fortigate_unreachable") from exc
+    finally:
+        conn.close()
+
+
 def fetch(cfg: dict[str, Any], token: str, get=api_get) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     q = f"?vdom={cfg['vdom']}"
     arp = get(cfg["host"], cfg["port"], "/api/v2/monitor/network/arp" + q, token, cfg["tls_pin"])

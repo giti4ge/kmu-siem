@@ -1,0 +1,22 @@
+# Rückwirkende Verarbeitung: erneut eingespielte "unparsed"-Ereignisse laufen durch die Geräteerkennung.
+
+tests:
+  - name: Replay einer freigegebenen Linux-Quelle wird als linux erkannt
+    inputs:
+      - insert_at: replay_prep
+        type: log
+        log_fields: {source_ip: 10.0.20.5, hostname: srv-linux-01, appname: sshd, procid: "812", message: "Failed password for invalid user admin from 45.155.205.233 port 51022 ssh2"}
+    outputs:
+      - extract_from: detect
+        conditions:
+          - type: vrl
+            source: |
+              assert_eq!(.siem.device_type, "linux")
+              assert_eq!(.siem.replayed, true)
+
+  - name: Replay ohne Quell-IP wird verworfen
+    inputs:
+      - insert_at: replay_prep
+        type: log
+        log_fields: {message: "irgendwas"}
+    no_outputs_from: [detect]

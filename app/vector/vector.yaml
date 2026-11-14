@@ -85,7 +85,28 @@ sources:
     decoding:
       codec: json
 
+  # Rückwirkende Verarbeitung (Quellenfreigabe): die Control-Plane spielt gepufferte "unparsed"-Ereignisse einer
+  # nun freigegebenen Quelle erneut ein (Loopback, JSON-Zeilen mit Syslog-Feldern und Original-Zeitstempel)
+  replay_in:
+    type: socket
+    mode: tcp
+    address: "127.0.0.1:10603"
+    framing:
+      method: newline_delimited
+      newline_delimited:
+        max_length: 1048576
+    decoding:
+      codec: json
+
 transforms:
+  replay_prep:
+    type: remap
+    inputs: ["replay_in"]
+    source: |
+      .siem.replayed = true
+      if !exists(.source_ip) || !is_string(.source_ip) { abort }
+      if !exists(.message) { abort }
+
   snmp:
     type: remap
     inputs: ["snmp_in"]
@@ -113,7 +134,7 @@ transforms:
 
   detect:
     type: remap
-    inputs: ["throttle_source"]
+    inputs: ["throttle_source", "replay_prep"]
     source: |
       dt = ""
       rec, err = get_enrichment_table_record("devices", {"ip": string(.source_ip) ?? ""})
@@ -250,11 +271,20 @@ transforms:
       .siem.category = "unparsed"
       if .process.name == "siem-selftest" { .siem.category = "system" }
 
+  # Eigene Regeln aus dem Parser-Editor (Web-UI): erzeugt die Control-Plane als custom.vrl; wirkt nur auf "unparsed"
+  custom:
+    type: remap
+    inputs: ["normalize"]
+    file: /etc/vector/dynamic/custom.vrl
+    drop_on_error: false
+
   # Revisionssicheres Archiv (Spec 4.14a): stündliche Dateien nach Aufnahmezeit; versiegelt vom Container siem-api
   archive_prep:
     type: remap
-    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "ikarus", "windows", "sophos", "snmp"]
+    inputs: ["custom", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "ikarus", "windows", "sophos", "snmp"]
     source: |
+      # erneut eingespielte Ereignisse stehen schon im Archiv (als Original) – nicht doppelt ablegen
+      if .siem.replayed == true { abort }
       .siem.archive_slot = format_timestamp!(now(), "%Y/%m/%d/%H", "UTC")
 
 sinks:
@@ -273,7 +303,7 @@ sinks:
       when_full: block
   opensearch:
     type: elasticsearch
-    inputs: ["normalize", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "ikarus", "windows", "sophos", "snmp"]
+    inputs: ["custom", "fortigate", "arubaos", "aruba_instant_on", "fs_s3900", "linux", "unifi", "synology", "idrac", "ikarus", "windows", "sophos", "snmp"]
     endpoints: ["https://127.0.0.1:9200"]
     api_version: v8
     mode: bulk

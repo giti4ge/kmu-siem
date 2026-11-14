@@ -605,6 +605,19 @@ def vector_reload() -> dict[str, Any]:
     return {"reloaded": True}
 
 
+def vector_restart() -> dict[str, Any]:
+    """Vector-Container neu starten (nach Änderung eigener Parser-Regeln); der Disk-Puffer bleibt erhalten."""
+    try:
+        proc = subprocess.run(  # noqa: S603
+            ["/usr/bin/docker", "restart", "--time", "20", "siem-vector"],
+            capture_output=True, text=True, timeout=60, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise HostdError(f"Vector nicht erreichbar: {exc}") from exc
+    if proc.returncode != 0:
+        raise HostdError("Vector konnte nicht neu gestartet werden")
+    return {"restarted": True}
+
+
 SUPPORT_DIR = Path(os.environ.get("SIEM_SUPPORT_DIR", str(DATA_DIR / "support")))
 SUPPORT_MAX_HOURS = 72
 _SSH_KEY = re.compile(r"^(ssh-ed25519|ecdsa-sha2-nistp(?:256|384|521)|ssh-rsa|sk-ssh-ed25519@openssh\.com) "
@@ -706,6 +719,7 @@ class Dispatcher:
             "system.status": lambda p, a: self.status(),
             "system.logs": lambda p, a: system_logs(p),
             "vector.reload": lambda p, a: vector_reload(),
+            "vector.restart": lambda p, a: vector_restart(),
             "support.status": lambda p, a: self.support.status(),
             "support.enable": lambda p, a: self.support.enable(p, a),
             "support.disable": lambda p, a: self.support.disable(a),

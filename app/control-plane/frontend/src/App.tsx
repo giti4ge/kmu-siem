@@ -15,7 +15,12 @@ import LinuxPage from "./pages/Linux";
 import ActiveResponsePage from "./pages/ActiveResponse";
 import AlertsPage from "./pages/Alerts";
 import ForensicsPage from "./pages/Forensics";
+import ApprovalsPage from "./pages/Approvals";
 import ArchivePage from "./pages/Archive";
+import CasesPage from "./pages/Cases";
+import ConnectPage from "./pages/Connect";
+import DiscoveryPage from "./pages/Discovery";
+import ParserEditorPage from "./pages/ParserEditor";
 import MaintenancePage from "./pages/Maintenance";
 import NotificationsPage from "./pages/Notifications";
 import ReportsPage from "./pages/Reports";
@@ -58,6 +63,11 @@ const NAV = [
   { to: "/sources/snmp", key: "nav.snmp", perm: "sources:read" },
   { to: "/sources/sophos", key: "nav.sophos", perm: "sources:read" },
   { to: "/system/retention", key: "nav.retention", perm: "privacy:read" },
+  { to: "/cases", key: "nav.cases", perm: "logs:read" },
+  { to: "/sources/discovery", key: "nav.discovery", perm: "sources:read" },
+  { to: "/sources/parsers", key: "nav.parsers", perm: "sources:read" },
+  { to: "/sources/connect", key: "nav.connect", perm: "sources:read" },
+  { to: "/system/approvals", key: "nav.approvals", perm: "privacy:read" },
   { to: "/system/archive", key: "nav.archive", perm: "archive:read" },
   { to: "/system/maintenance", key: "nav.maintenance", perm: "system:read" },
   { to: "/system/notifications", key: "nav.notifications", perm: "system:read" },
@@ -146,6 +156,11 @@ function Shell({ me }: { me: Me }) {
             {can("reports:read") && <Route path="/reports" element={<ReportsPage />} />}
             {can("alerts:read") && <Route path="/alerts" element={<AlertsPage canWrite={can("alerts:write")} canRules={can("rules:read")} />} />}
             {can("system:read") && <Route path="/system/notifications" element={<NotificationsPage canWrite={can("system:write")} />} />}
+            {can("logs:read") && <Route path="/cases" element={<CasesPage canWrite={can("alerts:write")} />} />}
+            {can("sources:read") && <Route path="/sources/discovery" element={<DiscoveryPage canWrite={can("sources:write")} />} />}
+            {can("sources:read") && <Route path="/sources/parsers" element={<ParserEditorPage canWrite={can("sources:write")} />} />}
+            {can("sources:read") && <Route path="/sources/connect" element={<ConnectPage canWrite={can("sources:write")} />} />}
+            {can("privacy:read") && <Route path="/system/approvals" element={<ApprovalsPage canWrite={can("privacy:write")} />} />}
             {can("archive:read") && <Route path="/system/archive" element={<ArchivePage canWrite={can("archive:write")} />} />}
             {can("system:read") && <Route path="/system/maintenance" element={<MaintenancePage canWrite={can("system:write")} />} />}
             {can("privacy:read") && <Route path="/system/retention" element={<RetentionPage canWrite={can("privacy:write")} />} />}

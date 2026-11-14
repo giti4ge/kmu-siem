@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session as DbSession
 from .. import alerts as al
 from ..deps import Ctx, error, get_db, require, state
 from ..opensearch import OpenSearchUnavailable
+from .approvals import gate
 from .logs import client_for
 
 router = APIRouter(tags=["alerts"], prefix="/api/alerts")
@@ -50,6 +51,7 @@ def list_alerts(request: Request, hours: int = Query(168, ge=1, le=2160), status
 class StatusIn(BaseModel):
     status: Literal["open", "acknowledged", "closed"]
     index: str = Field(pattern=r"^siem-alerts-\d{4}\.\d{2}\.\d{2}$")
+    approval_id: str | None = None
 
 
 @router.post("/{alert_id}/status")
@@ -57,6 +59,13 @@ def set_status(alert_id: str, body: StatusIn, request: Request, db: DbSession = 
                ctx: Ctx = Depends(require("alerts:write"))) -> dict:
     if not (len(alert_id) == 32 and all(c in "0123456789abcdef" for c in alert_id)):
         raise error(400, "invalid_request")
+    if body.status == "closed" and request.app.state.approvals.enabled():
+        try:
+            doc = client_for(request).request("GET", f"/{body.index}/_doc/{alert_id}") or {}
+        except OpenSearchUnavailable as exc:
+            raise error(status.HTTP_503_SERVICE_UNAVAILABLE, "opensearch_unavailable") from exc
+        if (doc.get("_source", {}).get("alert", {}).get("severity") or doc.get("_source", {}).get("severity")) == "critical":
+            gate(request, db, ctx, "alert.close", {"alert": alert_id}, body.approval_id)
     try:
         r = client_for(request).request("POST", f"/{body.index}/_update/{alert_id}?refresh=true",
                                         {"doc": {"alert": {"status": body.status, "ack_by": ctx.user.username}}})

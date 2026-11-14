@@ -120,3 +120,33 @@ class Device(Base):
     type: Mapped[str] = mapped_column(String(32))
     note: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Case(Base):
+    """Fall (Spec 4.15): bündelt Ereignisse und Notizen; nach dem Schließen unveränderlich."""
+
+    __tablename__ = "cases"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(16), default="open")
+    created_by: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_by: Mapped[str | None] = mapped_column(String(64))
+    retention_months: Mapped[int] = mapped_column(Integer, default=12)
+    package_sha256: Mapped[str | None] = mapped_column(String(64))
+    package_sig: Mapped[str | None] = mapped_column(String(128))
+
+
+class CaseItem(Base):
+    __tablename__ = "case_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    case_id: Mapped[int] = mapped_column(ForeignKey("cases.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(16))  # note | event
+    content: Mapped[str] = mapped_column(Text)  # kanonisches JSON
+    sha256: Mapped[str] = mapped_column(String(64))
+    added_by: Mapped[str] = mapped_column(String(64))
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

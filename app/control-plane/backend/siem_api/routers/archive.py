@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session as DbSession
 
 from ..deps import Ctx, error, get_db, require, state
+from .approvals import gate
 
 router = APIRouter(tags=["archive"], prefix="/api/archive")
 _DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -59,6 +60,7 @@ class RestoreBody(BaseModel):
     since: str
     until: str
     days: int = 14
+    approval_id: str | None = None
 
 
 @router.get("/retention")
@@ -92,6 +94,8 @@ def start_restore(body: RestoreBody, request: Request, db: DbSession = Depends(g
     for d in (body.since, body.until):
         if not _DAY.match(d):
             raise error(422, "archive_bad_date")
+    gate(request, db, ctx, "archive.restore",
+         {"category": body.category, "since": body.since, "until": body.until}, body.approval_id)
     try:
         item = request.app.state.archive_worker.restorer.start(body.category, body.since, body.until, body.days,
                                                                ctx.user.username)
@@ -117,3 +121,46 @@ def delete_restore(rid: str, request: Request, db: DbSession = Depends(get_db),
     state(request).audit.append(db, actor=ctx.user.username, action="archive.restore_delete", target=rid,
                                 ip=ctx.ip, outcome="success", details={})
     return {"ok": True}
+
+
+class TargetBody(BaseModel):
+    tsa_url: str = ""
+    target: dict[str, Any] = {"type": "none"}
+    secret_key: str | None = None
+
+
+@router.get("/target")
+def get_target(request: Request, ctx: Ctx = Depends(require("archive:read"))) -> dict[str, Any]:
+    w = request.app.state.archive_worker
+    return {**w.config.view(), "worker": {k: w.state().get(k) for k in ("replicate", "stamp")}}
+
+
+@router.put("/target")
+def set_target(body: TargetBody, request: Request, db: DbSession = Depends(get_db),
+               ctx: Ctx = Depends(require("archive:write"))) -> dict[str, Any]:
+    try:
+        res = request.app.state.archive_worker.config.save(body.tsa_url, body.target, body.secret_key)
+    except ValueError as exc:
+        raise error(422, str(exc) if str(exc).startswith("archive_") else "archive_bad_target") from None
+    state(request).audit.append(db, actor=ctx.user.username, action="archive.target", target="archive",
+                                ip=ctx.ip, outcome="success",
+                                details={"type": res["target"].get("type"), "tsa_url": res["tsa_url"]})
+    return res
+
+
+@router.post("/replicate")
+def replicate_now(request: Request, db: DbSession = Depends(get_db),
+                  ctx: Ctx = Depends(require("archive:write"))) -> dict[str, Any]:
+    res = request.app.state.archive_worker.run_replicate()
+    state(request).audit.append(db, actor=ctx.user.username, action="archive.replicate", target="archive",
+                                ip=ctx.ip, outcome="failure" if res.get("failed") else "success", details={})
+    return res
+
+
+@router.post("/timestamp")
+def timestamp_now(request: Request, db: DbSession = Depends(get_db),
+                  ctx: Ctx = Depends(require("archive:write"))) -> dict[str, Any]:
+    res = request.app.state.archive_worker.run_stamp()
+    state(request).audit.append(db, actor=ctx.user.username, action="archive.timestamp", target="archive",
+                                ip=ctx.ip, outcome="failure" if res.get("error") else "success", details={})
+    return res
