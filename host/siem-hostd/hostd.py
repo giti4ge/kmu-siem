@@ -82,6 +82,12 @@ RATE_LIMITS = {
     "ssh": "ct state new limit rate 30/minute burst 20 packets",
     "https": "ct state new limit rate 600/minute burst 200 packets",
 }
+# Eingangsschutz je Quelladresse (nur Quellen der Allowlist erreichen diese Regeln):
+# UDP: Pakete pro Sekunde; TCP: neue Verbindungen pro Minute und gleichzeitige Verbindungen.
+# Überschreitungen werden verworfen und gezählt (nftables-Zähler), das übrige System bleibt bedienbar.
+UDP_PER_SOURCE_PPS = {"syslog": 2000, "snmptrap": 200}
+TCP_PER_SOURCE = {"syslog": (100, 200), "syslog_tls": (100, 200), "wef": (120, 50), "wef_https": (120, 50)}
+SNMP_MAX_UDP = 8200  # UDP-Länge inkl. Kopf; SNMP-Traps sind klein
 DEFAULT_V4 = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
 DEFAULT_V6 = ["fc00::/7", "fe80::/10"]
 DEFAULT_SOURCES: dict[str, list[str]] = {
@@ -214,6 +220,10 @@ def render_nft(cfg: dict[str, Any]) -> str:
         v6 = [s for s in sources if ":" in s]
         lines.append(f"    set allow_{name} {{ type ipv4_addr; flags interval; auto-merge{_elements(v4)}; }}")
         lines.append(f"    set allow_{name}6 {{ type ipv6_addr; flags interval; auto-merge{_elements(v6)}; }}")
+    for name in sorted({*UDP_PER_SOURCE_PPS, *TCP_PER_SOURCE}):
+        for fam, typ in (("4", "ipv4_addr"), ("6", "ipv6_addr")):
+            lines.append(f"    set flood_{name}{fam} {{ type {typ}; flags dynamic; size 65535; timeout 1m; }}")
+            lines.append(f"    set conn_{name}{fam} {{ type {typ}; flags dynamic; size 65535; timeout 1m; }}")
     lines += [
         "",
         "    chain input {",
@@ -235,6 +245,21 @@ def render_nft(cfg: dict[str, Any]) -> str:
         for proto, ext, internal in ports:
             # Umgeleitete Dienste: nur Verkehr, der über den externen Port kam (ct status dnat)
             match = f"{proto} dport {internal}" + (" ct status dnat" if ext != internal else "")
+            if name == "snmptrap":
+                lines.append(f"        {match} udp length > {SNMP_MAX_UDP} counter drop")
+            for fam, ip in (("4", "ip"), ("6", "ip6")):
+                if proto == "udp" and name in UDP_PER_SOURCE_PPS:
+                    pps = UDP_PER_SOURCE_PPS[name]
+                    src = f"{ip} saddr @allow_{name}{'' if fam == '4' else '6'}"
+                    lines.append(f"        {match} {src} add @flood_{name}{fam}"
+                                 f" {{ {ip} saddr limit rate over {pps}/second burst {pps * 2} packets }} counter drop")
+                elif proto == "tcp" and name in TCP_PER_SOURCE:
+                    rate, conns = TCP_PER_SOURCE[name]
+                    src = f"{ip} saddr @allow_{name}{'' if fam == '4' else '6'}"
+                    lines.append(f"        {match} ct state new {src} add @flood_{name}{fam}"
+                                 f" {{ {ip} saddr limit rate over {rate}/minute burst {rate} packets }} counter drop")
+                    lines.append(f"        {match} ct state new {src} add @conn_{name}{fam}"
+                                 f" {{ {ip} saddr ct count over {conns} }} counter drop")
             lines.append(f"        {match} ip saddr @allow_{name}{limit} accept")
             lines.append(f"        {match} ip6 saddr @allow_{name}6{limit} accept")
     lines += [

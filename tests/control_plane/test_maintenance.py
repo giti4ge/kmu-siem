@@ -156,3 +156,14 @@ def test_api_status_and_run(app, tmp_path):
     c = TestClient(app)
     assert c.get("/api/maintenance").status_code in (401, 403)
     assert c.post("/api/maintenance/run/guard").status_code in (401, 403)
+
+
+def test_snmp_rate_limiter():
+    from siem_api.snmp_receiver import RateLimiter
+    t = [0.0]
+    rl = RateLimiter(10, clock=lambda: t[0])
+    assert sum(rl.allow("10.0.0.1") for _ in range(50)) == 20  # Burst = 2 s
+    assert rl.allow("10.0.0.2")  # andere Quelle unberührt
+    t[0] += 1.0
+    assert sum(rl.allow("10.0.0.1") for _ in range(50)) == 10  # Nachfüllen mit 10/s
+    assert rl.dropped == 70

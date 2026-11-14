@@ -126,6 +126,22 @@ class TestRender(unittest.TestCase):
         self.assertNotIn("redirect to :22", text)
         self.assertNotIn("dport 443 ip saddr", text)  # Port 443 selbst wird nie direkt angenommen
 
+    def test_per_source_limits(self) -> None:
+        text = hostd.render_nft(hostd.default_config())
+        self.assertIn("set flood_syslog4 { type ipv4_addr; flags dynamic; size 65535; timeout 1m; }", text)
+        self.assertIn("set conn_wef6 { type ipv6_addr; flags dynamic; size 65535; timeout 1m; }", text)
+        self.assertIn("udp dport 10514 ct status dnat ip saddr @allow_syslog add @flood_syslog4"
+                      " { ip saddr limit rate over 2000/second burst 4000 packets } counter drop", text)
+        self.assertIn("tcp dport 5985 ct state new ip6 saddr @allow_wef6 add @conn_wef6"
+                      " { ip6 saddr ct count over 50 } counter drop", text)
+        self.assertIn("udp dport 10162 ct status dnat udp length > 8200 counter drop", text)
+        # Grenzwerte stehen vor der jeweiligen Annahmeregel
+        drop = text.index("add @flood_syslog4")
+        accept = text.index("udp dport 10514 ct status dnat ip saddr @allow_syslog accept")
+        self.assertLess(drop, accept)
+        # SSH/HTTPS behalten ihr bisheriges Limit, kein Quellen-Meter
+        self.assertNotIn("flood_ssh", text)
+
     def test_deterministic(self) -> None:
         a = hostd.render_nft(hostd.validate_config(cfg(ssh=["192.168.0.0/16", "10.0.0.0/8"])))
         b = hostd.render_nft(hostd.validate_config(cfg(ssh=["10.0.0.0/8", "192.168.0.0/16"])))
