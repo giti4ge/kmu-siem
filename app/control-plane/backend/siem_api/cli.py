@@ -7,6 +7,9 @@
   reset-mfa --username NAME
       Notfall: TOTP eines Benutzers zurücksetzen (z. B. einziger Admin hat das Gerät verloren).
       Nur per SSH/siem-hostd erreichbar, wird im Audit-Log protokolliert.
+  reset-password --username NAME (--password-file DATEI | --password-stdin)
+      Notfall: Kennwort setzen (z. B. einziger Admin hat es vergessen). Prüft die Kennwortrichtlinie,
+      hebt eine Sperre auf, beendet alle Sitzungen und verlangt beim nächsten Login eine Änderung.
   verify-audit
       Prüft die Hash-Kette des Audit-Logs (Exit 1 bei Manipulation).
 """
@@ -78,6 +81,29 @@ def reset_mfa(username: str) -> int:
     return 0
 
 
+def reset_password(username: str, password: str) -> int:
+    database, audit = _setup()
+    with database.sessionmaker() as db:
+        user = db.scalars(select(User).where(User.username == username)).first()
+        if user is None:
+            print(json.dumps({"error": "not_found"}), file=sys.stderr)
+            return 1
+        try:
+            passwords.check_policy(password, user.username)
+        except passwords.PolicyError as exc:
+            print(json.dumps({"error": str(exc)}), file=sys.stderr)
+            return 2
+        user.password_hash = passwords.hash_password(password)
+        user.must_change_password = True
+        user.failed_logins = 0
+        user.locked_until = None
+        sessions.revoke_user_sessions(db, user.id)
+        db.commit()
+        audit.append(db, actor="cli", action="user.reset_password", target=username, details={"source": "cli"})
+    print(json.dumps({"reset": True, "username": username}))
+    return 0
+
+
 def verify_audit() -> int:
     database, audit = _setup()
     with database.sessionmaker() as db:
@@ -96,6 +122,11 @@ def main(argv: list[str] | None = None) -> int:
     src.add_argument("--password-stdin", action="store_true")
     r = sub.add_parser("reset-mfa")
     r.add_argument("--username", required=True)
+    rp = sub.add_parser("reset-password")
+    rp.add_argument("--username", required=True)
+    rsrc = rp.add_mutually_exclusive_group(required=True)
+    rsrc.add_argument("--password-file", type=Path)
+    rsrc.add_argument("--password-stdin", action="store_true")
     sub.add_parser("verify-audit")
     args = parser.parse_args(argv)
     if args.cmd == "create-admin":
@@ -103,6 +134,9 @@ def main(argv: list[str] | None = None) -> int:
         return create_admin(args.username, raw.strip("\r\n"))
     if args.cmd == "reset-mfa":
         return reset_mfa(args.username)
+    if args.cmd == "reset-password":
+        raw = sys.stdin.readline() if args.password_stdin else args.password_file.read_text()
+        return reset_password(args.username, raw.strip("\r\n"))
     return verify_audit()
 
 

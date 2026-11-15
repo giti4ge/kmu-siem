@@ -125,6 +125,16 @@ def test_cli_password_stdin_and_reset_mfa(tmp_path, monkeypatch, capsys):
     with db.sessionmaker() as s:
         assert s.query(User).filter_by(username="admin").one().totp_enabled is False
     assert cli.main(["reset-mfa", "--username", "niemand"]) == 1
+    monkeypatch.setattr("sys.stdin", io.StringIO("kurz\n"))
+    assert cli.main(["reset-password", "--username", "admin", "--password-stdin"]) == 2
+    monkeypatch.setattr("sys.stdin", io.StringIO("Neues-Kennwort-Blau-Sturm-77!\n"))
+    assert cli.main(["reset-password", "--username", "admin", "--password-stdin"]) == 0
+    with db.sessionmaker() as s:
+        u = s.query(User).filter_by(username="admin").one()
+        assert passwords.verify_password(u.password_hash, "Neues-Kennwort-Blau-Sturm-77!")
+        assert u.must_change_password is True
+    monkeypatch.setattr("sys.stdin", io.StringIO("Neues-Kennwort-Blau-Sturm-77!\n"))
+    assert cli.main(["reset-password", "--username", "niemand", "--password-stdin"]) == 1
     assert cli.main(["verify-audit"]) == 0
 
 
