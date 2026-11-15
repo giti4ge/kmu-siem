@@ -63,7 +63,23 @@ Wichtig:
 
 Danach: `https://<fqdn>` öffnen, Fingerabdruck mit der Ausgabe des Skripts vergleichen, als `admin` anmelden, MFA einrichten, Einrichtungsassistent durchlaufen. Weiter mit der [Testcheckliste](TESTCHECKLISTE.md).
 
-## 5. Fehler rückmelden
+## 5. Kennwort oder MFA vergessen / Gerät verloren
+
+**Normalfall (ein anderer Administrator ist vorhanden):** Web-UI → *Benutzer* → Benutzer öffnen → *Kennwort zurücksetzen* (neues Kennwort vergeben; der Benutzer muss es beim nächsten Login ändern) bzw. *MFA zurücksetzen*. Der eigene Account kann so nicht zurückgesetzt werden. Der Benutzer richtet TOTP beim nächsten Login mit der Authenticator-App neu ein. Beides beendet alle Sitzungen des Benutzers und wird im Audit-Log protokolliert.
+
+**Notfall (einziger Administrator ist ausgesperrt):** per SSH als `siemadmin` auf der Appliance, mit Kennwort von der Standardeingabe (landet nicht in der Shell-History):
+
+```bash
+# MFA zurücksetzen – beim nächsten Login wird TOTP neu eingerichtet
+sudo docker exec siem-api python -m siem_api.cli reset-mfa --username admin
+
+# Kennwort setzen (mind. 12 Zeichen, Richtlinie wird geprüft; Änderung beim nächsten Login erzwungen)
+read -rs PW && echo "$PW" | sudo docker exec -i siem-api python -m siem_api.cli reset-password --username admin --password-stdin; unset PW
+```
+
+Beide Befehle heben auch eine Kontosperre auf (Kennwort) bzw. beenden Sitzungen und erzeugen einen Audit-Eintrag (`actor: cli`). Ist auch der SSH-Zugang verloren, hilft nur Konsolenzugriff auf die VM.
+
+## 6. Fehler rückmelden
 
 Ablauf je Auffälligkeit (ausführlich: [BETRIEB.md](BETRIEB.md)):
 
@@ -83,6 +99,6 @@ Schweregrade für die Issues:
 | Mittel | Funktion eingeschränkt, Umgehung möglich |
 | Niedrig | Darstellung, Text, Komfort |
 
-## 6. Bekannte Einschränkungen (nicht als Fehler melden)
+## 7. Bekannte Einschränkungen (nicht als Fehler melden)
 
 Siehe [STATUS.md](STATUS.md) und die Release-Notes: Windows-Skript nicht an echter Domäne geprüft, PDF über Browser-Druck, Update-Einspielen per `install.sh --upgrade`, kein Content-Kanal, SFTP/SMB-Direktanbindung fehlt, Parserformate teils aus Dokumentation abgeleitet. **Abweichungen davon sind ausdrücklich erwünscht** – genau dafür ist der Test.

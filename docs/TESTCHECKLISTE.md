@@ -27,7 +27,8 @@ Testsystem: ____________ · Datum: ____________ · Tester: ____________ · Versi
 | T-2.3 | Falsches Kennwort mehrfach | Sperre bzw. Verzögerung, Eintrag im Audit-Log | |
 | T-2.4 | Benutzer je Rolle anlegen (Analyst, Auditor, Management) | Menüs und Rechte passen zur Rolle (kein Zugriff auf Fremdes) | |
 | T-2.5 | Audit-Log | Anmeldungen und Änderungen sichtbar, Kette „gültig“ | |
-| T-2.6 | MFA-Notfall-Reset per CLI | funktioniert, wird protokolliert | |
+| T-2.6 | Notfall per CLI: `reset-mfa` und `reset-password` (Abschnitt 5 der Erstinstallation) | funktioniert, Login erzwingt Änderung/MFA-Einrichtung, Audit-Eintrag | |
+| T-2.8 | Normalfall: Kennwort und MFA eines Testbenutzers im Web-UI zurücksetzen | Benutzer kann sich neu anmelden, Sitzungen beendet | |
 | T-2.7 | Tiefenanalyse (Dashboards) aus dem Web-UI | Anmeldung ohne zweites Login, Indizes sichtbar | |
 
 ## 3. Einrichtung und Betrieb
