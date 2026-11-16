@@ -504,6 +504,27 @@
       "medium": "mittel",
       "high": "hoch",
       "critical": "kritisch"
+    },
+    "tab_mitre": "MITRE ATT&CK",
+    "mitre_intro": "Abdeckung der Alarmregeln nach MITRE ATT&CK (Enterprise): Spalten sind Taktiken, Kästchen Techniken. Eine Technik gilt als abgedeckt, wenn mindestens eine aktive Regel sie erkennt. Reconnaissance und Resource Development sind aus Logdaten nicht erkennbar und fehlen daher.",
+    "mitre_summary": "{{covered}} von {{techniques}} betrachteten Techniken abgedeckt, {{disabled}} nur mit deaktivierter Regel, {{gaps}} Lücken.",
+    "mitre_covered": "abgedeckt",
+    "mitre_disabled": "Regel deaktiviert",
+    "mitre_gap": "Lücke",
+    "mitre_nogap": "Keine Regel – Lücke",
+    "tactic": {
+      "initial-access": "Erstzugriff",
+      "execution": "Ausführung",
+      "persistence": "Persistenz",
+      "privilege-escalation": "Rechteausweitung",
+      "defense-evasion": "Umgehung der Abwehr",
+      "credential-access": "Zugriff auf Zugangsdaten",
+      "discovery": "Erkundung",
+      "lateral-movement": "Seitwärtsbewegung",
+      "collection": "Datensammlung",
+      "command-and-control": "Command & Control",
+      "exfiltration": "Datenabfluss",
+      "impact": "Auswirkung"
     }
   },
   "notify": {
@@ -1018,7 +1039,7 @@
       "example": "Wochenbericht jeden Montag an die Geschäftsführung senden."
     },
     "alerts": {
-      "text": "Zeigt ausgelöste Alarme. Alarme können übernommen, kommentiert und geschlossen werden.",
+      "text": "Zeigt ausgelöste Alarme. Alarme können übernommen, kommentiert und geschlossen werden. Unter „MITRE ATT&CK“ sehen Sie, welche Angriffstechniken durch Regeln abgedeckt sind.",
       "example": "Mehrere fehlgeschlagene Anmeldungen: Alarm öffnen, Benutzer prüfen, danach schließen."
     },
     "forensics": {

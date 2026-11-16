@@ -12,6 +12,13 @@ type Alert = {
 type Rule = {
   id: string; name: string; severity: string; description: string; threshold: number; window_minutes: number;
   enabled: boolean; mitre: string[]; category: string;
+  mitre_info: { id: string; name: string; url: string }[];
+};
+type Cell = { id: string; name: string; url: string; status: "covered" | "disabled" | "gap"; rules: { id: string; name: string; enabled: boolean }[] };
+type Matrix = { tactics: { tactic: string; techniques: Cell[] }[]; summary: { techniques: number; covered: number; disabled: number; gaps: number } };
+const CELL_CLASS: Record<string, string> = {
+  covered: "bg-green-100 border-green-300 text-green-900", disabled: "bg-yellow-100 border-yellow-300 text-yellow-900",
+  gap: "bg-slate-50 border-slate-200 text-slate-500",
 };
 
 const SEV_CLASS: Record<string, string> = {
@@ -23,12 +30,13 @@ export default function AlertsPage({ canWrite, canRules }: { canWrite: boolean; 
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [status, setStatus] = useState("open");
-  const [tab, setTab] = useState<"alerts" | "rules">("alerts");
+  const [tab, setTab] = useState<"alerts" | "rules" | "mitre">("alerts");
   const q = useQuery({
     queryKey: ["alerts", status],
     queryFn: () => api<{ alerts: Alert[] }>("GET", `/api/alerts?hours=720${status ? `&status=${status}` : ""}`),
     refetchInterval: 30000,
   });
+  const mitre = useQuery({ queryKey: ["mitre"], queryFn: () => api<Matrix>("GET", "/api/alerts/mitre"), enabled: tab === "mitre" });
   const rules = useQuery({ queryKey: ["rules"], queryFn: () => api<{ rules: Rule[] }>("GET", "/api/alerts/rules"), enabled: tab === "rules" });
   const set = useMutation({
     mutationFn: (v: { a: Alert; status: string }) => api("POST", `/api/alerts/${v.a.id}/status`, { status: v.status, index: v.a.index }),
@@ -50,8 +58,9 @@ export default function AlertsPage({ canWrite, canRules }: { canWrite: boolean; 
       <div className="mb-3 flex gap-2" role="tablist">
         <button className={tab === "alerts" ? "btn" : "btn-secondary"} onClick={() => setTab("alerts")}>{t("alerts.tab_alerts")}</button>
         {canRules && <button className={tab === "rules" ? "btn" : "btn-secondary"} onClick={() => setTab("rules")}>{t("alerts.tab_rules")}</button>}
+        {canRules && <button className={tab === "mitre" ? "btn" : "btn-secondary"} onClick={() => setTab("mitre")}>{t("alerts.tab_mitre")}</button>}
       </div>
-      <ErrorBox error={q.error ?? set.error ?? upd.error ?? rules.error ?? explain.error} />
+      <ErrorBox error={q.error ?? set.error ?? upd.error ?? rules.error ?? mitre.error ?? explain.error} />
       {tab === "alerts" && (
         <>
           <div className="mb-3 flex items-end gap-2">
@@ -90,6 +99,34 @@ export default function AlertsPage({ canWrite, canRules }: { canWrite: boolean; 
           ))}
         </>
       )}
+      {tab === "mitre" && (
+        <section className="card">
+          <p className="mb-2 text-sm text-slate-600">{t("alerts.mitre_intro")}</p>
+          {mitre.data && <p className="mb-3 text-sm">{t("alerts.mitre_summary", mitre.data.summary)}</p>}
+          <div className="mb-3 flex gap-3 text-xs">
+            {(["covered", "disabled", "gap"] as const).map((k) => <span key={k} className={`rounded border px-2 py-0.5 ${CELL_CLASS[k]}`}>{t(`alerts.mitre_${k}`)}</span>)}
+          </div>
+          <div className="overflow-x-auto">
+            <div className="flex gap-2">
+              {mitre.data?.tactics.map((c) => (
+                <div key={c.tactic} className="w-44 shrink-0">
+                  <div className="mb-1 rounded bg-slate-800 px-2 py-1 text-xs font-semibold text-white">{t(`alerts.tactic.${c.tactic}`)}</div>
+                  <div className="flex flex-col gap-1">
+                    {c.techniques.map((x) => (
+                      <a key={x.id} href={x.url} target="_blank" rel="noopener noreferrer"
+                        title={x.rules.length ? x.rules.map((r) => r.name).join(", ") : t("alerts.mitre_nogap")}
+                        className={`rounded border px-2 py-1 text-xs ${CELL_CLASS[x.status]}`}>
+                        <span className="font-mono">{x.id}</span> {x.name.split(": ").pop()}
+                        {x.rules.length > 0 && <span className="block text-[11px] opacity-80">{x.rules.map((r) => r.name.replace(/^[^:]+: /, "")).join(", ")}</span>}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
       {tab === "rules" && (
         <section className="card">
           <table className="w-full text-left text-sm">
@@ -101,7 +138,9 @@ export default function AlertsPage({ canWrite, canRules }: { canWrite: boolean; 
             <tbody>
               {rules.data?.rules.map((r) => (
                 <tr key={r.id} className="border-b border-slate-100 align-top">
-                  <td className="py-1"><div className="font-medium">{r.name}</div><div className="text-xs text-slate-500">{r.description}</div></td>
+                  <td className="py-1"><div className="font-medium">{r.name}</div><div className="text-xs text-slate-500">{r.description}</div>
+                    <div className="mt-1 flex flex-wrap gap-1">{r.mitre_info?.map((m) => (
+                      <a key={m.id} href={m.url} target="_blank" rel="noopener noreferrer" title={m.name} className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700 hover:bg-slate-200">{m.id} {m.name.split(": ").pop()}</a>))}</div></td>
                   <td>
                     <select className="input" value={r.severity} disabled={!canWrite} aria-label={t("alerts.severity")}
                       onChange={(e) => upd.mutate({ id: r.id, body: { severity: e.target.value } })}>
