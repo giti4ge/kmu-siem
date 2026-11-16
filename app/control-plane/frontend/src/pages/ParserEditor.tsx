@@ -1,12 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router";
 import { api } from "../api";
+import { FilePick } from "../FilePick";
 import { ErrorBox } from "./Auth";
 
 type Rule = { id: string; name: string; program: string; regex: string; category: string; fields: Record<string, string>; action: string; enabled: boolean };
 type Data = { rules: Rule[]; categories: string[]; fields: string[] };
 type TestRow = { line: string; match: boolean; fields: Record<string, string> };
+
+// Regel-Vorschlag aus einer Beispielzeile: Text wörtlich, IPv4-Adressen werden zu Gruppen (Quelle/Ziel)
+function suggest(line: string): Pick<Rule, "regex" | "fields"> {
+  const ip = /\b\d{1,3}(?:\.\d{1,3}){3}\b/g;
+  const names = [["src_ip", "source.ip"], ["dst_ip", "destination.ip"]];
+  const fields: Record<string, string> = {};
+  let n = 0, last = 0, regex = "";
+  const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const m of line.matchAll(ip)) {
+    if (n >= names.length) break;
+    regex += esc(line.slice(last, m.index)) + `(?P<${names[n][0]}>\\d{1,3}(?:\\.\\d{1,3}){3})`;
+    fields[names[n][0]] = names[n][1];
+    last = (m.index ?? 0) + m[0].length;
+    n++;
+  }
+  regex += esc(line.slice(last));
+  return { regex: regex.slice(0, 480), fields };
+}
 
 const EMPTY: Rule = { id: "", name: "", program: "", regex: "", category: "network", fields: {}, action: "", enabled: true };
 
@@ -17,7 +37,20 @@ export default function ParserEditorPage({ canWrite }: { canWrite: boolean }) {
   const [rules, setRules] = useState<Rule[] | null>(null);
   const [sel, setSel] = useState(0);
   const [samples, setSamples] = useState("");
+  const loc = useLocation();
+  const [started, setStarted] = useState(false);
   const list = rules ?? q.data?.rules ?? [];
+  // Aus „Nicht erkannte Quellen“ übernommen: neue Regel mit Programmname, Proben und Vorschlag anlegen
+  const from = loc.state as { program?: string; samples?: string[] } | null;
+  if (from && q.data && !started) {
+    setStarted(true);
+    const first = from.samples?.[0] ?? "";
+    const id = ("r_" + (from.program || "quelle").toLowerCase().replace(/[^a-z0-9_]/g, "_")).slice(0, 31);
+    setRules([...q.data.rules, { ...EMPTY, id, name: from.program || id, program: from.program ?? "", ...suggest(first) }]);
+    setSel(q.data.rules.length);
+    setSamples((from.samples ?? []).join("\n"));
+    window.history.replaceState({}, "");
+  }
   const rule = list[sel];
   const setRule = (patch: Partial<Rule>) => setRules(list.map((r, i) => (i === sel ? { ...r, ...patch } : r)));
   const save = useMutation({
@@ -25,6 +58,23 @@ export default function ParserEditorPage({ canWrite }: { canWrite: boolean }) {
     onSuccess: (d) => { setRules(null); qc.invalidateQueries({ queryKey: ["parsers"] }); if (!d.applied) alert(t("parsers.not_applied")); },
   });
   const test = useMutation({ mutationFn: () => api<TestRow[]>("POST", "/api/parsers/test", { rule, samples: samples.split("\n").filter(Boolean) }) });
+  const exportJson = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ format: "siem-parsers", version: 1, rules: list }, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `parser-regeln-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const [importErr, setImportErr] = useState(false);
+  const importJson = async (f: File) => {
+    try {
+      const d = JSON.parse(await f.text());
+      const inc: Rule[] = Array.isArray(d) ? d : d.rules;
+      if (!Array.isArray(inc) || inc.some((r) => typeof r?.id !== "string" || typeof r?.regex !== "string")) throw new Error("format");
+      const ids = new Set(inc.map((r) => r.id));
+      setRules([...list.filter((r) => !ids.has(r.id)), ...inc.map((r) => ({ ...EMPTY, ...r }))]);
+      setImportErr(false);
+    } catch { setImportErr(true); }
+  };
   const groups = rule ? Array.from(rule.regex.matchAll(/\(\?P<([A-Za-z][A-Za-z0-9_]*)>/g)).map((m) => m[1]) : [];
   return (
     <div className="max-w-4xl">
@@ -69,6 +119,12 @@ export default function ParserEditorPage({ canWrite }: { canWrite: boolean }) {
             {rule && <button className="btn-secondary" onClick={() => { setRules(list.filter((_, i) => i !== sel)); setSel(0); }}>{t("parsers.delete")}</button>}
           </div>
         )}
+        <div className="mt-3 flex flex-wrap items-center gap-3 border-t pt-3">
+          <button className="btn-secondary" onClick={exportJson}>{t("parsers.export")}</button>
+          {canWrite && <FilePick label={t("parsers.import")} accept=".json,application/json" onFile={(f) => void importJson(f)} />}
+          {importErr && <span className="error">{t("parsers.import_error")}</span>}
+        </div>
+        {rules !== null && canWrite && <p className="mt-2 text-xs text-slate-500">{t("parsers.unsaved")}</p>}
         <p className="mt-2 text-xs text-slate-500">{t("parsers.restart_note")}</p>
       </section>
     </div>

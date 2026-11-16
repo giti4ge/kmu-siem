@@ -10,6 +10,8 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 
 ## [Unreleased]
 
+- Parser: Regel direkt aus „Nicht erkannte Quellen“ erstellen (Programmname, Proben und Regex-Vorschlag werden übernommen); Regeln als JSON exportieren und importieren.
+
 - MITRE ATT&CK: Technik-Namen und Links je Alarmregel (Regeln-Reiter) sowie Abdeckungsmatrix (Taktiken × Techniken, Lücken sichtbar) unter Alarme → MITRE ATT&CK.
 
 - UI: Menü in sechs Gruppen (Übersicht, Ereignisse, Geräte & Quellen, Sicherheit, Appliance-Einstellungen, Verwaltung); einklappbare Hilfe mit Praxisbeispiel auf jeder Seite.
