@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from . import mitre
 from .opensearch import OpenSearchClient, OpenSearchUnavailable
 
 INTERVAL_SECONDS = 60
@@ -151,6 +152,7 @@ def rule_view(r: Rule) -> dict[str, Any]:
     d.pop("extra", None)
     d["distinct"] = list(r.distinct) if r.distinct else None
     d["mitre"] = list(r.mitre)
+    d["mitre_info"] = mitre.info(r.mitre)
     return d
 
 

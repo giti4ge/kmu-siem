@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session as DbSession
 
 from .. import alerts as al
+from .. import mitre
 from ..deps import Ctx, error, get_db, require, state
 from ..opensearch import OpenSearchUnavailable
 from .approvals import gate
@@ -87,6 +88,11 @@ class RuleIn(BaseModel):
 @router.get("/rules")
 def list_rules(request: Request, ctx: Ctx = Depends(require("rules:read"))) -> dict:
     return {"rules": [al.rule_view(r) for r in request.app.state.alert_store.rules()]}
+
+
+@router.get("/mitre")
+def mitre_matrix(request: Request, ctx: Ctx = Depends(require("rules:read"))) -> dict:
+    return mitre.matrix(request.app.state.alert_store.rules())
 
 
 @router.put("/rules/{rule_id}")

@@ -504,6 +504,27 @@
       "medium": "medium",
       "high": "high",
       "critical": "critical"
+    },
+    "tab_mitre": "MITRE ATT&CK",
+    "mitre_intro": "Coverage of alert rules by MITRE ATT&CK (Enterprise): columns are tactics, boxes are techniques. A technique counts as covered if at least one enabled rule detects it. Reconnaissance and Resource Development cannot be seen in logs and are omitted.",
+    "mitre_summary": "{{covered}} of {{techniques}} considered techniques covered, {{disabled}} only with a disabled rule, {{gaps}} gaps.",
+    "mitre_covered": "covered",
+    "mitre_disabled": "rule disabled",
+    "mitre_gap": "gap",
+    "mitre_nogap": "No rule – gap",
+    "tactic": {
+      "initial-access": "Initial Access",
+      "execution": "Execution",
+      "persistence": "Persistence",
+      "privilege-escalation": "Privilege Escalation",
+      "defense-evasion": "Defense Evasion",
+      "credential-access": "Credential Access",
+      "discovery": "Discovery",
+      "lateral-movement": "Lateral Movement",
+      "collection": "Collection",
+      "command-and-control": "Command & Control",
+      "exfiltration": "Exfiltration",
+      "impact": "Impact"
     }
   },
   "notify": {
@@ -1018,7 +1039,7 @@
       "example": "Send a weekly report to management every Monday."
     },
     "alerts": {
-      "text": "Shows triggered alarms; they can be acknowledged, commented and closed.",
+      "text": "Shows triggered alarms; they can be acknowledged, commented and closed. The “MITRE ATT&CK” tab shows which attack techniques are covered by rules.",
       "example": "Multiple failed logins: open the alarm, check the user, then close it."
     },
     "forensics": {
