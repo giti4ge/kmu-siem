@@ -92,15 +92,12 @@ _st_syslog() {
     for (( try = 1; try <= tries; try++ )); do
         line="<14>1 $(date -u +%Y-%m-%dT%H:%M:%SZ) $(hostname) siem-selftest - - - SIEM-SELFTEST $id"
         case $proto in
-            tcp) printf '%s
-' "$line" >/dev/tcp/127.0.0.1/10514 || { sleep 5; continue; } ;;
-            udp) printf '%s
-' "$line" >/dev/udp/127.0.0.1/10514 || { sleep 5; continue; } ;;
-            tls) { printf '%s
-' "$line"; sleep 1; }                      | timeout 10 openssl s_client -connect 127.0.0.1:6514 -quiet                          -CAfile "$SECRETS_DIR/pki/ca.crt" -verify_return_error >/dev/null 2>>"$SIEM_LOG_FILE" || true ;;
+            tcp) printf '%s\n' "$line" >/dev/tcp/127.0.0.1/10514 || { sleep 5; continue; } ;;
+            udp) printf '%s\n' "$line" >/dev/udp/127.0.0.1/10514 || { sleep 5; continue; } ;;
+            tls) { printf '%s\n' "$line"; sleep 1; }                      | timeout 10 openssl s_client -connect 127.0.0.1:6514 -quiet                          -CAfile "$SECRETS_DIR/pki/ca.crt" -verify_return_error >/dev/null 2>>"$SIEM_LOG_FILE" || true ;;
         esac
         if res=$(siem_os_init find --index 'siem-system-*' --text "$id" --timeout "$(( tmo < per ? tmo : per ))"); then
-            ok "$(msg selftest_syslog "${proto^^}" "$(sed -E 's/.*"seconds": ([0-9.]+).*//' <<<"$res")")"
+            ok "$(msg selftest_syslog "${proto^^}" "$(sed -E 's/.*"seconds": ([0-9.]+).*/\1/' <<<"$res")")"
             return 0
         fi
     done

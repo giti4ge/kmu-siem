@@ -9,6 +9,7 @@
 #   sudo ./install.sh --preflight         nur Voraussetzungen prüfen
 #   sudo ./install.sh --unattended DATEI  unbeaufsichtigt mit Antwortdatei
 #   sudo ./install.sh --resume            abgebrochene Installation fortsetzen
+#   sudo ./install.sh --demo              Test/Demo: Daten-Disk ab 20 GB (nicht produktiv)
 #   sudo ./install.sh --repair            Sollzustand wiederherstellen
 #
 # Handbuch: docs/handbuch/03-installation.md
@@ -103,6 +104,7 @@ parse_args() {
     while (( $# > 0 )); do
         case $1 in
             --preflight)  set_mode preflight "$1" ;;
+            --demo)       SIEM_DEMO=yes; ANSWERS[SIEM_DEMO]=yes ;;
             --resume)     set_mode resume "$1" ;;
             --repair)     set_mode repair "$1" ;;
             --unattended)

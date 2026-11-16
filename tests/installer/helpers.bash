@@ -37,4 +37,5 @@ mock_good_system() {
     probe_http()            { return 0; }
     probe_listening()       { printf '22/tcp\n'; }
     probe_installed_pkgs()  { return 0; }
+    probe_old_siem_disk()   { return 0; }
 }

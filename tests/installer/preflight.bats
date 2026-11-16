@@ -215,3 +215,44 @@ setup() {
     grep -q 'PREFLIGHT' "$SIEM_LOG_FILE"
     [ ! -e "$SIEM_STATE_DIR" ]
 }
+
+@test "Demo-Modus: 20-GB-Disk ausreichend, aber Warnung (nur Test/Demo)" {
+    probe_empty_disks() { printf '/dev/sdb %d\n' $((20 * 1073741824)); }
+    SIEM_DEMO=yes
+    run run_preflight
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Demo-Modus"* ]]
+    [[ "$output" == *"/dev/sdb (21 GB, leer)"* ]]
+    [[ "$output" != *"✘"* ]]
+}
+
+@test "Demo-Modus aus Antwortdatei (SIEM_DEMO=yes) wirkt wie --demo" {
+    probe_empty_disks() { printf '/dev/sdb %d\n' $((20 * 1073741824)); }
+    ANSWERS[SIEM_DEMO]=yes
+    run run_preflight
+    [ "$status" -eq 1 ]
+    [[ "$output" != *"✘"* ]]
+}
+
+@test "Ohne Demo-Modus: 20-GB-Disk -> Fehler" {
+    probe_empty_disks() { printf '/dev/sdb %d\n' $((20 * 1073741824)); }
+    run run_preflight
+    [ "$status" -eq 2 ]
+}
+
+@test "Demo-Modus: 10-GB-Disk bleibt zu klein" {
+    probe_empty_disks() { printf '/dev/sdb %d\n' $((10 * 1073741824)); }
+    probe_rootfs_kb() { printf '%d %d' $((15 * 1000000)) $((10 * 1000000)); }
+    SIEM_DEMO=yes
+    run run_preflight
+    [ "$status" -eq 2 ]
+}
+
+@test "Disk mit Resten einer frueheren Installation -> Fehler mit Anleitung" {
+    probe_empty_disks() { :; }
+    probe_old_siem_disk() { printf '/dev/sdb'; }
+    run run_preflight
+    [ "$status" -eq 2 ]
+    [[ "$output" == *"Reste einer früheren SIEM-Installation"* ]]
+    [[ "$output" == *"wipefs -a /dev/sdb"* ]]
+}
