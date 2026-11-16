@@ -964,7 +964,8 @@
       "rejected": "rejected",
       "used": "used",
       "expired": "expired"
-    }
+    },
+    "pseudonym_hint": "user_1a2b3c4d"
   },
   "disc": {
     "title": "Discovery",
