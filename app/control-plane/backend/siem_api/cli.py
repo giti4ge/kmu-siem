@@ -26,7 +26,7 @@ from sqlalchemy import select
 from .audit import AuditLog
 from .config import get_settings
 from .db import Database, migrate, utcnow
-from .models import Role, User
+from .models import MfaDevice, Role, User
 from .security import passwords, rbac, sessions
 from .security.keys import KeyRing
 
@@ -74,6 +74,7 @@ def reset_mfa(username: str) -> int:
         user.totp_enabled = False
         user.totp_secret_enc = None
         user.totp_last_step = None
+        db.query(MfaDevice).filter_by(user_id=user.id).delete()
         sessions.revoke_user_sessions(db, user.id)
         db.commit()
         audit.append(db, actor="cli", action="user.reset_mfa", target=username, details={"source": "cli"})

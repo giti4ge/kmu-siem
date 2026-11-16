@@ -104,7 +104,7 @@
     "totp_already_enabled": "Die Zwei-Faktor-Anmeldung ist bereits eingerichtet.",
     "totp_not_set_up": "Bitte die Einrichtung neu starten.",
     "sso_unavailable": "Anmeldung an Dashboards derzeit nicht möglich.",
-    "hostd_unavailable": "Der Host-Dienst ist nicht erreichbar.",
+    "hostd_unavailable": "Der Host-Dienst (siem-hostd) ist nicht erreichbar.",
     "support_invalid": "Eingabe ungültig: Schlüssel (ed25519/ecdsa/rsa), Quelladresse (mindestens /16) und Dauer prüfen.",
     "invalid_request": "Anfrage abgelehnt.",
     "wec_invalid_settings": "Ungültige Einstellungen.",
@@ -210,7 +210,16 @@
     "snapshot_empty": "Leere Konfiguration erhalten.",
     "onboarding_no_ca": "Kein CA-Zertifikat vorhanden.",
     "replay_needs_device": "Quelle zuerst in der Geräteliste freigeben.",
-    "replay_unavailable": "Vector ist nicht erreichbar."
+    "replay_unavailable": "Vector ist nicht erreichbar.",
+    "mfa_device_limit": "Höchstzahl an MFA-Geräten erreicht.",
+    "mfa_last_device": "Das letzte MFA-Gerät kann nicht entfernt werden.",
+    "mfa_device_not_found": "MFA-Gerät nicht gefunden.",
+    "tls_bad_pfx": "PFX-Datei nicht lesbar – Datei oder Kennwort falsch.",
+    "tls_pfx_incomplete": "Die PFX-Datei enthält kein Zertifikat mit privatem Schlüssel.",
+    "tls_key_mismatch": "Der private Schlüssel passt nicht zum Zertifikat.",
+    "tls_expired": "Das Zertifikat ist abgelaufen.",
+    "tls_no_previous": "Kein früheres Zertifikat vorhanden.",
+    "tls_invalid": "Zertifikat ungültig."
   },
   "dashboard": {
     "welcome": "Willkommen, {{name}}.",
@@ -955,7 +964,8 @@
       "rejected": "abgelehnt",
       "used": "eingelöst",
       "expired": "abgelaufen"
-    }
+    },
+    "pseudonym_hint": "user_1a2b3c4d"
   },
   "disc": {
     "title": "Discovery",
@@ -1124,7 +1134,7 @@
       "example": "Aufbewahrung auf 180 Tage setzen; Datenschutz-Modus für den Betriebsrat aktivieren."
     },
     "maintenance": {
-      "text": "Wartung: Systemzustand, Diagnosepaket, Updates.",
+      "text": "Wartung: Systemzustand, Diagnosepaket, Updates. Hier lässt sich auch ein eigenes Web-Zertifikat (PFX) einspielen.",
       "example": "Vor einer Support-Anfrage das Diagnosepaket herunterladen."
     },
     "notifications": {
@@ -1148,8 +1158,42 @@
       "example": "Prüfen, wer wann ein Kennwort zurückgesetzt hat."
     },
     "account": {
-      "text": "Eigenes Kennwort, Sprache und zweiten Faktor (MFA) verwalten.",
+      "text": "Eigenes Kennwort, Sprache und zweiten Faktor (MFA) verwalten. Unter „MFA-Geräte“ lassen sich weitere Geräte einrichten.",
       "example": "MFA-Gerät erneuern, wenn das Handy getauscht wurde."
     }
+  },
+  "mfa": {
+    "title": "MFA-Geräte",
+    "intro": "Für die Anmeldung genügt der Code eines beliebigen Geräts. Richten Sie ein zweites Gerät als Ersatz ein, falls das Handy verloren geht.",
+    "none": "Noch kein MFA-Gerät eingerichtet.",
+    "primary": "Erstes Gerät",
+    "remove": "Entfernen",
+    "confirm_password": "Kennwort zur Bestätigung",
+    "device_name": "Name des neuen Geräts",
+    "add": "Gerät hinzufügen",
+    "scan": "QR-Code mit der Authenticator-App scannen und den angezeigten Code eingeben.",
+    "confirm": "Bestätigen"
+  },
+  "tls": {
+    "title": "Web-Zertifikat (HTTPS)",
+    "intro": "Zertifikat, das Browser beim Aufruf dieser Oberfläche sehen. Standardmäßig stellt die Appliance es selbst aus; ein eigenes Firmenzertifikat vermeidet Browser-Warnungen.",
+    "applying": "Zertifikat wird angewendet – der Webserver startet neu. Die Seite ist in wenigen Sekunden wieder erreichbar; bei einem Fehler wird automatisch das vorherige Zertifikat wiederhergestellt.",
+    "source": "Herkunft",
+    "custom": "Eigenes Zertifikat (PFX)",
+    "internal": "Von der Appliance ausgestellt",
+    "subject": "Inhaber",
+    "san": "Gültig für",
+    "issuer": "Aussteller",
+    "not_after": "Gültig bis",
+    "fingerprint": "SHA-256-Fingerabdruck",
+    "last_ok": "Letzter Wechsel erfolgreich ({{ts}}).",
+    "last_fail": "Letzter Wechsel fehlgeschlagen ({{ts}}): {{error}}",
+    "pfx_hint": "PFX-/P12-Datei mit Zertifikat, privatem Schlüssel und möglichst der Zwischenzertifikatskette hochladen.",
+    "pfx": "Keine Datei gewählt",
+    "pfx_password": "Kennwort der PFX-Datei",
+    "install": "Zertifikat einspielen",
+    "rollback": "Vorheriges Zertifikat wiederherstellen",
+    "reset": "Appliance-Zertifikat verwenden",
+    "note": "Der private Schlüssel wird nur auf der Appliance gespeichert. Vor dem Wechsel wird das bisherige Zertifikat gesichert."
   }
 }

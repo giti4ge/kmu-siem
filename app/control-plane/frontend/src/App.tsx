@@ -7,6 +7,7 @@ import { setLanguage } from "./i18n";
 import AuditPage from "./pages/Audit";
 import DevicesPage from "./pages/Devices";
 import Dashboard from "./pages/Dashboard";
+import MfaDevices from "./pages/MfaDevices";
 import { EnrollPage, LoginPage, MfaPage, PasswordPage } from "./pages/Auth";
 import RolesPage from "./pages/Roles";
 import SystemLogPage from "./pages/SystemLog";
@@ -208,7 +209,7 @@ function Shell({ me }: { me: Me }) {
             {can("switches:read") && <Route path="/switches" element={<SwitchesPage />} />}
             {can("changes:read") && <Route path="/changes" element={<ChangesPage />} />}
             {can("logs:read") && <Route path="/sources/unparsed" element={<UnparsedPage canWrite={can("sources:write")} />} />}
-            <Route path="/account" element={<PasswordPage />} />
+            <Route path="/account" element={<><PasswordPage /><MfaDevices /></>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from ..db import as_utc, utcnow
 from ..deps import Ctx, any_stage, client_ip, error, get_db, require, stages, state
-from ..models import User
+from ..models import MfaDevice, User
 from ..schemas import CodeIn, LoginIn, MeOut, PasswordChangeIn, TotpSetupOut, UserOut
 from ..security import crypto, jwt, passwords, rbac, sessions, totp
 from ..security.sessions import STAGE_MFA_ENROLL, STAGE_MFA_VERIFY, STAGE_OK, STAGE_PASSWORD_CHANGE
@@ -92,12 +92,20 @@ def totp_verify(body: CodeIn, request: Request, ctx: Ctx = Depends(stages(STAGE_
         raise error(status.HTTP_401_UNAUTHORIZED, "invalid_code")
     secret = crypto.decrypt(st.keys.master_key, user.totp_secret_enc, f"totp:{user.id}")
     step = totp.verify(secret, body.code, user.totp_last_step)
+    if step is not None:
+        user.totp_last_step = step
+    else:  # weitere MFA-Geräte (Mein Konto)
+        for dev in db.scalars(select(MfaDevice).where(MfaDevice.user_id == user.id, MfaDevice.enabled.is_(True))):
+            step = totp.verify(crypto.decrypt(st.keys.master_key, dev.secret_enc, f"mfa:{dev.id}"), body.code,
+                               dev.last_step)
+            if step is not None:
+                dev.last_step = step
+                break
     if step is None:
         st.audit.append(db, actor=user.username, action="auth.totp", target=user.username, outcome="failure",
                         ip=ctx.ip)
         _register_failure(request, db, user)
         raise error(status.HTTP_401_UNAUTHORIZED, "invalid_code")
-    user.totp_last_step = step
     user.failed_logins = 0
     user.locked_until = None
     user.last_login_at = utcnow()

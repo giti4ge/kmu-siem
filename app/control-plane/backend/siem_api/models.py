@@ -54,6 +54,20 @@ class User(Base):
     roles: Mapped[list[Role]] = relationship(secondary="user_roles", lazy="selectin")
 
 
+class MfaDevice(Base):
+    """Weiteres TOTP-Gerät eines Benutzers (das erste liegt in den users.totp_*-Spalten)."""
+
+    __tablename__ = "mfa_devices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    secret_enc: Mapped[bytes] = mapped_column(LargeBinary)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # erst nach Bestätigung mit einem Code
+    last_step: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class UserRole(Base):
     __tablename__ = "user_roles"
 

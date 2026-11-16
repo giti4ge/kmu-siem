@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
+import Certificate from "./Certificate";
 import { ErrorBox } from "./Auth";
 
 type Job = { at: string; ok: boolean; detail: unknown } | null;
@@ -145,6 +146,7 @@ export default function MaintenancePage({ canWrite }: { canWrite: boolean }) {
         <button className="btn" onClick={() => downloadDiagnostics()}>{t("maintenance.diag_button")}</button>
       </section>
       <Updates canWrite={canWrite} />
+      <Certificate canWrite={canWrite} />
       <Support canWrite={canWrite} />
     </div>
   );

@@ -51,10 +51,12 @@ from .routers import (
     devices,
     linux,
     logs,
+    mfa,
     retention,
     snmp,
     switches,
     system,
+    tls,
     users,
     wec,
 )
@@ -221,7 +223,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         fields = [{"loc": list(e.get("loc", ())), "type": e.get("type")} for e in exc.errors()]
         return JSONResponse(status_code=422, content={"detail": {"error": "validation_failed", "fields": fields}})
 
-    for router in (system.router, auth.router, users.router, audit.router, wec.router, devices.router,
+    for router in (system.router, tls.router, auth.router, mfa.router, users.router, audit.router, wec.router, devices.router,
                    logs.router, linux.router, retention.router, sophos_router.router, changes.router,
                    snmp.router, maintenance_router.router, alerts_router.router, forensic_export_router.router, archive_router.router, approvals_router.router, cases_router.router, discovery_router.router, parsers_router.router, onboarding_router.router, snapshots_router.router, support_router.router, updates_router.router, setup_router.router, reports_router.router, ar_router.router, ai_router.router, dashboard_router.router, notify_router.router, switches.router, assets.router, fortigate_router.router):
         app.include_router(router)

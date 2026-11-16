@@ -56,7 +56,7 @@ export default function ApprovalsPage({ canWrite }: { canWrite: boolean }) {
         <p className="mb-2 text-sm text-slate-600">{t("appr.reveal_intro")}</p>
         <ErrorBox error={reveal.error} />
         <div className="flex flex-wrap items-end gap-3">
-          <div><label className="label" htmlFor="rv-p">{t("appr.pseudonym")}</label><input id="rv-p" className="input w-40" value={pseudo} onChange={(e) => setPseudo(e.target.value)} /></div>
+          <div><label className="label" htmlFor="rv-p">{t("appr.pseudonym")}</label><input id="rv-p" className="input w-40" placeholder={t("appr.pseudonym_hint")} pattern="user_[0-9a-f]{8}" value={pseudo} onChange={(e) => setPseudo(e.target.value)} /></div>
           <div><label className="label" htmlFor="rv-r">{t("appr.reason")}</label><input id="rv-r" className="input w-64" value={reason} onChange={(e) => setReason(e.target.value)} /></div>
           <div><label className="label" htmlFor="rv-a">{t("appr.approval_id")}</label><input id="rv-a" className="input w-36" value={approvalId} onChange={(e) => setApprovalId(e.target.value)} /></div>
           <button className="btn" disabled={!pseudo || reveal.isPending} onClick={() => reveal.mutate()}>{t("appr.reveal")}</button>
