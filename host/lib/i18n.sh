@@ -8,6 +8,7 @@ declare -gA MSG_DE=(
 
 Optionen:
   --preflight              Nur Voraussetzungen prüfen, nichts ändern
+  --demo                   Test-/Demo-Modus: Daten-Disk ab 20 GB (nicht für Produktivbetrieb)
   --unattended DATEI       Unbeaufsichtigte Installation mit Antwortdatei
   --resume                 Abgebrochene Installation fortsetzen
   --repair                 Sollzustand wiederherstellen (ohne Datenänderung)
@@ -30,6 +31,9 @@ Exit-Codes: 0 = OK, 1 = Warnungen, 2 = Fehler, 3 = Schritt noch nicht implementi
     [pf_summary_ok]="Alle Voraussetzungen erfüllt."
     [pf_summary_warn]="Voraussetzungen erfüllt, %d Warnung(en)."
     [pf_summary_fail]="%d Voraussetzung(en) nicht erfüllt, %d Warnung(en). Installation nicht möglich."
+    [pf_demo]="Demo-Modus"
+    [pf_demo_val]="Daten-Disk ab %d GB zulässig – NUR für Tests und Demos, nicht für den Produktivbetrieb (Aufbewahrung nur wenige Tage)"
+    [pf_datadisk_old]="%s trägt Reste einer früheren SIEM-Installation (LVM-Volume-Group 'siem'). Daten sichern und Disk bewusst leeren: umount /opt/siem/data; lvremove -y siem/data; vgremove -y siem; pvremove -y %s; wipefs -a %s"
     [pf_threshold_override]="Achtung: Prüfgrenzen wurden per Umgebungsvariable geändert (%s)."
     [pf_os]="Betriebssystem"
     [pf_os_ok]="Debian %s (%s)"
@@ -149,6 +153,7 @@ declare -gA MSG_EN=(
 
 Options:
   --preflight              Check prerequisites only, change nothing
+  --demo                   Test/demo mode: data disk from 20 GB (not for production)
   --unattended FILE        Unattended installation using an answer file
   --resume                 Resume an interrupted installation
   --repair                 Restore the target state (no data changes)
@@ -171,6 +176,9 @@ Exit codes: 0 = OK, 1 = warnings, 2 = failure, 3 = step not implemented yet, 64 
     [pf_summary_ok]="All prerequisites met."
     [pf_summary_warn]="Prerequisites met, %d warning(s)."
     [pf_summary_fail]="%d prerequisite(s) not met, %d warning(s). Installation not possible."
+    [pf_demo]="Demo mode"
+    [pf_demo_val]="Data disk allowed from %d GB – ONLY for tests and demos, not for production (retention only a few days)"
+    [pf_datadisk_old]="%s holds remnants of a previous SIEM installation (LVM volume group 'siem'). Back up data and wipe deliberately: umount /opt/siem/data; lvremove -y siem/data; vgremove -y siem; pvremove -y %s; wipefs -a %s"
     [pf_threshold_override]="Attention: check thresholds were overridden via environment (%s)."
     [pf_os]="Operating system"
     [pf_os_ok]="Debian %s (%s)"

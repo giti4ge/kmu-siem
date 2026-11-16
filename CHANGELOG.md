@@ -10,6 +10,13 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 
 ## [Unreleased]
 
+### Added
+- **Installer `--demo` (bzw. `SIEM_DEMO=yes` in der Antwortdatei):** Daten-Disk ab 20 GB zulässig. Nur für Tests und Demoinstallationen; der Preflight weist per Warnung darauf hin.
+- Preflight erkennt eine Daten-Disk mit Resten einer früheren SIEM-Installation (LVM-VG `siem`) und nennt die Schritte zum bewussten Leeren.
+
+### Fixed
+- Selbsttest: Sekundenangabe im Syslog-Testereignis war leer (Steuerzeichen statt `` im `sed`-Ausdruck).
+
 ---
 
 ## [0.1.0-rc.1] – 2026-11-15

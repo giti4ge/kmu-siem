@@ -17,6 +17,16 @@
 : "${SIEM_REC_ROOT_GB:=40}"
 : "${SIEM_NET_TIMEOUT:=10}"
 
+# Demo-/Testmodus (--demo bzw. SIEM_DEMO=yes): Daten-Disk ab 20 GB.
+# Nur für Tests und Demos - die Aufbewahrung reicht dann nur für wenige Tage.
+readonly SIEM_DEMO_MIN_DATA_GB=20
+# apply_demo_mode - senkt die Mindestgröße der Daten-Disk, wenn der Demo-Modus aktiv ist
+apply_demo_mode() {
+    [[ ${SIEM_DEMO:-} == yes || ${ANSWERS[SIEM_DEMO]:-} == yes ]] || return 0
+    SIEM_DEMO=yes
+    SIEM_MIN_DATA_GB=$SIEM_DEMO_MIN_DATA_GB
+}
+
 # Toleranz: Ein "16-GB"-System meldet etwas weniger (Kernel-Reservierung),
 # eine "500-GB"-Disk im Hypervisor ist oft 500 GiB oder 500 GB. Grenzen werden
 # deshalb mit 90 % (RAM) bzw. 93 % (Disk, ≈ GiB→GB) bewertet.
@@ -86,6 +96,12 @@ probe_empty_disks() {
         fi
         printf '%s %s\n' "$name" "$size"
     done < <(lsblk -dpnbo NAME,TYPE,SIZE,RO,RM 2>/dev/null)
+}
+
+# Disk mit Resten einer früheren SIEM-Installation (LVM-VG "siem"): Ausgabe = Gerät
+probe_old_siem_disk() {
+    have pvs || return 0
+    pvs --noheadings -o pv_name,vg_name 2>/dev/null | awk '$2 == "siem" { print $1; exit }'
 }
 
 # Globale IPv4-Adressen: Ausgabe je Zeile "<iface> <cidr> static|dynamic"
@@ -159,6 +175,11 @@ pf_add() {
 
 # Hilfsfunktion: a >= b * pct / 100
 _ge_pct() { (( $1 * 100 >= $2 * $3 )); }
+
+pf_demo() {
+    [[ ${SIEM_DEMO:-} == yes ]] || return 0
+    pf_add warn "$(msg pf_demo)" "$(msg pf_demo_val "$SIEM_MIN_DATA_GB")"
+}
 
 pf_os() {
     local id ver pretty arch
@@ -243,7 +264,12 @@ pf_datadisk() {
         pf_add ok "$(msg pf_datadisk)" "$(msg pf_datadisk_found "$best" "$best_gb")"
         return
     fi
-    local free_gb=$(( ${PF_ROOT_FREE_KB:-0} / 1000000 ))
+    local free_gb=$(( ${PF_ROOT_FREE_KB:-0} / 1000000 )) old
+    old=$(probe_old_siem_disk)
+    if [[ -n $old ]]; then
+        pf_add fail "$(msg pf_datadisk)" "$(msg pf_datadisk_old "$old" "$old" "$old")"
+        return
+    fi
     if [[ -n $small ]]; then
         pf_add warn "$(msg pf_datadisk)" "$(msg pf_datadisk_small "${small%%|*}" "${small##*|}" "$SIEM_MIN_DATA_GB")"
     fi
@@ -358,7 +384,7 @@ pf_overrides() {
         case $v in
             SIEM_MIN_CPU)     [[ $SIEM_MIN_CPU != 4 ]]       && changed+=("$v=$SIEM_MIN_CPU") ;;
             SIEM_MIN_RAM_GB)  [[ $SIEM_MIN_RAM_GB != 16 ]]   && changed+=("$v=$SIEM_MIN_RAM_GB") ;;
-            SIEM_MIN_DATA_GB) [[ $SIEM_MIN_DATA_GB != 500 ]] && changed+=("$v=$SIEM_MIN_DATA_GB") ;;
+            SIEM_MIN_DATA_GB) [[ $SIEM_MIN_DATA_GB != 500 && ${SIEM_DEMO:-} != yes ]] && changed+=("$v=$SIEM_MIN_DATA_GB") ;;
         esac
     done
     (( ${#changed[@]} == 0 )) || warn "$(msg pf_threshold_override "${changed[*]}")"
@@ -382,7 +408,9 @@ pf_print() {
 run_preflight() {
     pf_reset
     heading "$(msg pf_title)"
+    apply_demo_mode
     pf_overrides
+    pf_demo
     pf_os
     pf_root
     pf_systemd

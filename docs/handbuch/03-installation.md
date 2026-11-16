@@ -21,6 +21,7 @@ Dauer: ca. 15 min für die Debian-Grundinstallation, 15–30 min für `install.s
 | RAM | 16 GB (statisch, kein dynamischer Speicher/Ballooning) | 24 GB |
 | Disk 1 (System) | 40 GB | 40 GB |
 | Disk 2 (Daten) | 500 GB SSD, **leer, nicht partitioniert** | 750 GB–1 TB SSD/NVMe |
+| Disk 2 (Daten), nur Test/Demo | 20 GB mit `install.sh --demo` – **nicht für den Produktivbetrieb** (Aufbewahrung nur wenige Tage) | – |
 | Netzwerkkarte 1 | Management + Log-Empfang, feste IP | – |
 | Netzwerkkarte 2 (optional) | VLAN-Trunk für ARP-Guard | – |
 | Hypervisor | beliebig (VMware ESXi/vSphere, Hyper-V Gen2, Proxmox, …) | – |
