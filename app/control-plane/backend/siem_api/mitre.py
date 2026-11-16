@@ -23,7 +23,8 @@ TECHNIQUES: dict[str, tuple[str, tuple[str, ...]]] = {
     "T1098": ("Account Manipulation", ("persistence",)),
     "T1136": ("Create Account", ("persistence",)),
     "T1543.003": ("Create or Modify System Process: Windows Service", ("persistence", "privilege-escalation")),
-    "T1548.003": ("Abuse Elevation Control Mechanism: Sudo and Sudo Caching", ("privilege-escalation", "defense-evasion")),
+    "T1548.003": ("Abuse Elevation Control Mechanism: Sudo and Sudo Caching",
+                  ("privilege-escalation", "defense-evasion")),
     "T1070.001": ("Indicator Removal: Clear Windows Event Logs", ("defense-evasion",)),
     "T1562.001": ("Impair Defenses: Disable or Modify Tools", ("defense-evasion",)),
     "T1562.004": ("Impair Defenses: Disable or Modify System Firewall", ("defense-evasion",)),
@@ -72,5 +73,6 @@ def matrix(rules: list[Any]) -> dict[str, Any]:
     flat = {i["id"]: i["status"] for c in cols for i in c["techniques"]}
     total = len(flat)
     covered = sum(1 for s in flat.values() if s == "covered")
-    return {"tactics": cols, "summary": {"techniques": total, "covered": covered, "disabled": sum(1 for s in flat.values() if s == "disabled"),
-                                         "gaps": total - covered - sum(1 for s in flat.values() if s == "disabled")}}
+    disabled = sum(1 for s in flat.values() if s == "disabled")
+    return {"tactics": cols, "summary": {"techniques": total, "covered": covered, "disabled": disabled,
+                                         "gaps": total - covered - disabled}}
