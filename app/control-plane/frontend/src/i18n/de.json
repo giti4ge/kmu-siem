@@ -421,7 +421,9 @@
     "failure": "Fehler",
     "ph_domain": "firma.local",
     "ph_fqdn": "siem.firma.local",
-    "ph_ou": "OU=Server,DC=firma,DC=local"
+    "ph_ou": "OU=Server,DC=firma,DC=local",
+    "csv_download": "audit.csv herunterladen",
+    "csv_text": "Für die Verteilung per Gruppenrichtlinie: audit.csv herunterladen und in der GPO unter Machine\\Microsoft\\Windows NT\\Audit\\ ablegen (SYSVOL, Ordner Audit ggf. anlegen), danach in GPMC unter „Erweiterte Überwachungsrichtlinienkonfiguration“ prüfen. Zusätzlich muss „Überwachung: Einstellungen der Überwachungsrichtlinien-Unterkategorie erzwingen“ aktiviert sein (Sicherheitsoptionen). Die GPO-Versionsnummer (GPT.ini) erhöht sich beim Bearbeiten in GPMC automatisch."
   },
   "devices": {
     "title": "Geräte (Logquellen)",
@@ -1090,7 +1092,7 @@
       "example": "Ein unbekanntes Gerät an Port 12 finden."
     },
     "windows": {
-      "text": "Anbindung von Windows-Servern und -Clients über Windows Event Forwarding (Kerberos).",
+      "text": "Anbindung von Windows-Servern und -Clients über Windows Event Forwarding (Kerberos). Die empfohlene Audit-Richtlinie gibt es auch als audit.csv für die Gruppenrichtlinie.",
       "example": "Domänencontroller anbinden, damit Anmeldungen protokolliert werden."
     },
     "linux": {

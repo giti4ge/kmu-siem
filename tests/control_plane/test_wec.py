@@ -126,3 +126,19 @@ def test_api_requires_permissions(h):
     assert c.get("/api/wec/script").status_code == 403
     h.create_user("rep", ["report-recipient"])
     assert h.login("rep").get("/api/wec").status_code == 403
+
+
+def test_audit_csv_has_header_crlf_and_all_subcategories():
+    text = wec.audit_csv()
+    lines = text.split("\r\n")
+    assert lines[0].startswith("Machine Name,Policy Target,Subcategory,Subcategory GUID")
+    assert lines[-1] == "" and len(lines) - 2 == len(wec.recommended_audit_policy())
+    row = lines[1].split(",")
+    assert row[1] == "System" and row[3].startswith("{") and row[6] in {"1", "2", "3"}
+
+
+def test_audit_csv_download(h):
+    h.create_user("sec", ["security-analyst"])
+    r = h.login("sec").get("/api/wec/audit-policy.csv")
+    assert r.status_code == 200 and r.content.startswith(b"\xef\xbb\xbfMachine Name")
+    assert "audit.csv" in r.headers["content-disposition"]

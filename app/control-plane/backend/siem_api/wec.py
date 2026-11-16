@@ -242,6 +242,14 @@ def audit_csv_lines() -> list[str]:
     return lines
 
 
+AUDIT_CSV_HEADER = "Machine Name,Policy Target,Subcategory,Subcategory GUID,Inclusion Setting,Exclusion Setting,Setting Value"
+
+
+def audit_csv() -> str:
+    """Vollständige audit.csv (Advanced Audit Policy) zum Ablegen in der GPO: ``Machine\\Microsoft\\Windows NT\\Audit``."""
+    return "\r\n".join([AUDIT_CSV_HEADER, *audit_csv_lines()]) + "\r\n"
+
+
 def recommended_audit_policy() -> list[dict[str, Any]]:
     return [{"subcategory": n, "guid": f"{{{g}-69AE-11D9-BED3-505054503030}}", "success": bool(s), "failure": bool(f)}
             for n, (g, s, f) in _AUDIT_SUBCATEGORIES.items()]
