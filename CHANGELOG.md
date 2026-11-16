@@ -10,6 +10,8 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 
 ## [Unreleased]
 
+- UI: Menü in sechs Gruppen (Übersicht, Ereignisse, Geräte & Quellen, Sicherheit, Appliance-Einstellungen, Verwaltung); einklappbare Hilfe mit Praxisbeispiel auf jeder Seite.
+
 - Fix: verständliche Meldungen bei ungültiger Eingabe (422) und bei nicht verfügbarem Online-Update; Freigaben-Liste aktualisiert sich nach Anträgen, Freigabe-ID wird übernommen.
 - UI: einheitlicher „Datei auswählen“-Knopf, Menünamen für Assets, Port-Matrix, Änderungen, Version und Release-Datum auf jeder Seite, Tiefenanalyse in neuem Tab.
 
