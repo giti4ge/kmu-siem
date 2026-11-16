@@ -993,5 +993,137 @@
     "snap_changed": "Neuer Stand gespeichert.",
     "snap_same": "Keine Änderung.",
     "snap_diff": "Vergleichen"
+  },
+  "navgroup": {
+    "overview": "Übersicht",
+    "events": "Ereignisse",
+    "sources": "Geräte & Quellen",
+    "security": "Sicherheit",
+    "appliance": "Appliance-Einstellungen",
+    "admin": "Verwaltung"
+  },
+  "help": {
+    "show": "Hilfe & Praxisbeispiel",
+    "example": "Praxisbeispiel",
+    "dashboard": {
+      "text": "Überblick über Ereignisse, Alarme und den Zustand der Quellen.",
+      "example": "Morgens kurz prüfen: Sind neue Alarme da? Meldet jede Quelle noch Daten?"
+    },
+    "dashboards": {
+      "text": "Öffnet die Tiefenanalyse (OpenSearch Dashboards) in einem neuen Tab.",
+      "example": ""
+    },
+    "reports": {
+      "text": "Erstellt und versendet Berichte (z. B. wöchentliche Zusammenfassung).",
+      "example": "Wochenbericht jeden Montag an die Geschäftsführung senden."
+    },
+    "alerts": {
+      "text": "Zeigt ausgelöste Alarme. Alarme können übernommen, kommentiert und geschlossen werden.",
+      "example": "Mehrere fehlgeschlagene Anmeldungen: Alarm öffnen, Benutzer prüfen, danach schließen."
+    },
+    "forensics": {
+      "text": "KI-gestützte Analyse: Fragen in normaler Sprache an die Log-Daten stellen.",
+      "example": "„Was hat Benutzer müller gestern Nacht getan?“"
+    },
+    "cases": {
+      "text": "Fälle bündeln Beweise (Ereignisse, Notizen) zu einem Vorfall und lassen sich als manipulationssicheres Archiv exportieren.",
+      "example": "Verdacht auf Datenabfluss: Fall anlegen, Ereignisse anhängen, am Ende abschließen und exportieren."
+    },
+    "changes": {
+      "text": "Erfasste Änderungen an Windows-Systemen und Geräten (Change-Audit, Dateiintegrität).",
+      "example": "Wer hat gestern die Firewall-Regel geändert?"
+    },
+    "unparsed": {
+      "text": "Quellen, deren Meldungen die Appliance noch nicht versteht.",
+      "example": "Ein neuer Switch sendet Syslog: Er erscheint hier, danach einen Parser zuordnen."
+    },
+    "archive": {
+      "text": "Langzeit-Archiv alter Daten; Archive können zeitweise wiederhergestellt werden.",
+      "example": "Für eine Prüfung Daten des Vorjahres wiederherstellen."
+    },
+    "devices": {
+      "text": "Verzeichnis der Geräte, die Logs senden (Name, IP, Typ).",
+      "example": "Neue Firewall eintragen, damit ihre Meldungen richtig zugeordnet werden."
+    },
+    "assets": {
+      "text": "Inventar der erkannten Systeme mit letzter Aktivität.",
+      "example": "Prüfen, welche Rechner im Netz bisher unbekannt sind."
+    },
+    "switches": {
+      "text": "Port-Matrix der Switches: welche Geräte an welchem Port hängen.",
+      "example": "Ein unbekanntes Gerät an Port 12 finden."
+    },
+    "windows": {
+      "text": "Anbindung von Windows-Servern und -Clients über Windows Event Forwarding (Kerberos).",
+      "example": "Domänencontroller anbinden, damit Anmeldungen protokolliert werden."
+    },
+    "linux": {
+      "text": "Anbindung von Linux-Servern.",
+      "example": "Neuen Webserver mit dem angezeigten Installationsbefehl anbinden."
+    },
+    "fortigate": {
+      "text": "Abruf von FortiGate-Firewalls über deren API.",
+      "example": "API-Token der Firewall hinterlegen und Verbindung testen."
+    },
+    "snmp": {
+      "text": "Empfang von SNMP-Traps (z. B. von USV oder Switches).",
+      "example": "Die USV meldet Netzausfall: Der Trap erscheint als Ereignis."
+    },
+    "sophos": {
+      "text": "Anbindung von Sophos Central (Endpoint-Meldungen).",
+      "example": "API-Zugangsdaten eintragen, danach erscheinen Virenfunde als Ereignisse."
+    },
+    "discovery": {
+      "text": "Netzwerk-Erkennung und Verwaltung von MIB-Dateien für SNMP.",
+      "example": "Hersteller-MIB hochladen, damit Trap-Namen lesbar sind."
+    },
+    "parsers": {
+      "text": "Editor für Parser, die Rohmeldungen in strukturierte Felder zerlegen.",
+      "example": "Meldungen eines Spezialgeräts mit einem eigenen Parser auswerten."
+    },
+    "connect": {
+      "text": "Anbindung & Snapshots: Konfigurationsstände sichern und zurückspielen.",
+      "example": "Vor einer Änderung einen Snapshot erstellen."
+    },
+    "ar": {
+      "text": "Active Response: automatische Gegenmaßnahmen bei Alarmen (z. B. IP sperren).",
+      "example": "Angreifer-IP nach Brute-Force für eine Stunde sperren."
+    },
+    "approvals": {
+      "text": "Vier-Augen-Prinzip: Sensible Aktionen brauchen die Freigabe einer zweiten Person.",
+      "example": "Archiv-Wiederherstellung beantragen, Kollegin gibt frei, Aktion mit Freigabe-ID wiederholen."
+    },
+    "retention": {
+      "text": "Aufbewahrungsdauer der Daten und Datenschutz-Modus (Pseudonymisierung von Benutzernamen).",
+      "example": "Aufbewahrung auf 180 Tage setzen; Datenschutz-Modus für den Betriebsrat aktivieren."
+    },
+    "maintenance": {
+      "text": "Wartung: Systemzustand, Diagnosepaket, Updates.",
+      "example": "Vor einer Support-Anfrage das Diagnosepaket herunterladen."
+    },
+    "notifications": {
+      "text": "E-Mail-Versand für Alarme und Berichte (SMTP).",
+      "example": "SMTP-Server eintragen und Test-Mail senden."
+    },
+    "syslog": {
+      "text": "Protokoll der Appliance-Dienste zur Fehlersuche.",
+      "example": "Bei ausbleibenden Daten nach Fehlermeldungen suchen."
+    },
+    "users": {
+      "text": "Benutzerkonten anlegen, sperren und Rollen zuweisen.",
+      "example": "Neue Kollegin als „Analyst“ anlegen; das Kennwort muss beim ersten Login geändert werden."
+    },
+    "roles": {
+      "text": "Rollen bündeln Berechtigungen und Datenumfang.",
+      "example": "Rolle „Nur Reports lesen“ für die Geschäftsführung."
+    },
+    "audit": {
+      "text": "Manipulationssicheres Protokoll aller Aktionen in der Appliance.",
+      "example": "Prüfen, wer wann ein Kennwort zurückgesetzt hat."
+    },
+    "account": {
+      "text": "Eigenes Kennwort, Sprache und zweiten Faktor (MFA) verwalten.",
+      "example": "MFA-Gerät erneuern, wenn das Handy getauscht wurde."
+    }
   }
 }

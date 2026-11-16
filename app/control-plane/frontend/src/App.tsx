@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { VersionTag } from "./FilePick";
 import { useTranslation } from "react-i18next";
-import { Navigate, NavLink, Route, Routes } from "react-router";
+import { Navigate, NavLink, Route, Routes, useLocation } from "react-router";
 import { api, ApiError, type Me, setCsrf } from "./api";
 import { setLanguage } from "./i18n";
 import AuditPage from "./pages/Audit";
@@ -50,37 +50,66 @@ export function useMe() {
   });
 }
 
-// Navigation: nur Module anzeigen, für die eine Leseberechtigung besteht
-const NAV = [
-  { to: "/", key: "nav.dashboard", perm: "dashboard:read" },
-  { to: "/assets", key: "nav.assets", perm: "assets:read" },
-  { to: "/switches", key: "nav.switches", perm: "switches:read" },
-  { to: "/changes", key: "nav.changes", perm: "changes:read" },
-  { to: "/sources/unparsed", key: "nav.unparsed", perm: "logs:read" },
-  { to: "/sources/devices", key: "nav.devices", perm: "sources:read" },
-  { to: "/sources/windows", key: "nav.windows", perm: "sources:read" },
-  { to: "/sources/linux", key: "nav.linux", perm: "sources:read" },
-  { to: "/sources/fortigate", key: "nav.fortigate", perm: "sources:read" },
-  { to: "/sources/snmp", key: "nav.snmp", perm: "sources:read" },
-  { to: "/sources/sophos", key: "nav.sophos", perm: "sources:read" },
-  { to: "/system/retention", key: "nav.retention", perm: "privacy:read" },
-  { to: "/cases", key: "nav.cases", perm: "logs:read" },
-  { to: "/sources/discovery", key: "nav.discovery", perm: "sources:read" },
-  { to: "/sources/parsers", key: "nav.parsers", perm: "sources:read" },
-  { to: "/sources/connect", key: "nav.connect", perm: "sources:read" },
-  { to: "/system/approvals", key: "nav.approvals", perm: "privacy:read" },
-  { to: "/system/archive", key: "nav.archive", perm: "archive:read" },
-  { to: "/system/maintenance", key: "nav.maintenance", perm: "system:read" },
-  { to: "/system/notifications", key: "nav.notifications", perm: "system:read" },
-  { to: "/alerts", key: "nav.alerts", perm: "alerts:read" },
-  { to: "/reports", key: "nav.reports", perm: "reports:read" },
-  { to: "/forensics", key: "nav.forensics", perm: "logs:read" },
-  { to: "/active-response", key: "nav.ar", perm: "alerts:read" },
-  { to: "/system/users", key: "nav.users", perm: "users:read" },
-  { to: "/system/roles", key: "nav.roles", perm: "users:read" },
-  { to: "/system/audit", key: "nav.audit", perm: "audit:read" },
-  { to: "/system/log", key: "nav.syslog", perm: "system:read" },
+// Navigation: nur Module anzeigen, für die eine Leseberechtigung besteht; gruppiert nach Aufgabe
+type NavItem = { to: string; key: string; perm: string };
+const GROUPS: { id: string; items: NavItem[] }[] = [
+  { id: "overview", items: [
+    { to: "/", key: "dashboard", perm: "dashboard:read" },
+    { to: "/reports", key: "reports", perm: "reports:read" },
+  ] },
+  { id: "events", items: [
+    { to: "/alerts", key: "alerts", perm: "alerts:read" },
+    { to: "/forensics", key: "forensics", perm: "logs:read" },
+    { to: "/cases", key: "cases", perm: "logs:read" },
+    { to: "/changes", key: "changes", perm: "changes:read" },
+    { to: "/sources/unparsed", key: "unparsed", perm: "logs:read" },
+    { to: "/system/archive", key: "archive", perm: "archive:read" },
+  ] },
+  { id: "sources", items: [
+    { to: "/sources/devices", key: "devices", perm: "sources:read" },
+    { to: "/assets", key: "assets", perm: "assets:read" },
+    { to: "/switches", key: "switches", perm: "switches:read" },
+    { to: "/sources/windows", key: "windows", perm: "sources:read" },
+    { to: "/sources/linux", key: "linux", perm: "sources:read" },
+    { to: "/sources/fortigate", key: "fortigate", perm: "sources:read" },
+    { to: "/sources/snmp", key: "snmp", perm: "sources:read" },
+    { to: "/sources/sophos", key: "sophos", perm: "sources:read" },
+    { to: "/sources/discovery", key: "discovery", perm: "sources:read" },
+    { to: "/sources/parsers", key: "parsers", perm: "sources:read" },
+    { to: "/sources/connect", key: "connect", perm: "sources:read" },
+  ] },
+  { id: "security", items: [
+    { to: "/active-response", key: "ar", perm: "alerts:read" },
+    { to: "/system/approvals", key: "approvals", perm: "privacy:read" },
+    { to: "/system/retention", key: "retention", perm: "privacy:read" },
+  ] },
+  { id: "appliance", items: [
+    { to: "/system/maintenance", key: "maintenance", perm: "system:read" },
+    { to: "/system/notifications", key: "notifications", perm: "system:read" },
+    { to: "/system/log", key: "syslog", perm: "system:read" },
+  ] },
+  { id: "admin", items: [
+    { to: "/system/users", key: "users", perm: "users:read" },
+    { to: "/system/roles", key: "roles", perm: "users:read" },
+    { to: "/system/audit", key: "audit", perm: "audit:read" },
+  ] },
 ];
+const ALL_ITEMS: NavItem[] = [...GROUPS.flatMap((g) => g.items), { to: "/account", key: "account", perm: "" }];
+
+// Einklappbare Hilfe mit Praxisbeispiel zur aktuellen Seite
+function PageHelp() {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const item = ALL_ITEMS.find((i) => i.to === pathname);
+  if (!item) return null;
+  return (
+    <details className="mb-4 max-w-4xl rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+      <summary className="cursor-pointer text-slate-600">{t("help.show")}</summary>
+      <p className="mt-2">{t(`help.${item.key}.text`)}</p>
+      <p className="mt-1"><strong>{t("help.example")}:</strong> {t(`help.${item.key}.example`)}</p>
+    </details>
+  );
+}
 
 export default function App() {
   const { data: me, isLoading } = useMe();
@@ -106,24 +135,27 @@ function Shell({ me }: { me: Me }) {
       <aside className="w-56 shrink-0 bg-slate-900 p-4 text-slate-200">
         <div className="mb-6 text-lg font-semibold text-white">{t("app.name")}</div>
         <nav className="flex flex-col gap-1">
-          {NAV.filter((n) => can(n.perm)).map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              end
-              className={({ isActive }) =>
-                `rounded px-2 py-1.5 text-sm ${isActive ? "bg-slate-700 text-white" : "hover:bg-slate-800"}`
-              }
-            >
-              {t(n.key)}
-            </NavLink>
-          ))}
-          {can("logs:read") && (
-            <a href="/dashboards/app/home" target="_blank" rel="noopener" className="rounded px-2 py-1.5 text-sm hover:bg-slate-800">
-              {t("nav.dashboards")}
-            </a>
-          )}
-          <NavLink to="/account" className="rounded px-2 py-1.5 text-sm hover:bg-slate-800">
+          {GROUPS.map((g) => {
+            const items = g.items.filter((n) => can(n.perm));
+            const dash = g.id === "overview" && can("logs:read");
+            if (items.length === 0 && !dash) return null;
+            const link = ({ isActive }: { isActive: boolean }) =>
+              `rounded px-2 py-1.5 text-sm ${isActive ? "bg-slate-700 text-white" : "hover:bg-slate-800"}`;
+            return (
+              <div key={g.id} className="mb-2 flex flex-col gap-1">
+                <div className="mt-2 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{t(`navgroup.${g.id}`)}</div>
+                {items.map((n) => (
+                  <NavLink key={n.to} to={n.to} end className={link}>{t(`nav.${n.key}`)}</NavLink>
+                ))}
+                {dash && (
+                  <a href="/dashboards/app/home" target="_blank" rel="noopener" className="rounded px-2 py-1.5 text-sm hover:bg-slate-800">
+                    {t("nav.dashboards")}
+                  </a>
+                )}
+              </div>
+            );
+          })}
+          <NavLink to="/account" className={({ isActive }) => `rounded px-2 py-1.5 text-sm ${isActive ? "bg-slate-700 text-white" : "hover:bg-slate-800"}`}>
             {t("nav.account")}
           </NavLink>
         </nav>
@@ -146,6 +178,7 @@ function Shell({ me }: { me: Me }) {
           </button>
         </header>
         <main className="p-6">
+          <PageHelp />
           <Routes>
             <Route path="/" element={<Dashboard me={me} />} />
             {can("users:read") && <Route path="/system/users" element={<UsersPage canWrite={can("users:write")} />} />}

@@ -993,5 +993,137 @@
     "snap_changed": "New version stored.",
     "snap_same": "No change.",
     "snap_diff": "Compare"
+  },
+  "navgroup": {
+    "overview": "Overview",
+    "events": "Events",
+    "sources": "Devices & sources",
+    "security": "Security",
+    "appliance": "Appliance settings",
+    "admin": "Administration"
+  },
+  "help": {
+    "show": "Help & example",
+    "example": "Example",
+    "dashboard": {
+      "text": "Overview of events, alarms and source health.",
+      "example": "Check each morning: any new alarms? Is every source still reporting?"
+    },
+    "dashboards": {
+      "text": "",
+      "example": ""
+    },
+    "reports": {
+      "text": "Creates and sends reports (e.g. weekly summary).",
+      "example": "Send a weekly report to management every Monday."
+    },
+    "alerts": {
+      "text": "Shows triggered alarms; they can be acknowledged, commented and closed.",
+      "example": "Multiple failed logins: open the alarm, check the user, then close it."
+    },
+    "forensics": {
+      "text": "AI-assisted analysis: ask questions about log data in plain language.",
+      "example": "\"What did user mueller do last night?\""
+    },
+    "cases": {
+      "text": "Cases collect evidence for an incident and can be exported as a tamper-evident archive.",
+      "example": "Suspected data leak: create a case, attach events, close and export."
+    },
+    "changes": {
+      "text": "Recorded changes on Windows systems and devices.",
+      "example": "Who changed the firewall rule yesterday?"
+    },
+    "unparsed": {
+      "text": "Sources whose messages are not understood yet.",
+      "example": "A new switch sends syslog: it shows up here, then assign a parser."
+    },
+    "archive": {
+      "text": "Long-term archive of old data; archives can be restored temporarily.",
+      "example": "Restore last year's data for an audit."
+    },
+    "devices": {
+      "text": "Directory of devices that send logs.",
+      "example": "Add a new firewall so its messages are attributed correctly."
+    },
+    "assets": {
+      "text": "Inventory of detected systems.",
+      "example": "Check which hosts in the network are unknown."
+    },
+    "switches": {
+      "text": "Port matrix of switches.",
+      "example": "Find an unknown device on port 12."
+    },
+    "windows": {
+      "text": "Connect Windows hosts via Windows Event Forwarding.",
+      "example": "Connect the domain controller to log sign-ins."
+    },
+    "linux": {
+      "text": "Connect Linux servers.",
+      "example": "Connect a new web server with the shown install command."
+    },
+    "fortigate": {
+      "text": "Poll FortiGate firewalls via API.",
+      "example": "Store the firewall's API token and test the connection."
+    },
+    "snmp": {
+      "text": "Receive SNMP traps.",
+      "example": "The UPS reports a power failure: the trap appears as an event."
+    },
+    "sophos": {
+      "text": "Connect Sophos Central.",
+      "example": "Enter API credentials; malware detections then appear as events."
+    },
+    "discovery": {
+      "text": "Network discovery and MIB management.",
+      "example": "Upload the vendor MIB so trap names are readable."
+    },
+    "parsers": {
+      "text": "Editor for parsers that structure raw messages.",
+      "example": "Parse messages of a special device with a custom parser."
+    },
+    "connect": {
+      "text": "Connection snapshots: save and restore settings.",
+      "example": "Create a snapshot before changing settings."
+    },
+    "ar": {
+      "text": "Active response: automatic countermeasures.",
+      "example": "Block an attacker IP for one hour after brute force."
+    },
+    "approvals": {
+      "text": "Four-eyes principle: sensitive actions need a second person's approval.",
+      "example": "Request an archive restore; a colleague approves; repeat with the approval ID."
+    },
+    "retention": {
+      "text": "Retention period and privacy mode (pseudonymised user names).",
+      "example": "Set retention to 180 days; enable privacy mode for the works council."
+    },
+    "maintenance": {
+      "text": "Maintenance: health, diagnostics, updates.",
+      "example": "Download the diagnostics package before contacting support."
+    },
+    "notifications": {
+      "text": "E-mail delivery for alarms and reports (SMTP).",
+      "example": "Enter the SMTP server and send a test mail."
+    },
+    "syslog": {
+      "text": "Appliance service log for troubleshooting.",
+      "example": "Look for errors when no data arrives."
+    },
+    "users": {
+      "text": "Create and lock user accounts and assign roles.",
+      "example": "Create a new colleague as \"analyst\"."
+    },
+    "roles": {
+      "text": "Roles bundle permissions and data scope.",
+      "example": "A \"reports only\" role for management."
+    },
+    "audit": {
+      "text": "Tamper-evident log of all actions.",
+      "example": "Check who reset a password and when."
+    },
+    "account": {
+      "text": "Manage your password, language and MFA.",
+      "example": "Renew the MFA device after changing phones."
+    }
   }
 }
