@@ -10,6 +10,9 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 
 ## [Unreleased]
 
+- Fix: verständliche Meldungen bei ungültiger Eingabe (422) und bei nicht verfügbarem Online-Update; Freigaben-Liste aktualisiert sich nach Anträgen, Freigabe-ID wird übernommen.
+- UI: einheitlicher „Datei auswählen“-Knopf, Menünamen für Assets, Port-Matrix, Änderungen, Version und Release-Datum auf jeder Seite, Tiefenanalyse in neuem Tab.
+
 ### Added
 - **Installer `--demo` (bzw. `SIEM_DEMO=yes` in der Antwortdatei):** Daten-Disk ab 20 GB zulässig. Nur für Tests und Demoinstallationen; der Preflight weist per Warnung darauf hin.
 - Preflight erkennt eine Daten-Disk mit Resten einer früheren SIEM-Installation (LVM-VG `siem`) und nennt die Schritte zum bewussten Leeren.

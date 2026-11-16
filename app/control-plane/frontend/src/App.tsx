@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { VersionTag } from "./FilePick";
 import { useTranslation } from "react-i18next";
 import { Navigate, NavLink, Route, Routes } from "react-router";
 import { api, ApiError, type Me, setCsrf } from "./api";
@@ -118,7 +119,7 @@ function Shell({ me }: { me: Me }) {
             </NavLink>
           ))}
           {can("logs:read") && (
-            <a href="/dashboards/app/home" className="rounded px-2 py-1.5 text-sm hover:bg-slate-800">
+            <a href="/dashboards/app/home" target="_blank" rel="noopener" className="rounded px-2 py-1.5 text-sm hover:bg-slate-800">
               {t("nav.dashboards")}
             </a>
           )}
@@ -126,6 +127,7 @@ function Shell({ me }: { me: Me }) {
             {t("nav.account")}
           </NavLink>
         </nav>
+        <VersionTag className="mt-6 text-slate-400" />
       </aside>
       <div className="flex-1">
         <header className="flex items-center justify-end gap-3 border-b border-slate-200 bg-white px-6 py-3 text-sm">

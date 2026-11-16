@@ -1,6 +1,7 @@
 {
   "app": {
     "name": "KMU-SIEM",
+    "version": "Version {{version}} · released {{date}}",
     "language": "Language"
   },
   "lang": {
@@ -34,9 +35,13 @@
     "discovery": "Discovery & MIB",
     "parsers": "Parser editor",
     "connect": "Connect & snapshots",
+    "assets": "Assets",
+    "switches": "Port matrix",
+    "changes": "Changes & FIM",
     "approvals": "Approvals"
   },
   "common": {
+    "choose_file": "Choose file",
     "save": "Save",
     "yes": "yes",
     "no": "no",
@@ -166,6 +171,14 @@
     "approval_not_pending": "Request is no longer pending.",
     "approval_self": "You cannot approve your own requests.",
     "approval_not_found": "Request not found.",
+    "http_422": "Invalid input – please check the format (pseudonym e.g. user_1a2b3c4d).",
+    "update_not_found": "Online update not available yet: release archive not found. Please install updates as a signed package (see manual).",
+    "update_unreachable": "Update server unreachable – check the internet connection.",
+    "update_auth_failed": "Access to the release archive denied – check the access token.",
+    "update_failed": "Update check failed.",
+    "update_invalid_settings": "Invalid update settings (format: owner/repository).",
+    "update_secret_unreadable": "Stored access token unreadable – please re-enter it.",
+    "update_storage_unavailable": "Update settings could not be saved.",
     "pseudonym_unknown": "Pseudonym not found in the last 90 days.",
     "case_not_found": "Case not found.",
     "case_closed": "The case is closed and immutable.",

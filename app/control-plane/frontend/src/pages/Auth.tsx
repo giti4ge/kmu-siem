@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { VersionTag } from "../FilePick";
 import QRCode from "qrcode";
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -21,6 +22,7 @@ function Centered({ title, children }: { title: string; children: ReactNode }) {
         <h1 className="mb-4 text-xl font-semibold">{title}</h1>
         {children}
       </div>
+      <VersionTag className="fixed bottom-2 left-0 right-0 text-center" />
     </div>
   );
 }

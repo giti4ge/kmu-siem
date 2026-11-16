@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FilePick } from "../FilePick";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
@@ -28,7 +29,7 @@ function MibSection({ canWrite }: { canWrite: boolean }) {
       <h2 className="mb-1 font-medium">{t("disc.mib_title")}</h2>
       <p className="mb-2 text-sm text-slate-600">{t("disc.mib_intro")}</p>
       <ErrorBox error={mibs.error ?? upload.error ?? del.error} />
-      {canWrite && <input type="file" accept=".mib,.my,.txt,.zip" aria-label={t("disc.mib_file")} onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />}
+      {canWrite && <FilePick label={t("disc.mib_file")} accept=".mib,.my,.txt,.zip" onFile={(f) => upload.mutate(f)} />}
       <ul className="mt-2 text-sm">
         {(mibs.data?.modules ?? []).map((m) => (
           <li key={m.module}>{m.module} – {t("disc.mib_objects", { n: m.objects })}{m.unresolved ? ` (${t("disc.mib_unresolved", { n: m.unresolved })})` : ""}
