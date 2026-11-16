@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { api } from "../api";
 import { ErrorBox } from "./Auth";
 
@@ -24,6 +25,7 @@ const TYPES = ["fortigate", "arubaos", "instant_on", "fs_s3900", "linux", "unifi
 export default function UnparsedPage({ canWrite }: { canWrite: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [pick, setPick] = useState<Record<string, { type: string; name: string }>>({});
   const approve = useMutation({
     mutationFn: (v: { ip: string; name: string; type: string }) => api("POST", "/api/devices", v),
@@ -66,7 +68,10 @@ export default function UnparsedPage({ canWrite }: { canWrite: boolean }) {
             <span className="text-slate-500">{t("unparsed.count", { count: s.count })}</span>
             {s.last_seen && <span className="text-slate-500">{t("unparsed.last")}: {s.last_seen}</span>}
           </div>
-          <button className="btn-secondary mb-2" onClick={() => exportSample(s.ip, s.program)}>{t("unparsed.export")}</button>
+          <div className="mb-2 flex gap-2">
+            <button className="btn-secondary" onClick={() => exportSample(s.ip, s.program)}>{t("unparsed.export")}</button>
+            {canWrite && <button className="btn-secondary" onClick={() => navigate("/sources/parsers", { state: { program: s.program, samples: s.samples } })}>{t("unparsed.make_rule")}</button>}
+          </div>
           {canWrite && (
             <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
               <select className="input" aria-label={t("unparsed.type")} value={(pick[s.ip] ?? { type: s.suggestion?.type ?? "linux" }).type}

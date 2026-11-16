@@ -837,7 +837,8 @@
     "name": "Name",
     "suggestion": "Vorschlag: {{type}} ({{pct}} %)",
     "approve": "Freigeben",
-    "ignore": "Ignorieren"
+    "ignore": "Ignorieren",
+    "make_rule": "Regel erstellen"
   },
   "archive": {
     "title": "Revisionssicheres Archiv",
@@ -995,7 +996,11 @@
     "save": "Speichern und anwenden",
     "delete": "Regel löschen",
     "restart_note": "Beim Speichern startet Vector kurz neu; Ereignisse bleiben im Puffer.",
-    "not_applied": "Gespeichert, aber Vector konnte nicht neu gestartet werden."
+    "not_applied": "Gespeichert, aber Vector konnte nicht neu gestartet werden.",
+    "export": "Regeln exportieren (JSON)",
+    "import": "Regeln importieren (JSON)",
+    "import_error": "Ungültige Datei – erwartet wird ein JSON-Export des Parser-Editors.",
+    "unsaved": "Ungespeicherte Änderungen – zum Übernehmen „Speichern“ wählen (Import und Vorschläge werden erst dann geprüft und aktiv)."
   },
   "connect": {
     "title": "Anbindung (TLS-Syslog)",
