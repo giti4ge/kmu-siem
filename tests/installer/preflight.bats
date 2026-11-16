@@ -242,6 +242,7 @@ setup() {
 
 @test "Demo-Modus: 10-GB-Disk bleibt zu klein" {
     probe_empty_disks() { printf '/dev/sdb %d\n' $((10 * 1073741824)); }
+    probe_rootfs_kb() { printf '%d %d' $((15 * 1000000)) $((10 * 1000000)); }
     SIEM_DEMO=yes
     run run_preflight
     [ "$status" -eq 2 ]
