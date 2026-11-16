@@ -10,6 +10,8 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 
 ## [Unreleased]
 
+- Windows-Anbindung: empfohlene Advanced Audit Policy als audit.csv zum Download (für die GPO), mit Anleitung.
+
 - Mein Konto: mehrere MFA-Geräte (Ersatz-Handy), Anmeldung mit jedem Gerät, Entfernen mit Kennwortbestätigung.
 - Wartung: eigenes Web-Zertifikat per PFX-Upload, Sicherung und automatischer Rückfall bei ungesundem Proxy, Zurücksetzen auf das Appliance-Zertifikat; `--repair` behält das eigene Zertifikat.
 - Parser: Regel direkt aus „Nicht erkannte Quellen“ erstellen (Programmname, Proben und Regex-Vorschlag werden übernommen); Regeln als JSON exportieren und importieren.

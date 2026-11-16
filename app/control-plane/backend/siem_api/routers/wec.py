@@ -108,6 +108,14 @@ def get_audit_check(request: Request, ctx: Ctx = Depends(require("sources:read")
     return {"servers": wec_audit.view(wec_audit.load(state(request).settings.wec_dir))}
 
 
+@router.get("/audit-policy.csv")
+def get_audit_csv(ctx: Ctx = Depends(require("sources:read"))) -> Response:
+    """Empfohlene Advanced Audit Policy als audit.csv für die GPO (Alternative zum Onboarding-Skript)."""
+    return Response(
+        content="\ufeff" + wec.audit_csv(), media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="audit.csv"', "Cache-Control": "no-store"})
+
+
 @router.get("/audit-check/script")
 def get_audit_script(ctx: Ctx = Depends(require("sources:write"))) -> Response:
     return Response(

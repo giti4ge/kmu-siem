@@ -100,6 +100,16 @@ export default function WindowsPage({ canWrite }: { canWrite: boolean }) {
       setError(e instanceof SyntaxError ? new ApiError(400, "audit_invalid_report") : e);
     }
   };
+  const downloadCsv = async () => {
+    const res = await fetch("/api/wec/audit-policy.csv", { credentials: "same-origin" });
+    if (!res.ok) return;
+    const url = URL.createObjectURL(await res.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "audit.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const downloadCheck = async () => {
     const res = await fetch("/api/wec/audit-check/script", { credentials: "same-origin" });
     if (!res.ok) return;
@@ -209,6 +219,10 @@ export default function WindowsPage({ canWrite }: { canWrite: boolean }) {
       <section className="card">
         <h2 className="mb-2 font-medium">{t("wec.audit_title")}</h2>
         <p className="mb-2 text-sm text-slate-600">{t("wec.audit_text")}</p>
+        <div className="mb-3 rounded border border-slate-200 bg-slate-50 p-3 text-sm">
+          <p className="mb-2 text-slate-700">{t("wec.csv_text")}</p>
+          <button className="btn-secondary" onClick={downloadCsv}>{t("wec.csv_download")}</button>
+        </div>
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b text-slate-500">

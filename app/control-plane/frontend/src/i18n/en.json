@@ -421,7 +421,9 @@
     "failure": "Failure",
     "ph_domain": "company.local",
     "ph_fqdn": "siem.company.local",
-    "ph_ou": "OU=Servers,DC=company,DC=local"
+    "ph_ou": "OU=Servers,DC=company,DC=local",
+    "csv_download": "Download audit.csv",
+    "csv_text": "For distribution via Group Policy: download audit.csv and place it in the GPO under Machine\\Microsoft\\Windows NT\\Audit\\ (SYSVOL, create the Audit folder if needed), then verify in GPMC under “Advanced Audit Policy Configuration”. Also enable “Audit: Force audit policy subcategory settings” (Security Options). The GPO version (GPT.ini) increments automatically when edited in GPMC."
   },
   "devices": {
     "title": "Devices (log sources)",
@@ -1090,7 +1092,7 @@
       "example": "Find an unknown device on port 12."
     },
     "windows": {
-      "text": "Connect Windows hosts via Windows Event Forwarding.",
+      "text": "Connect Windows hosts via Windows Event Forwarding. The recommended audit policy is also available as audit.csv for Group Policy.",
       "example": "Connect the domain controller to log sign-ins."
     },
     "linux": {
