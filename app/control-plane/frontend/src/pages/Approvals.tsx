@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { ErrorBox } from "./Auth";
 
 type Item = { id: string; action: string; params: Record<string, unknown>; requester: string; status: string; created: string; expires: string; decided_by: string | null };
@@ -17,7 +17,8 @@ export default function ApprovalsPage({ canWrite }: { canWrite: boolean }) {
   const [pseudo, setPseudo] = useState("");
   const [reason, setReason] = useState("");
   const [approvalId, setApprovalId] = useState("");
-  const reveal = useMutation({ mutationFn: () => api<{ name: string }>("POST", "/api/approvals/reveal", { pseudonym: pseudo, reason, approval_id: approvalId || null }) });
+  const reveal = useMutation({ mutationFn: () => api<{ name: string }>("POST", "/api/approvals/reveal", { pseudonym: pseudo, reason, approval_id: approvalId || null }),
+    onError: (e) => { if (e instanceof ApiError && e.approvalId) setApprovalId(e.approvalId); }, onSettled: refresh });
   return (
     <div className="max-w-4xl">
       <h1 className="mb-1 text-xl font-semibold">{t("appr.title")}</h1>

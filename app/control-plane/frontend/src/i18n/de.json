@@ -1,6 +1,7 @@
 {
   "app": {
     "name": "KMU-SIEM",
+    "version": "Version {{version}} · Release {{date}}",
     "language": "Sprache"
   },
   "lang": {
@@ -34,9 +35,13 @@
     "discovery": "Discovery & MIB",
     "parsers": "Parser-Editor",
     "connect": "Anbindung & Snapshots",
+    "assets": "Assets",
+    "switches": "Port-Matrix",
+    "changes": "Änderungen & FIM",
     "approvals": "Freigaben"
   },
   "common": {
+    "choose_file": "Datei auswählen",
     "save": "Speichern",
     "yes": "ja",
     "no": "nein",
@@ -166,6 +171,14 @@
     "approval_not_pending": "Antrag ist nicht mehr offen.",
     "approval_self": "Eigene Anträge dürfen nicht selbst freigegeben werden.",
     "approval_not_found": "Antrag nicht gefunden.",
+    "http_422": "Ungültige Eingabe – bitte das Format prüfen (Pseudonym z. B. user_1a2b3c4d).",
+    "update_not_found": "Online-Update noch nicht verfügbar: Das Release-Archiv wurde nicht gefunden. Updates bitte als signiertes Paket einspielen (siehe Handbuch).",
+    "update_unreachable": "Update-Server nicht erreichbar – Internetverbindung prüfen.",
+    "update_auth_failed": "Zugriff auf das Release-Archiv verweigert – Zugriffstoken prüfen.",
+    "update_failed": "Update-Prüfung fehlgeschlagen.",
+    "update_invalid_settings": "Ungültige Update-Einstellungen (Format: Besitzer/Repository).",
+    "update_secret_unreadable": "Gespeichertes Zugriffstoken nicht lesbar – bitte neu eingeben.",
+    "update_storage_unavailable": "Update-Einstellungen konnten nicht gespeichert werden.",
     "pseudonym_unknown": "Pseudonym in den letzten 90 Tagen nicht gefunden.",
     "case_not_found": "Fall nicht gefunden.",
     "case_closed": "Der Fall ist geschlossen und unveränderlich.",

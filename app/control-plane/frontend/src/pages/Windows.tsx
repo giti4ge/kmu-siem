@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FilePick } from "../FilePick";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api";
@@ -166,8 +167,7 @@ export default function WindowsPage({ canWrite }: { canWrite: boolean }) {
       <section className="card mb-4">
         <h2 className="mb-2 font-medium">{t("wec.step3")}</h2>
         <p className="mb-3 text-sm text-slate-600">{t("wec.step3_text", { principal: d?.principal ?? "HTTP/…" })}</p>
-        <input type="file" aria-label={t("wec.keytab")} disabled={!canWrite || !d?.configured}
-          onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ""; }} />
+        <FilePick label={t("wec.keytab")} disabled={!canWrite || !d?.configured} onFile={(f) => void upload(f)} />
       </section>
 
       <section className="card mb-4">
@@ -185,8 +185,7 @@ export default function WindowsPage({ canWrite }: { canWrite: boolean }) {
         <p className="mb-3 text-sm text-slate-600">{t("wec.check_text")}</p>
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <button className="btn" disabled={!canWrite} onClick={downloadCheck}>{t("wec.check_download")}</button>
-          <input type="file" accept=".json,application/json" aria-label={t("wec.check_upload")} disabled={!canWrite}
-            onChange={(e) => { void uploadCheck(e.target.files?.[0]); e.target.value = ""; }} />
+          <FilePick label={t("wec.check_upload")} accept=".json,application/json" disabled={!canWrite} onFile={(f) => void uploadCheck(f)} />
         </div>
         {ac.data && ac.data.servers.length === 0 && <p className="text-sm text-slate-600">{t("wec.check_empty")}</p>}
         {ac.data?.servers.map((sv) => (
