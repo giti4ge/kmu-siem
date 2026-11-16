@@ -709,17 +709,209 @@ class SupportAccess:
                     self._arm(until - time.time())
 
 
+# --------------------------------------------------------------------------- #
+# Web-Zertifikat (Proxy): eigenes Zertifikat einspielen, Rückfall, Status
+# --------------------------------------------------------------------------- #
+PKI_DIR = Path(os.environ.get("SIEM_PKI_DIR", str(SIEM_ROOT / "data" / "secrets" / "pki")))
+PROXY_UID = 101
+TLS_MAX_PEM = 24 * 1024
+_PEM_CERT = re.compile(r"-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----")
+_PEM_KEY = re.compile(r"^-----BEGIN PRIVATE KEY-----\n[A-Za-z0-9+/=\n]+-----END PRIVATE KEY-----\n?$")
+
+
+OPENSSL = os.environ.get("SIEM_OPENSSL", "/usr/bin/openssl")
+
+
+def _openssl(args: list[str], data: str | None = None) -> str:
+    try:
+        proc = subprocess.run(  # noqa: S603
+            [OPENSSL, *args], input=data, capture_output=True, text=True, timeout=20, check=False)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise HostdError(f"openssl nicht verfügbar: {exc}") from exc
+    if proc.returncode != 0:
+        raise HostdError("Zertifikat bzw. Schlüssel ungültig")
+    return proc.stdout
+
+
+class WebCertificate:
+    """Zertifikat des Web-Proxys: Einspielen mit Sicherung, automatischer Rückfall bei ungesundem Proxy."""
+
+    def __init__(self, pki: Path = PKI_DIR, restart: Callable[[], None] | None = None,
+                 healthy: Callable[[], bool] | None = None, delay: float = 2.0) -> None:
+        self.pki = pki
+        self.proxy = pki / "proxy"
+        self.backup = pki / "proxy-backup"
+        self.marker = pki / "web.custom"
+        self.last = pki / "web.last.json"
+        self.restart = restart or self._docker_restart
+        self.healthy = healthy or self._docker_healthy
+        self.delay = delay
+        self.lock = threading.Lock()
+
+    @staticmethod
+    def _docker_restart() -> None:
+        proc = subprocess.run(["/usr/bin/docker", "restart", "--time", "20", "siem-proxy"],  # noqa: S603
+                              capture_output=True, text=True, timeout=90, check=False)
+        if proc.returncode != 0:
+            raise HostdError("Proxy konnte nicht neu gestartet werden")
+
+    @staticmethod
+    def _docker_healthy() -> bool:
+        deadline = time.time() + 60
+        while time.time() < deadline:
+            proc = subprocess.run(  # noqa: S603
+                ["/usr/bin/docker", "inspect", "-f", "{{.State.Health.Status}}", "siem-proxy"],
+                capture_output=True, text=True, timeout=15, check=False)
+            if proc.stdout.strip() == "healthy":
+                return True
+            time.sleep(2)
+        return False
+
+    def _put(self, name: str, text: str) -> None:
+        dest = self.proxy / name
+        tmp = self.proxy / (name + ".new")
+        tmp.write_text(text, "utf-8")
+        os.chmod(tmp, 0o400)
+        with contextlib.suppress(OSError, AttributeError):
+            os.chown(tmp, PROXY_UID, PROXY_UID)
+        with contextlib.suppress(OSError):
+            os.chmod(dest, 0o600)  # nur für Dateisysteme, die das Ersetzen schreibgeschützter Dateien verweigern
+        os.replace(tmp, dest)
+
+    def _cert_info(self, path: Path) -> dict[str, Any]:
+        out = _openssl(["x509", "-in", str(path), "-noout", "-subject", "-issuer", "-enddate", "-fingerprint",
+                        "-sha256", "-ext", "subjectAltName"])
+        info: dict[str, Any] = {"san": []}
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith("subject="):
+                info["subject"] = line[8:].strip()
+            elif line.startswith("issuer="):
+                info["issuer"] = line[7:].strip()
+            elif line.startswith("notAfter="):
+                info["not_after"] = line[9:].strip()
+            elif "Fingerprint=" in line:
+                info["fingerprint"] = line.split("=", 1)[1]
+            elif line.startswith(("DNS:", "IP Address:")):
+                info["san"] = [x.strip().replace("IP Address:", "IP:") for x in line.split(",")]
+        return info
+
+    def status(self) -> dict[str, Any]:
+        res: dict[str, Any] = {"custom": self.marker.exists(), "has_backup": (self.backup / "web.crt").exists()}
+        with contextlib.suppress(HostdError, OSError):
+            res.update(self._cert_info(self.proxy / "web.crt"))
+        with contextlib.suppress(OSError, ValueError):
+            res["last"] = json.loads(self.last.read_text("utf-8"))
+        return res
+
+    def validate(self, chain_pem: Any, key_pem: Any) -> dict[str, Any]:
+        if not isinstance(chain_pem, str) or not isinstance(key_pem, str) or len(chain_pem) > TLS_MAX_PEM \
+                or len(key_pem) > TLS_MAX_PEM:
+            raise HostdError("Zertifikat bzw. Schlüssel fehlt oder ist zu groß")
+        if not _PEM_CERT.search(chain_pem) or not _PEM_KEY.match(key_pem.strip() + "\n"):
+            raise HostdError("Zertifikat bzw. Schlüssel nicht im PEM-Format")
+        with tempfile.TemporaryDirectory(prefix="siem-tls-") as tmp:
+            crt, key = Path(tmp) / "c.pem", Path(tmp) / "k.pem"
+            crt.write_text(chain_pem, "utf-8")
+            os.chmod(crt, 0o600)
+            key.write_text(key_pem, "utf-8")
+            os.chmod(key, 0o600)
+            cert_pub = _openssl(["x509", "-in", str(crt), "-noout", "-pubkey"])
+            if cert_pub != _openssl(["pkey", "-in", str(key), "-pubout"]):
+                raise HostdError("Der private Schlüssel passt nicht zum Zertifikat")
+            try:
+                _openssl(["x509", "-in", str(crt), "-noout", "-checkend", "0"])
+            except HostdError:
+                raise HostdError("Das Zertifikat ist abgelaufen") from None
+            return self._cert_info(crt)
+
+    def install(self, params: dict[str, Any], actor: str) -> dict[str, Any]:
+        chain, key = params.get("chain_pem"), params.get("key_pem")
+        info = self.validate(chain, key)
+        with self.lock:
+            if not self.proxy.is_dir():
+                raise HostdError("Proxy-Zertifikatsverzeichnis fehlt")
+            self.backup.mkdir(mode=0o700, parents=True, exist_ok=True)
+            for n in ("web.crt", "web.key"):
+                shutil.copy2(self.proxy / n, self.backup / n)
+            was_custom = self.backup / "custom"
+            if self.marker.exists():
+                was_custom.write_text("1", "utf-8")
+            else:
+                with contextlib.suppress(FileNotFoundError):
+                    was_custom.unlink()
+            self._put("web.crt", chain)
+            self._put("web.key", key)
+            self.marker.write_text(actor or "-", "utf-8")
+        audit("tls.install", actor, True, info.get("fingerprint", ""))
+        self._background(actor, "install")
+        return {"scheduled": True, **info}
+
+    def rollback(self, actor: str = "", reset: bool = False) -> dict[str, Any]:
+        """Vorheriges Zertifikat (Sicherung) bzw. das ursprüngliche Appliance-Zertifikat (reset) wiederherstellen."""
+        with self.lock:
+            if reset:
+                src_crt, src_key = self.pki / "web.chain.crt", self.pki / "web.key"
+            else:
+                src_crt, src_key = self.backup / "web.crt", self.backup / "web.key"
+            if not (src_crt.exists() and src_key.exists()):
+                raise HostdError("Kein früheres Zertifikat vorhanden")
+            self._put("web.crt", src_crt.read_text("utf-8"))
+            self._put("web.key", src_key.read_text("utf-8"))
+            if reset or not (self.backup / "custom").exists():
+                with contextlib.suppress(FileNotFoundError):
+                    self.marker.unlink()
+        audit("tls.reset" if reset else "tls.rollback", actor, True)
+        self._background(actor, "reset" if reset else "rollback")
+        return {"scheduled": True}
+
+    def _background(self, actor: str, what: str) -> None:
+        threading.Thread(target=self._apply, args=(actor, what), daemon=True).start()
+
+    def _record(self, ok: bool, what: str, error: str = "") -> None:
+        with contextlib.suppress(OSError):
+            atomic_write(self.last, json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                                "ok": ok, "what": what, "error": error}))
+
+    def _apply(self, actor: str, what: str) -> None:
+        time.sleep(self.delay)  # Antwort an das Web-UI zuerst ausliefern
+        try:
+            self.restart()
+            if not self.healthy():
+                raise HostdError("Proxy wurde mit dem neuen Zertifikat nicht gesund")
+            self._record(True, what)
+        except (HostdError, OSError, subprocess.SubprocessError) as exc:
+            log.error("Zertifikatswechsel fehlgeschlagen: %s", exc)
+            if what == "install" and (self.backup / "web.crt").exists():
+                with self.lock, contextlib.suppress(OSError):
+                    self._put("web.crt", (self.backup / "web.crt").read_text("utf-8"))
+                    self._put("web.key", (self.backup / "web.key").read_text("utf-8"))
+                    if not (self.backup / "custom").exists():
+                        self.marker.unlink(missing_ok=True)
+                with contextlib.suppress(HostdError, OSError, subprocess.SubprocessError):
+                    self.restart()
+                self._record(False, what, f"{exc} – vorheriges Zertifikat wiederhergestellt")
+            else:
+                self._record(False, what, str(exc))
+            audit("tls.apply", actor, False, str(exc))
+
+
 class Dispatcher:
     def __init__(self, fw: FirewallManager, status: Callable[[], dict[str, Any]] | None = None,
                  support: SupportAccess | None = None) -> None:
         self.fw = fw
         self.support = support or SupportAccess()
+        self.tls = WebCertificate()
         self.status = status or (lambda: system_status(fw))
         self.actions: dict[str, Callable[[dict[str, Any], str], Any]] = {
             "system.status": lambda p, a: self.status(),
             "system.logs": lambda p, a: system_logs(p),
             "vector.reload": lambda p, a: vector_reload(),
             "vector.restart": lambda p, a: vector_restart(),
+            "tls.status": lambda p, a: self.tls.status(),
+            "tls.install": lambda p, a: self.tls.install(p, a),
+            "tls.rollback": lambda p, a: self.tls.rollback(a),
+            "tls.reset": lambda p, a: self.tls.rollback(a, reset=True),
             "support.status": lambda p, a: self.support.status(),
             "support.enable": lambda p, a: self.support.enable(p, a),
             "support.disable": lambda p, a: self.support.disable(a),

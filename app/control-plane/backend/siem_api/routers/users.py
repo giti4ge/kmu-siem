@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from ..db import utcnow
 from ..deps import Ctx, error, get_db, require, state
-from ..models import Role, User, UserRole
+from ..models import MfaDevice, Role, User, UserRole
 from ..schemas import (
     PasswordResetIn,
     RoleCreateIn,
@@ -133,6 +133,7 @@ def reset_mfa(user_id: int, request: Request, ctx: Ctx = Depends(require("users:
     user.totp_enabled = False
     user.totp_secret_enc = None
     user.totp_last_step = None
+    db.query(MfaDevice).filter_by(user_id=user.id).delete()
     sessions.revoke_user_sessions(db, user.id)
     db.commit()
     state(request).audit.append(db, actor=ctx.user.username, action="user.reset_mfa", target=user.username,

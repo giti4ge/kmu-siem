@@ -36,8 +36,11 @@ pki_ensure() {
     _pki_deploy vector "$UID_VECTOR" \
         "syslog.crt:syslog.crt" "syslog.key:syslog.key" "ca.crt:ca.crt" || return 1
     _pki_deploy dashboards "$UID_OPENSEARCH" "ca.crt:ca.crt" || return 1
-    _pki_deploy proxy "$UID_PROXY" \
-        "web.chain.crt:web.crt" "web.key:web.key" || return 1
+    # Ein über das Web-UI eingespieltes eigenes Zertifikat (Marker web.custom) bleibt bei --repair erhalten
+    if [[ ! -e $PKI_DIR/web.custom ]]; then
+        _pki_deploy proxy "$UID_PROXY" \
+            "web.chain.crt:web.crt" "web.key:web.key" || return 1
+    fi
 }
 
 _pki_ca() {

@@ -10,6 +10,9 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 
 ## [Unreleased]
 
+- Mein Konto: mehrere MFA-Geräte (Ersatz-Handy), Anmeldung mit jedem Gerät, Entfernen mit Kennwortbestätigung.
+- Wartung: eigenes Web-Zertifikat per PFX-Upload, Sicherung und automatischer Rückfall bei ungesundem Proxy, Zurücksetzen auf das Appliance-Zertifikat; `--repair` behält das eigene Zertifikat.
+
 - MITRE ATT&CK: Technik-Namen und Links je Alarmregel (Regeln-Reiter) sowie Abdeckungsmatrix (Taktiken × Techniken, Lücken sichtbar) unter Alarme → MITRE ATT&CK.
 
 - UI: Menü in sechs Gruppen (Übersicht, Ereignisse, Geräte & Quellen, Sicherheit, Appliance-Einstellungen, Verwaltung); einklappbare Hilfe mit Praxisbeispiel auf jeder Seite.

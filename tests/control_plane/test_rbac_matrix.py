@@ -21,6 +21,10 @@ UNPROTECTED = {
     ("POST", "/api/auth/totp/setup"),
     ("POST", "/api/auth/totp/enable"),
     ("POST", "/api/auth/password"),
+    ("GET", "/api/auth/mfa/devices"),
+    ("POST", "/api/auth/mfa/devices"),
+    ("POST", "/api/auth/mfa/devices/enable"),
+    ("POST", "/api/auth/mfa/devices/{device_id}/delete"),
     ("POST", "/api/auth/logout"),
     ("GET", "/api/auth/me"),
 }

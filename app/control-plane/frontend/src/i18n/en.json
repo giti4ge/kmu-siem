@@ -104,7 +104,7 @@
     "totp_already_enabled": "Two-factor authentication is already set up.",
     "totp_not_set_up": "Please restart the setup.",
     "sso_unavailable": "Sign-in to Dashboards is currently not possible.",
-    "hostd_unavailable": "The host service is not reachable.",
+    "hostd_unavailable": "The host service (siem-hostd) is unreachable.",
     "support_invalid": "Invalid input: check key (ed25519/ecdsa/rsa), source address (at least /16) and duration.",
     "invalid_request": "Request rejected.",
     "wec_invalid_settings": "Invalid settings.",
@@ -210,7 +210,16 @@
     "snapshot_empty": "Received an empty configuration.",
     "onboarding_no_ca": "No CA certificate available.",
     "replay_needs_device": "Approve the source in the device list first.",
-    "replay_unavailable": "Vector is not reachable."
+    "replay_unavailable": "Vector is not reachable.",
+    "mfa_device_limit": "Maximum number of MFA devices reached.",
+    "mfa_last_device": "The last MFA device cannot be removed.",
+    "mfa_device_not_found": "MFA device not found.",
+    "tls_bad_pfx": "PFX file unreadable – wrong file or password.",
+    "tls_pfx_incomplete": "The PFX file contains no certificate with a private key.",
+    "tls_key_mismatch": "The private key does not match the certificate.",
+    "tls_expired": "The certificate has expired.",
+    "tls_no_previous": "No previous certificate available.",
+    "tls_invalid": "Invalid certificate."
   },
   "dashboard": {
     "welcome": "Welcome, {{name}}.",
@@ -1119,7 +1128,7 @@
       "example": "Set retention to 180 days; enable privacy mode for the works council."
     },
     "maintenance": {
-      "text": "Maintenance: health, diagnostics, updates.",
+      "text": "Maintenance: health, diagnostics, updates. You can also install your own web certificate (PFX) here.",
       "example": "Download the diagnostics package before contacting support."
     },
     "notifications": {
@@ -1143,8 +1152,42 @@
       "example": "Check who reset a password and when."
     },
     "account": {
-      "text": "Manage your password, language and MFA.",
+      "text": "Manage your password, language and MFA. Under “MFA devices” you can add more devices.",
       "example": "Renew the MFA device after changing phones."
     }
+  },
+  "mfa": {
+    "title": "MFA devices",
+    "intro": "The code of any device is enough to sign in. Add a second device as a backup in case the phone is lost.",
+    "none": "No MFA device set up yet.",
+    "primary": "First device",
+    "remove": "Remove",
+    "confirm_password": "Password to confirm",
+    "device_name": "Name of the new device",
+    "add": "Add device",
+    "scan": "Scan the QR code with the authenticator app and enter the code shown.",
+    "confirm": "Confirm"
+  },
+  "tls": {
+    "title": "Web certificate (HTTPS)",
+    "intro": "The certificate browsers see when opening this interface. By default the appliance issues it itself; your own company certificate avoids browser warnings.",
+    "applying": "Applying certificate – the web server restarts. The page is back in a few seconds; on error the previous certificate is restored automatically.",
+    "source": "Source",
+    "custom": "Own certificate (PFX)",
+    "internal": "Issued by the appliance",
+    "subject": "Subject",
+    "san": "Valid for",
+    "issuer": "Issuer",
+    "not_after": "Valid until",
+    "fingerprint": "SHA-256 fingerprint",
+    "last_ok": "Last change successful ({{ts}}).",
+    "last_fail": "Last change failed ({{ts}}): {{error}}",
+    "pfx_hint": "Upload a PFX/P12 file with certificate, private key and preferably the intermediate chain.",
+    "pfx": "No file chosen",
+    "pfx_password": "PFX password",
+    "install": "Install certificate",
+    "rollback": "Restore previous certificate",
+    "reset": "Use appliance certificate",
+    "note": "The private key is stored on the appliance only. The current certificate is backed up before the change."
   }
 }
