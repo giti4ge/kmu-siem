@@ -846,7 +846,8 @@
     "name": "Name",
     "suggestion": "Suggestion: {{type}} ({{pct}} %)",
     "approve": "Approve",
-    "ignore": "Ignore"
+    "ignore": "Ignore",
+    "make_rule": "Create rule"
   },
   "archive": {
     "title": "Tamper-evident archive",
@@ -1004,7 +1005,11 @@
     "save": "Save and apply",
     "delete": "Delete rule",
     "restart_note": "Saving restarts Vector briefly; events stay in the buffer.",
-    "not_applied": "Saved, but Vector could not be restarted."
+    "not_applied": "Saved, but Vector could not be restarted.",
+    "export": "Export rules (JSON)",
+    "import": "Import rules (JSON)",
+    "import_error": "Invalid file – expected a JSON export of the parser editor.",
+    "unsaved": "Unsaved changes – choose “Save” to apply (imports and suggestions are validated and activated only then)."
   },
   "connect": {
     "title": "Connect (TLS syslog)",

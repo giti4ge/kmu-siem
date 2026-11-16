@@ -12,6 +12,7 @@ Kategorien: **Added** (neu) · **Changed** (geändert) · **Deprecated** (abgek�
 
 - Mein Konto: mehrere MFA-Geräte (Ersatz-Handy), Anmeldung mit jedem Gerät, Entfernen mit Kennwortbestätigung.
 - Wartung: eigenes Web-Zertifikat per PFX-Upload, Sicherung und automatischer Rückfall bei ungesundem Proxy, Zurücksetzen auf das Appliance-Zertifikat; `--repair` behält das eigene Zertifikat.
+- Parser: Regel direkt aus „Nicht erkannte Quellen“ erstellen (Programmname, Proben und Regex-Vorschlag werden übernommen); Regeln als JSON exportieren und importieren.
 
 - MITRE ATT&CK: Technik-Namen und Links je Alarmregel (Regeln-Reiter) sowie Abdeckungsmatrix (Taktiken × Techniken, Lücken sichtbar) unter Alarme → MITRE ATT&CK.
 
