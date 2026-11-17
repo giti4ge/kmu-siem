@@ -30,6 +30,11 @@ step_app() {
     # Nur fehlende Images holen (per Digest festgeschrieben bzw. aus dem Bundle geladen)
     run_cmd "Container-Images laden" siem_compose pull --quiet --policy missing || return 1
     run_cmd "Anwendung starten" siem_compose up -d --remove-orphans || return 1
+    # Das Bundle-Verzeichnis wurde ersetzt: laufende Container halten sonst die alten
+    # (leeren) Bind-Mounts, z. B. Web-UI-Dateien im Proxy (HTTP 500, Weiterleitungsschleife).
+    if [[ ${_APP_BUNDLE_REPLACED:-0} == 1 ]]; then
+        run_cmd "Container mit neuen Konfigurationsdateien neu starten"             siem_compose restart vector proxy dashboards openwec || return 1
+    fi
     run_cmd "Auf OpenSearch warten" siem_os_init wait --timeout 300 || return 1
     run_cmd "Index-Templates und Aufbewahrung anwenden" siem_os_init apply || return 1
     run_cmd "SSO für Dashboards einrichten" siem_os_init security \
@@ -112,6 +117,7 @@ _app_bundle() {
             rm -rf "$dst"
             mv "$dst.new" "$dst" || return 1
             log INFO "Anwendung $ver nach $dst übernommen"
+            _APP_BUNDLE_REPLACED=1
         fi
         ln -sfn "$ver" "$APP_DIR/current"
     fi
